@@ -1836,6 +1836,63 @@ function getPlanPartidoCellHtml(wk,di){
   h += '</div>';
   return h;
 }
+
+// ══ DOS EQUIPOS EN PARTIDO ══
+var tmpLocalCrest = null;
+
+function toggleNuestroEquipo(){
+  var checked = document.getElementById('ev-nuestro-equipo').checked;
+  var label = document.getElementById('ev-nuestro-label');
+  var localWrap = document.getElementById('local-crest-wrap');
+  var localName = document.getElementById('ev-local-name');
+  var rowSede = document.getElementById('row-sede');
+  if(label) label.textContent = checked ? 'Sí' : 'No';
+  if(rowSede) rowSede.style.display = checked ? '' : 'none';
+  if(checked){
+    // Nuestro equipo — mostrar nuestro escudo en local (no editable)
+    var oc = localStorage.getItem('oi_team_crest');
+    var li = document.getElementById('local-crest-img');
+    var lp = document.getElementById('local-crest-ph');
+    if(li && oc){ li.src=oc; li.style.display='block'; if(lp) lp.style.display='none'; }
+    else if(li){ li.style.display='none'; if(lp) lp.style.display=''; }
+    if(localName){ localName.value=''; localName.placeholder='Nuestro equipo'; localName.readOnly=true; localName.style.opacity='0.5'; }
+    if(localWrap) localWrap.style.pointerEvents='none';
+  } else {
+    // Partido externo — ambos editables
+    var li2 = document.getElementById('local-crest-img');
+    var lp2 = document.getElementById('local-crest-ph');
+    if(li2){ li2.src=''; li2.style.display='none'; }
+    if(lp2) lp2.style.display='';
+    if(localName){ localName.value=''; localName.placeholder='Equipo local'; localName.readOnly=false; localName.style.opacity='1'; }
+    if(localWrap) localWrap.style.pointerEvents='';
+    tmpLocalCrest = null;
+  }
+}
+
+function localCrestChosen(e){
+  var file = e.target.files && e.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      var MAX=100, c=document.createElement('canvas');
+      var w=img.width, h=img.height;
+      if(w>h){ if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} }
+      else { if(h>MAX){w=Math.round(w*MAX/h);h=MAX;} }
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      tmpLocalCrest = c.toDataURL('image/png');
+      var li = document.getElementById('local-crest-img');
+      var lp = document.getElementById('local-crest-ph');
+      if(li){ li.src=tmpLocalCrest; li.style.display='block'; }
+      if(lp) lp.style.display='none';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 </script>
 
 <!-- ══ MODAL PARTIDO PLANNING ══ -->
