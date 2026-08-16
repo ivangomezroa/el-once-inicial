@@ -401,22 +401,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* Print */
 /* ══ IMPRESIÓN — Horizontal A4, cabeceras visibles, ahorro tinta ══ */
 @media print {
-  /* Forzar orientación landscape */
-  @page {
-    size: A4 landscape;
-    margin: 8mm 6mm;
-  }
+  @page { size: A4 landscape; margin: 8mm 6mm; }
 
-  /* Ocultar controles UI */
+  /* Ocultar SOLO controles de navegación — no los selectores de contenido */
   .oi-topnav, .toolbar, .plan-week-nav,
-  .plan-actions button { display: none !important; }
+  .plan-actions button,
+  .hora-cell span[onclick],
+  .plan-table tbody tr:last-child,
+  #print-crest-row { display: none !important; }
 
-  /* Mostrar solo la vista activa */
-  body { background: white !important; overflow: visible !important; }
-  .main { background: white !important; overflow: visible !important; height: auto !important; }
-  .view { overflow: visible !important; height: auto !important; background: white !important; }
+  /* Fondo blanco */
+  body, html { background: white !important; overflow: visible !important; }
+  .main, .view { background: white !important; overflow: visible !important; height: auto !important; }
 
-  /* Cabecera de semana — simple y limpia */
+  /* Cabecera semana */
   .plan-header-row {
     display: flex !important;
     align-items: center !important;
@@ -427,179 +425,79 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     background: white !important;
   }
   .plan-week-title {
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    color: #1B2A6B !important;
-    font-family: 'Barlow Condensed', sans-serif !important;
-    letter-spacing: 1px !important;
-    text-transform: uppercase !important;
+    font-size: 15px !important; font-weight: 700 !important;
+    color: #1B2A6B !important; font-family: 'Barlow Condensed', sans-serif !important;
+    letter-spacing: 1px !important; text-transform: uppercase !important;
   }
-  .plan-week-sub {
-    font-size: 9px !important;
-    color: #555 !important;
-    font-family: 'Barlow Condensed', sans-serif !important;
-    letter-spacing: 0.5px !important;
-  }
-
-  /* Escudo en cabecera de impresión */
-  .print-crest-row {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-  }
+  .plan-week-sub { font-size: 9px !important; color: #555 !important; }
 
   /* Tabla */
-  .plan-table-wrap {
-    overflow: visible !important;
-    border: 1px solid #ccc !important;
-    border-radius: 0 !important;
-    background: white !important;
-  }
-  .plan-table {
-    font-size: 7.5px !important;
+  .plan-table-wrap { overflow: visible !important; border: 1px solid #ccc !important; border-radius: 0 !important; background: white !important; }
+  .plan-table { font-size: 7.5px !important; width: 100% !important; border-collapse: collapse !important; background: white !important; }
+  .plan-table th, .plan-table td { border: 0.5px solid #bbb !important; }
+
+  /* ── CABECERA DÍAS — navy visible ── */
+  .day-header-cell { background: #1B2A6B !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; }
+  .day-header-inner { padding: 4px 3px !important; background: #1B2A6B !important; }
+  .day-num { color: rgba(255,255,255,0.65) !important; font-size: 7px !important; }
+  .day-name { color: #fff !important; font-size: 10px !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important; }
+
+  /* ── SELECTORES DE TIPO — mostrar como texto sin flechas ── */
+  select {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border-radius: 3px !important;
+    padding: 1px 3px !important;
+    font-size: 7px !important;
+    font-weight: 700 !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
     width: 100% !important;
-    border-collapse: collapse !important;
-    background: white !important;
-  }
-  .plan-table th, .plan-table td {
-    border: 0.5px solid #bbb !important;
+    border: none !important;
   }
 
-  /* ── CABECERA DÍAS — fondo navy visible ── */
-  .day-header-cell {
-    background: #1B2A6B !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    padding: 0 !important;
-  }
-  .day-header-inner {
-    padding: 4px 3px !important;
-    background: #1B2A6B !important;
-  }
-  .day-num {
-    color: rgba(255,255,255,0.65) !important;
-    font-size: 7px !important;
-    font-family: 'Barlow Condensed', sans-serif !important;
-  }
-  .day-name {
-    color: #ffffff !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    letter-spacing: 1px !important;
-    font-family: 'Barlow Condensed', sans-serif !important;
-    text-transform: uppercase !important;
-  }
-
-  /* Selector de relación (+1/+2/DP) */
-  .day-type-sel:first-of-type {
+  /* Relación día (+1/+2/DP) */
+  .day-header-cell select:first-of-type {
     background: rgba(255,255,255,0.15) !important;
-    color: rgba(255,255,255,0.7) !important;
-    border: none !important;
-    font-size: 7px !important;
-    padding: 1px 2px !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+    color: rgba(255,255,255,0.8) !important;
+    margin-bottom: 2px !important;
   }
 
-  /* Selector de carga (Regenerativo/Tensión...) */
-  .day-type-sel.regen {
-    background: rgba(42,122,26,0.85) !important;
-    color: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .day-type-sel.tension {
-    background: rgba(160,30,30,0.85) !important;
-    color: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .day-type-sel.duracion {
-    background: rgba(160,90,20,0.85) !important;
-    color: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .day-type-sel.velocidad {
-    background: rgba(20,70,160,0.85) !important;
-    color: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .day-type-sel.activacion {
-    background: rgba(150,120,0,0.85) !important;
-    color: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .day-type-sel.partido {
-    background: rgba(200,168,75,0.85) !important;
-    color: #1B2A6B !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .day-type-sel.descanso {
-    background: rgba(80,80,100,0.6) !important;
-    color: #fff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
+  /* Tipo de carga — con color */
+  .day-type-sel.regen { background: #2a7a1a !important; color: #fff !important; }
+  .day-type-sel.tension { background: #a01e1e !important; color: #fff !important; }
+  .day-type-sel.duracion { background: #a05a14 !important; color: #fff !important; }
+  .day-type-sel.velocidad { background: #1446a0 !important; color: #fff !important; }
+  .day-type-sel.activacion { background: #967800 !important; color: #fff !important; }
+  .day-type-sel.partido { background: #C8A84B !important; color: #1B2A6B !important; }
+  .day-type-sel.descanso { background: #505064 !important; color: #fff !important; }
 
-  /* Celdas de contenido */
-  .plan-cell {
-    height: 50px !important;
-    padding: 3px !important;
-    background: white !important;
-    vertical-align: top !important;
-  }
-  .plan-cell.is-descanso {
-    background: #f5f5f5 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .plan-cell.is-partido {
-    background: #fffbf0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .cell-free-text, .plan-cell textarea {
-    color: #222 !important;
-    font-size: 7.5px !important;
-    line-height: 1.4 !important;
-    background: transparent !important;
-  }
+  /* Selector sin clase (relación o celda tipo tarea) — fondo blanco */
   .cell-task-sel {
-    color: #1B2A6B !important;
-    font-size: 7px !important;
-    font-weight: 700 !important;
-    background: transparent !important;
-    border: none !important;
-    border-bottom: 0.5px solid #ddd !important;
+    background: white !important; color: #1B2A6B !important;
+    border-bottom: 0.5px solid #ddd !important; font-size: 7px !important;
   }
+
+  /* Celdas */
+  .plan-cell { height: 50px !important; padding: 3px !important; background: white !important; vertical-align: top !important; }
+  .plan-cell.is-descanso { background: #f5f5f5 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .plan-cell.is-partido { background: #fffbf0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .cell-free-text, .plan-cell textarea { color: #222 !important; font-size: 7.5px !important; line-height: 1.4 !important; background: transparent !important; }
 
   /* Hora */
-  .hora-cell {
-    background: #f8f8f8 !important;
-    padding: 3px 4px !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .hora-lbl, .hora-cell input {
-    color: #1B2A6B !important;
-    font-size: 8px !important;
-    font-weight: 700 !important;
-    font-family: 'Barlow Condensed', sans-serif !important;
-  }
+  .hora-cell { background: #f0f0f0 !important; padding: 3px 4px !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .hora-lbl, .hora-cell input { color: #1B2A6B !important; font-size: 8px !important; font-weight: 700 !important; }
 
   /* Icono descanso */
-  .descanso-icon { color: #aaa !important; font-size: 16px !important; }
+  .descanso-icon { color: #aaa !important; font-size: 14px !important; }
 
-  /* Ocultar fila de añadir */
-  .plan-table tbody tr:last-child { display: none !important; }
+  /* Partido VS — ajustado al recuadro */
+  .plan-cell.is-partido > div { padding: 2px !important; gap: 2px !important; }
+  .plan-cell.is-partido img { width: 16px !important; height: 16px !important; }
 
-  /* Sin cortes */
-  .plan-table { page-break-inside: auto; }
-  tr { page-break-inside: avoid; page-break-after: auto; }
+  /* Sin cortes de página */
+  tr { page-break-inside: avoid; }
 }
 
 
@@ -646,10 +544,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 
 /* Cabecera print */
-.print-only-header { display: none !important; }
+
 @media print {
   .print-only-header { display: block !important; }
-  #print-crest { display: block !important; }
+  
 /* ── OCULTAR CONTROLES DE EDICIÓN ── */
   .cell-task-sel,          /* selector tipo tarea */
   select,                  /* todos los selects */
@@ -799,16 +697,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
   <!-- ══ VISTA PLANNING SEMANAL ══ -->
   <div class="view" id="view-plan">
-    <!-- Cabecera solo para impresión -->
-<div class="print-only-header" style="display:none;">
-  <div style="display:flex;align-items:center;gap:12px;padding:0 0 8px;border-bottom:2px solid #1B2A6B;margin-bottom:8px;">
-    <img id="print-crest" style="height:40px;width:40px;object-fit:contain;" src="" alt="">
-    <div>
-      <div id="print-week-name" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#1B2A6B;letter-spacing:1.5px;text-transform:uppercase;"></div>
-      <div id="print-week-dates" style="font-family:'Barlow Condensed',sans-serif;font-size:10px;color:#555;margin-top:1px;"></div>
-    </div>
-  </div>
-</div>
+    
 
 <div class="plan-header-row">
       <div class="plan-week-info">
