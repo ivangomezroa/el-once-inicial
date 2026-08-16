@@ -973,9 +973,21 @@ function renderCalendar(){
       const el=document.createElement('div');
       el.className=`cal-event ev-${ev.type}`;
       const hora=ev.hora?`<span style="opacity:0.7">${ev.hora}</span> `:'';
-      if(ev.type.startsWith('partido')&&ev.rival){
-        const rc=ev.rivalCrest?`<img class="ev-crest" src="${ev.rivalCrest}">`:'⚔️';
-        el.innerHTML=`${hora}${rc} vs ${ev.rival}`;
+      if(ev.type.startsWith('partido')){
+        // Mostrar: local vs visitante con escudos
+        var localDisp='', rivalDisp='';
+        if(ev.nuestroEquipo===false){
+          // Partido externo: escudo local + nombre local vs escudo rival + nombre rival
+          var lc=ev.localCrest?('<img class="ev-crest" src="'+ev.localCrest+'">'):ev.localName||'?';
+          var rc=ev.rivalCrest?('<img class="ev-crest" src="'+ev.rivalCrest+'">'):ev.rival||'?';
+          el.innerHTML=(ev.hora?'<span style="opacity:0.7">'+ev.hora+'</span> ':'')+lc+' vs '+rc;
+        } else {
+          // Nuestro equipo: nuestro escudo vs rival
+          var oc=localStorage.getItem('oi_team_crest');
+          var oEl=oc?('<img class="ev-crest" src="'+oc+'">'):ev.localName||'🛡';
+          var rc2=ev.rivalCrest?('<img class="ev-crest" src="'+ev.rivalCrest+'">'):ev.rival||'?';
+          el.innerHTML=(ev.hora?'<span style="opacity:0.7">'+ev.hora+'</span> ':'')+oEl+' vs '+(ev.rival?rc2:rc2);
+        }
       } else if(ev.type==='cumple'){
         el.innerHTML=`🎂 ${ev.titulo||'Cumpleaños'}`;
       } else {
@@ -1086,6 +1098,9 @@ function saveEvent(){
   if(modalEvIdx!==null)events[modalDateKey][modalEvIdx]=ev;
   else events[modalDateKey].push(ev);
   localStorage.setItem('oi_cal_v2',JSON.stringify(events));
+  // Desbloquear día — el usuario está añadiendo/editando manualmente
+  var bidx = syncBlockedDays.indexOf(modalDateKey);
+  if(bidx !== -1){ syncBlockedDays.splice(bidx,1); localStorage.setItem('oi_sync_blocked',JSON.stringify(syncBlockedDays)); }
   closeModal();renderCalendar();
 }
 function deleteEvent(){
@@ -1094,11 +1109,11 @@ function deleteEvent(){
       events[modalDateKey].splice(modalEvIdx, 1);
       if(events[modalDateKey].length === 0) delete events[modalDateKey];
     }
-    localStorage.setItem('oi_cal_v2', JSON.stringify(events));
-    // Limpiar también eventos _sync huérfanos
-    Object.keys(events).forEach(function(k){
-      if(events[k].length === 0) delete events[k];
-    });
+    // Bloquear este día para que sync no restaure el evento
+    if(syncBlockedDays.indexOf(modalDateKey) === -1){
+      syncBlockedDays.push(modalDateKey);
+      localStorage.setItem('oi_sync_blocked', JSON.stringify(syncBlockedDays));
+    }
     localStorage.setItem('oi_cal_v2', JSON.stringify(events));
   }
   closeModal();
@@ -1632,6 +1647,8 @@ function syncWeekDayToCalendar(wk, di, typ){
   if(!mon) return;
   var d = new Date(mon); d.setDate(d.getDate() + di);
   var key = dk(d.getFullYear(), d.getMonth(), d.getDate());
+  // No sincronizar días donde el usuario eliminó manualmente
+  if(syncBlockedDays.indexOf(key) !== -1) return;
   if(!events[key]) events[key] = [];
 
   // Separar eventos del usuario (no tocables) de los auto-sync
@@ -1745,8 +1762,8 @@ function syncAllWeeksToCalendar(){
     if(origGoThisWeek) origGoThisWeek();
     setTimeout(renderWeekTitleWithName, 50);
   };
-  // Sincronizar todos los días guardados al cargar
-  setTimeout(syncAllWeeksToCalendar, 100);
+  // NO sincronizar al cargar — solo sincronizar cuando el usuario hace cambios
+  // Esto evita que eventos eliminados manualmente vuelvan a aparecer
 })();
 
 
