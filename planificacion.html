@@ -792,7 +792,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <img id="local-crest-img" class="rival-crest-img" alt="">
               <svg id="local-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
             </div>
-            <input class="form-input" id="ev-local-name" placeholder="Equipo local" oninput="updateVsPreview()" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
+            <input class="form-input" id="ev-local-name" placeholder="Equipo local" oninput="autoLocalCrest(this.value)" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
             <div class="vs-text">VS</div>
@@ -803,7 +803,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <img id="rival-crest-img" class="rival-crest-img" alt="">
               <svg id="rival-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
             </div>
-            <input class="form-input" id="ev-rival" placeholder="Equipo visitante" oninput="updateVsPreview()" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
+            <input class="form-input" id="ev-rival" placeholder="Equipo visitante" oninput="autoRivalCrest(this.value)" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
           </div>
         </div>
 
@@ -981,7 +981,13 @@ function renderCalendar(){
       } else {
         el.textContent=(ev.hora?ev.hora+' ':'')+( ev.titulo||ev.type);
       }
-      el.onclick=e=>{e.stopPropagation();const allEvs=events[key];const realIdx=allEvs.indexOf(allEvs.filter(x=>activeFilters.has(x.type))[idx]);openModal(key,allEvs.findIndex((e,i)=>dayEvs[idx]===e));};
+      (function(evIdx){ el.onclick=function(e){ e.stopPropagation(); 
+        // Encontrar el índice real en events[key] del evento visible evIdx
+        var visibleEvs = (events[key]||[]).filter(function(ev){ return activeFilters.has(ev.type); });
+        var targetEv = visibleEvs[evIdx];
+        var realIdx = (events[key]||[]).indexOf(targetEv);
+        openModal(key, realIdx); 
+      }; })(idx);
       evWrap.appendChild(el);
     });
   }
@@ -1045,21 +1051,30 @@ function saveEvent(){
   if(!events[modalDateKey])events[modalDateKey]=[];
   var wasSync = modalEvIdx!==null && events[modalDateKey][modalEvIdx] && events[modalDateKey][modalEvIdx]._sync;
   var nuestroEquipo = document.getElementById('ev-nuestro-equipo') ? document.getElementById('ev-nuestro-equipo').checked : true;
-  var localName = nuestroEquipo ? '' : (document.getElementById('ev-local-name')?document.getElementById('ev-local-name').value.trim():'');
-  var localCrestVal = nuestroEquipo ? localStorage.getItem('oi_team_crest') : (tmpLocalCrest||(modalEvIdx!==null&&events[modalDateKey][modalEvIdx]?events[modalDateKey][modalEvIdx].localCrest:null));
+  var localNameVal = nuestroEquipo ? '' : (document.getElementById('ev-local-name')?document.getElementById('ev-local-name').value.trim():'');
+  // localCrest: si nuestro equipo = nuestro escudo; si externo = tmpLocalCrest o el guardado anteriormente
+  var prevEv = (modalEvIdx!==null && events[modalDateKey] && events[modalDateKey][modalEvIdx]) ? events[modalDateKey][modalEvIdx] : {};
+  var localCrestVal = nuestroEquipo
+    ? localStorage.getItem('oi_team_crest')
+    : (tmpLocalCrest || prevEv.localCrest || null);
+  var rivalCrestVal = tmpRivalCrest || prevEv.rivalCrest || null;
+  var rivalNameVal = document.getElementById('ev-rival') ? document.getElementById('ev-rival').value.trim() : '';
   var ev={
     type:curSelType,
     titulo:document.getElementById('ev-titulo').value.trim(),
     hora:document.getElementById('ev-hora').value,
-    rival:document.getElementById('ev-rival').value.trim(),
-    rivalCrest:tmpRivalCrest||(modalEvIdx!==null&&events[modalDateKey][modalEvIdx]?events[modalDateKey][modalEvIdx].rivalCrest:null),
-    localName:localName,
+    rival:rivalNameVal,
+    rivalCrest:rivalCrestVal,
+    localName:localNameVal,
     localCrest:localCrestVal,
     nuestroEquipo:nuestroEquipo,
     competicion:document.getElementById('ev-competicion').value,
     sede:document.getElementById('ev-sede').value,
     notas:document.getElementById('ev-notas').value.trim(),
   };
+  // Guardar ambos equipos en historial de rivales
+  if(rivalNameVal) saveRivalToHistory(rivalNameVal, rivalCrestVal);
+  if(localNameVal) saveRivalToHistory(localNameVal, localCrestVal);
   // Si era un evento auto-sync que el usuario está editando → marcar como editado por el usuario
   // Esto evita que syncWeekDayToCalendar lo borre y re-cree
   if(wasSync){ ev._userEdited = true; }
@@ -1074,12 +1089,20 @@ function saveEvent(){
   closeModal();renderCalendar();
 }
 function deleteEvent(){
-  if(modalDateKey&&modalEvIdx!==null){
-    events[modalDateKey].splice(modalEvIdx,1);
-    if(!events[modalDateKey].length)delete events[modalDateKey];
-    localStorage.setItem('oi_cal_v2',JSON.stringify(events));
+  if(modalDateKey && modalEvIdx !== null){
+    if(events[modalDateKey] && events[modalDateKey][modalEvIdx] !== undefined){
+      events[modalDateKey].splice(modalEvIdx, 1);
+      if(events[modalDateKey].length === 0) delete events[modalDateKey];
+    }
+    localStorage.setItem('oi_cal_v2', JSON.stringify(events));
+    // Limpiar también eventos _sync huérfanos
+    Object.keys(events).forEach(function(k){
+      if(events[k].length === 0) delete events[k];
+    });
+    localStorage.setItem('oi_cal_v2', JSON.stringify(events));
   }
-  closeModal();renderCalendar();
+  closeModal();
+  renderCalendar();
 }
 
 // ── RIVAL ──
@@ -1891,6 +1914,40 @@ function localCrestChosen(e){
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+
+// ── AUTOCOMPLETAR ESCUDO POR NOMBRE ──
+function autoRivalCrest(name){
+  if(!name) return;
+  var found = rivals.find(function(r){ return r.name.toLowerCase() === name.toLowerCase(); });
+  if(found && found.crest){
+    tmpRivalCrest = found.crest;
+    showRivalCrest(found.crest);
+  }
+}
+function autoLocalCrest(name){
+  if(!name) return;
+  var found = rivals.find(function(r){ return r.name.toLowerCase() === name.toLowerCase(); });
+  if(found && found.crest){
+    tmpLocalCrest = found.crest;
+    var li = document.getElementById('local-crest-img');
+    var lp = document.getElementById('local-crest-ph');
+    if(li){ li.src = found.crest; li.style.display = 'block'; }
+    if(lp) lp.style.display = 'none';
+  }
+}
+
+// ── GUARDAR RIVAL EN HISTORIAL (también el equipo local si es externo) ──
+function saveRivalToHistory(name, crest){
+  if(!name) return;
+  var existing = rivals.findIndex(function(r){ return r.name === name; });
+  if(existing >= 0){
+    if(crest) rivals[existing].crest = crest; // actualizar escudo si hay uno nuevo
+  } else {
+    rivals.push({name: name, crest: crest || null});
+  }
+  localStorage.setItem('oi_rivals_v1', JSON.stringify(rivals));
 }
 
 </script>
