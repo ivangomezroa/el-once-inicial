@@ -1120,20 +1120,16 @@ function renderWeeklyPlan(){
     var key=`${wk}_dt_${i}`;
     var typ=weekDayTypes[wk][key]||'';
     var opts=TIPOS_SEMANA.map(function(t){return `<option value="${t.val}"${t.val===typ?'selected':''}>${t.lbl}</option>`;}).join('');
-    var loadLabel=TIPOS_SEMANA.find(function(t){return t.val===typ;}); loadLabel=loadLabel?loadLabel.lbl:'—';
     var dtRelKey=`${wk}_dr_${i}`;
     var typRel=weekDayTypes[wk][dtRelKey]||'';
     var optsRel=TIPOS_DIA.map(function(t){return `<option value="${t.val}"${t.val===typRel?' selected':''}>${t.lbl}</option>`;}).join('');
-    var relLabel=TIPOS_DIA.find(function(t){return t.val===typRel;}); relLabel=relLabel?relLabel.lbl:'—';
     html2+=`<th class="day-header-cell">
       <div class="day-header-inner">
         <div class="day-num">${d.getDate()} ${MONTHS[d.getMonth()].substring(0,3)}</div>
         <div class="day-name">${DAY_NAMES[i]}</div>
         <select class="day-type-sel" style="margin-bottom:2px;font-size:9px;background:rgba(200,168,75,0.08);color:#C8A84B;border-color:rgba(200,168,75,0.3);"
           data-wk="${wk}" data-di="${i}" data-rel="1" onchange="dayRelChanged(this)">${optsRel}</select>
-        <span class="print-label print-label-rel">${relLabel}</span>
         <select class="day-type-sel ${typ}" data-wk="${wk}" data-di="${i}" onchange="dayTypeChanged(this)">${opts}</select>
-        <span class="print-label print-label-load print-label-${typ}">${loadLabel}</span>
       </div>
     </th>`;
   });
