@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Captación — El Once Inicial</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root{
+  --navy:#1B2A6B;--navy2:#232C69;--navy3:#16235A;
+  --gold:#C8A84B;--gold2:#D4B96A;--blue:#5B7FC4;
+  --bg:#0f1624;--card:#1e2d40;
+  --border:rgba(200,168,75,0.15);--border2:rgba(200,168,75,0.32);
+  --text:#ddd8cc;--muted:#9a9280;
+  --grass:#1a4a1a;--grassb:#2a7a2a;
+  --header-h:50px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Segoe UI',system-ui,sans-serif;
+  display:flex;flex-direction:column;
+}
+
+/* CABECERA igual que pizarra.html */
+.header{
+  background:var(--navy3);
+  border-bottom:1.5px solid var(--border2);
+  padding:0 14px;height:var(--header-h);
+  display:flex;align-items:center;gap:10px;
+  flex-shrink:0;z-index:200;position:relative;overflow:hidden;
+}
+.header-bg{
+  position:absolute;inset:0;
+  background:url('mister.jpg') center 30%/cover no-repeat;
+  filter:brightness(0.18) saturate(0.5);pointer-events:none;
+}
+.header-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(22,35,90,0.92),rgba(27,42,107,0.80));
+  pointer-events:none;
+}
+.logo{position:relative;z-index:2;display:flex;align-items:center;gap:9px;text-decoration:none;}
+.logo img{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(200,168,75,0.4));}
+.logo-name{display:flex;flex-direction:column;line-height:1.15;}
+.logo-sub{color:rgba(255,255,255,0.45);font-size:8px;letter-spacing:.15em;text-transform:uppercase;}
+.logo-main{color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.header-sep{flex:1;position:relative;z-index:2;}
+.page-label{position:relative;z-index:2;font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:.08em;text-transform:uppercase;}
+.nav-back{
+  position:relative;z-index:2;
+  display:flex;align-items:center;gap:5px;padding:5px 12px;
+  border-radius:6px;border:1px solid var(--border2);background:transparent;
+  color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;text-decoration:none;
+}
+.nav-back:hover{color:var(--gold);border-color:var(--gold);background:rgba(200,168,75,0.07);}
+#crest-nav{
+  position:relative;z-index:2;width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+}
+#crest-nav img{width:100%;height:100%;object-fit:contain;display:none;}
+#crest-nav .crest-add-sm{
+  width:100%;height:100%;border:1.5px dashed rgba(200,168,75,0.35);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+#crest-nav:hover .crest-add-sm{background:rgba(200,168,75,0.08);border-color:rgba(200,168,75,0.6);}
+#crest-nav .crest-add-sm svg{width:48%;height:48%;opacity:0.5;stroke:var(--gold);}
+#crest-nav .crest-remove-sm{
+  position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
+  background:#7a1a1a;color:#fff;font-size:10px;line-height:14px;text-align:center;
+  display:none;cursor:pointer;
+}
+#crest-nav:hover .crest-remove-sm{display:block;}
+
+/* Contenido BD ocupa el resto de la pantalla */
+#app-wrap{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+#app-wrap #app{height:auto;}
+
+/* ── TOPNAV UNIFICADO ── */
+.topnav{
+  height:54px;background:#0d1530;
+  border-bottom:2px solid #C8A84B;
+  display:flex;align-items:center;padding:0 14px;gap:10px;
+  flex-shrink:0;z-index:100;
+}
+.nav-back{
+  display:flex;align-items:center;gap:10px;
+  text-decoration:none;color:#ddd8cc;transition:color 0.2s;
+}
+.nav-back:hover{color:#C8A84B;}
+.nav-logo-circle{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,#1B2A6B,#0d1530);
+  border:1.5px solid rgba(200,168,75,0.5);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;overflow:hidden;
+}
+.nav-logo-circle img{width:100%;height:100%;object-fit:contain;}
+.nav-logo-text{display:flex;flex-direction:column;line-height:1.15;}
+.nav-logo-sub{font-size:8px;letter-spacing:2px;color:#C8A84B;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.nav-logo-main{font-size:13px;font-weight:700;letter-spacing:1px;color:#ddd8cc;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.nav-sep{flex:1;}
+.nav-section-title{
+  font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:#C8A84B;
+  position:absolute;left:50%;transform:translateX(-50%);
+}
+.nav-crest{
+  width:36px;height:36px;border-radius:6px;
+  border:1.5px solid rgba(200,168,75,0.3);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(200,168,75,0.05);overflow:hidden;cursor:pointer;
+  transition:border-color 0.2s;flex-shrink:0;
+}
+.nav-crest:hover{border-color:#C8A84B;}
+.nav-crest img{width:100%;height:100%;object-fit:contain;display:none;}
+.nav-crest svg{opacity:0.35;}
+
+
+/* ── TOPNAV UNIFICADO OI ── */
+.oi-topnav{
+  height:52px;background:#0d1530 !important;
+  border-bottom:2px solid #C8A84B !important;
+  display:flex !important;align-items:center !important;
+  padding:0 14px !important;gap:10px !important;
+  flex-shrink:0;z-index:200;position:relative;
+}
+.oi-nav-left{display:flex;align-items:center;gap:10px;text-decoration:none;color:#ddd8cc;min-width:0;}
+.oi-logo-circle{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#1B2A6B,#0d1530);
+  border:1.5px solid rgba(200,168,75,0.5);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.oi-logo-circle img{width:26px;height:26px;object-fit:contain;}
+.oi-nav-text{display:flex;flex-direction:column;line-height:1.15;}
+.oi-nav-sub{font-size:8px;letter-spacing:2px;color:#C8A84B;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.oi-nav-main{font-size:14px;font-weight:700;letter-spacing:1.5px;color:#ddd8cc;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.oi-nav-sep{flex:1;}
+.oi-nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.oi-nav-crest{
+  width:36px;height:36px;border-radius:6px;flex-shrink:0;
+  border:1.5px solid rgba(200,168,75,0.3);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(200,168,75,0.05);overflow:hidden;
+}
+.oi-nav-crest img{width:100%;height:100%;object-fit:contain;display:none;}
+.oi-nav-crest svg{opacity:0.35;}
+
+
+/* Pestañas captación en topnav */
+.cap-tab-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(200,168,75,0.2);
+  color: #a09890;
+  padding: 5px 13px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.cap-tab-btn:hover, .cap-tab-btn.active {
+  background: rgba(200,168,75,0.18);
+  border-color: #C8A84B;
+  color: #C8A84B;
+}
+.cap-tab-plus {
+  background: rgba(200,168,75,0.12);
+  border-color: #C8A84B;
+  color: #C8A84B;
+}
+
+</style>
+<link rel="stylesheet" href="app.css">
+<style>
+.cap-tabs { display:flex; gap:4px; align-items:center; z-index:2; position:relative; }
+.cap-tab { background:rgba(255,255,255,0.08); border:1px solid rgba(200,168,75,0.3); color:#ddd8cc; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-family:"Barlow Condensed",sans-serif; font-weight:600; letter-spacing:0.5px; transition:all 0.2s; white-space:nowrap; }
+.cap-tab:hover, .cap-tab.active { background:rgba(200,168,75,0.2); border-color:#C8A84B; color:#C8A84B; }
+.cap-tab-plus { background:rgba(200,168,75,0.15); border-color:#C8A84B; color:#C8A84B; }
+
+/* Ocultar cabecera interna de app.js — usamos la cabecera integrada */
+#app > .nav { display: none !important; height: 0 !important; min-height: 0 !important; overflow: hidden !important; border: none !important; margin: 0 !important; padding: 0 !important; }
+#ta { display:none !important; height:0 !important; min-height:0 !important; overflow:hidden !important; padding:0 !important; margin:0 !important; }
+
+/* ── Ajustes de layout para modo integrado ── */
+/* Eliminar márgenes laterales excesivos */
+#app-wrap .pane { max-width: 100% !important; margin: 0 !important; padding: 8px 16px !important; }
+
+/* BD — lista más ancha */
+#app-wrap .bd-list { max-width: 100% !important; }
+#app-wrap .bd-row { padding: 6px 10px !important; }
+
+/* Plantilla — tarjetas más pequeñas para ver más sin scroll */
+#app-wrap .pc { width: 130px !important; min-width: 130px !important; max-width: 130px !important; font-size: 11px !important; }
+#app-wrap .pc .pc-name { font-size: 11px !important; }
+#app-wrap .crow { flex-wrap: wrap !important; gap: 4px !important; }
+
+/* Registro — formulario más ancho */
+#app-wrap .reg-form, #app-wrap .reg-wrap { max-width: 100% !important; margin: 0 !important; }
+
+/* Campograma — campo más ancho */
+#app-wrap .campo { max-width: 100% !important; width: 100% !important; }
+#app { padding-top: 0 !important; }
+/* El contenido de la BD ocupa todo el espacio disponible */
+#app-wrap { display: flex; flex-direction: column; }
+#app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+/* Ajustar el scroll al contenedor de la vista (ta, tabs, contenido) */
+#app > div:not(.nav) { flex: 1; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<div class="oi-topnav">
+  <a href="inicio.html" class="oi-nav-left" style="text-decoration:none;">
+    <div class="oi-logo-circle">
+      <img src="logo.png" alt="">
+    </div>
+    <div class="oi-nav-text">
+      <span class="oi-nav-sub">El Once Inicial</span>
+      <span class="oi-nav-main">Captación</span>
+    </div>
+  </a>
+  
+  <div style="flex:1;display:flex;align-items:center;gap:4px;padding:0 12px;overflow-x:auto;">
+    <button onclick="sv_('campo')" class="cap-tab-btn" id="ctb-campo">⚽ Campograma</button>
+    <button onclick="sv_('bd')" class="cap-tab-btn" id="ctb-bd">🗄 Base de datos</button>
+    <button onclick="sv_('reg')" class="cap-tab-btn cap-tab-plus" id="ctb-reg">+ Registro</button>
+    <button onclick="sv_('plant')" class="cap-tab-btn" id="ctb-plant">📋 Plantilla</button>
+    <button onclick="sv_('claude')" class="cap-tab-btn" id="ctb-claude">🤖 Claude AI</button>
+  </div>
+  <div class="oi-nav-right">
+    <div class="oi-nav-crest">
+      <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1L13 4V8C13 12 10.5 14.5 7 15.5C3.5 14.5 1 12 1 8V4Z"/></svg>
+      <img alt="Escudo">
+    </div>
+  </div>
+</div>
+
+<div id="app-wrap">
+  <div id="app"></div>
+</div>
+
+<script>
+window.LOGO_SRC = 'logo.png';
+
+// Escudo compartido
+const CREST_KEY='oi_team_crest';
+function crestNavLoad(){
+  const data=localStorage.getItem(CREST_KEY);
+  const img=document.getElementById('crest-nav-img');
+  const add=document.querySelector('#crest-nav .crest-add-sm');
+  if(!img||!add)return;
+  if(data){img.src=data;img.style.display='block';add.style.display='none';}
+  else{img.style.display='none';add.style.display='flex';}
+}
+function crestNavClick(e){
+  if(e.target.closest('.crest-remove-sm'))return;
+  document.getElementById('crest-nav-file-input').click();
+}
+function crestNavRemove(e){
+  e.stopPropagation();localStorage.removeItem(CREST_KEY);crestNavLoad();
+}
+function crestNavFileChosen(e){
+  const file=e.target.files&&e.target.files[0];
+  if(!file||!file.type.startsWith('image/'))return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img2=new Image();
+    img2.onload=()=>{
+      const MAX=320,c=document.createElement('canvas');
+      let w=img2.width,h=img2.height;
+      if(w>MAX||h>MAX){const s=Math.min(MAX/w,MAX/h);w=Math.round(w*s);h=Math.round(h*s);}
+      c.width=w;c.height=h;c.getContext('2d').drawImage(img2,0,0,w,h);
+      localStorage.setItem(CREST_KEY,c.toDataURL('image/png'));crestNavLoad();
+    };
+    img2.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);e.target.value='';
+}
+crestNavLoad();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script>
+function capTab(tab, el) {
+  document.querySelectorAll('.cap-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const map = { campograma:'campo', bd:'bd', registro:'reg', plantilla:'plant', claude:'claude' };
+  if (window.sv_) sv_(map[tab]);
+}
+window.addEventListener('load', () => {
+  const tabs = document.querySelectorAll('.cap-tab');
+  if (tabs.length) tabs[0].classList.add('active');
+});
+
+// Actualizar contador de jugadores desde app.js — sin MutationObserver
+function updateCounter() {
+  const svEls = document.querySelectorAll('.sv');
+  if (svEls.length >= 2) {
+    const jugEl = document.getElementById('cap-jug-count');
+    const plantEl = document.getElementById('cap-plant-count');
+    if (jugEl && svEls[0]) jugEl.textContent = svEls[0].textContent;
+    if (plantEl && svEls[1]) plantEl.textContent = svEls[1].textContent;
+  }
+}
+// Intentar cada 500ms durante 5 segundos máximo
+let attempts = 0;
+const counterInterval = setInterval(() => {
+  updateCounter();
+  attempts++;
+  if (attempts > 10) clearInterval(counterInterval);
+}, 500);
+</script>
+<script>
+function _loadOiCrest(){
+  var c=localStorage.getItem('oi_team_crest');
+  if(!c) return;
+  var imgs=document.querySelectorAll('.oi-nav-crest img');
+  imgs.forEach(function(img){
+    img.src=c; img.style.display='block';
+    if(img.previousElementSibling) img.previousElementSibling.style.display='none';
+  });
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_loadOiCrest);}
+else{_loadOiCrest();}
+
+// Marcar pestaña activa
+function setCapTab(view) {
+  document.querySelectorAll('.cap-tab-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('ctb-' + view);
+  if(btn) btn.classList.add('active');
+}
+// Interceptar sv_
+const _orig_sv_ = window.sv_;
+window.sv_ = function(view) {
+  setCapTab(view);
+  if(_orig_sv_) _orig_sv_(view);
+};
+// Al cargar marcar campograma por defecto
+window.addEventListener('load', function() {
+  setTimeout(function(){ setCapTab('campo'); }, 500);
+});
+
+</script>
+</body>
+</html>

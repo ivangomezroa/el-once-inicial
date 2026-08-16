@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Planificación — El Once Inicial</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --navy:#1B2A6B;--navy2:#0d1530;--gold:#C8A84B;
+  --bg:#0f1624;--surface:#1e2d40;--surface2:#243350;
+  --text:#ddd8cc;--text2:#a09890;--border:rgba(200,168,75,0.15);
+  --green:#2a7a1a;--red:#7a1a1a;--blue:#1a4a7a;--purple:#4a1a7a;--orange:#7a4a1a;
+  --font-cond:'Barlow Condensed',sans-serif;--font:'Barlow',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── TOPNAV ── */
+.topnav{
+  height:52px;background:var(--navy2);border-bottom:2px solid var(--gold);
+  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:100;
+}
+.nav-back{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text);transition:color 0.2s;}
+.nav-back:hover{color:var(--gold);}
+.nav-back svg{opacity:0.6;}
+.nav-logo-text{display:flex;flex-direction:column;line-height:1.1;}
+.nav-logo-sub{font-size:8px;letter-spacing:2px;color:var(--gold);font-family:var(--font-cond);}
+.nav-logo-main{font-size:13px;font-weight:700;letter-spacing:1px;color:var(--text);font-family:var(--font-cond);}
+.nav-sep{flex:1;}
+.nav-page-title{font-family:var(--font-cond);font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
+.nav-crest{width:34px;height:34px;cursor:pointer;border-radius:4px;overflow:hidden;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:rgba(200,168,75,0.05);}
+.nav-crest img{width:100%;height:100%;object-fit:contain;display:none;}
+.nav-crest svg{opacity:0.4;}
+
+/* ── TOOLBAR ── */
+.toolbar{
+  background:var(--navy2);border-bottom:1px solid var(--border);
+  padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;
+}
+.toolbar-left{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;}
+.toolbar-right{display:flex;align-items:center;gap:8px;}
+.tabs-inline{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.tab-btn{
+  padding:7px 18px;font-family:var(--font-cond);font-size:12px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);cursor:pointer;
+  background:transparent;border:none;border-right:1px solid var(--border);transition:all 0.15s;
+}
+.tab-btn:last-child{border-right:none;}
+.tab-btn.active{background:var(--gold);color:var(--navy2);}
+.tab-btn:hover:not(.active){background:rgba(200,168,75,0.1);color:var(--text);}
+.sel{
+  background:var(--surface);border:1px solid var(--border);color:var(--text);
+  padding:6px 10px;border-radius:5px;font-family:var(--font-cond);font-size:12px;
+  letter-spacing:1px;cursor:pointer;outline:none;
+}
+.sel option{background:var(--navy2);}
+.btn{
+  padding:7px 16px;border-radius:5px;cursor:pointer;font-family:var(--font-cond);
+  font-size:12px;font-weight:700;letter-spacing:1px;border:none;
+  display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all 0.15s;
+}
+.btn-primary{background:var(--gold);color:var(--navy2);}
+.btn-primary:hover{filter:brightness(1.1);}
+.btn-secondary{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-secondary:hover{border-color:var(--gold);color:var(--gold);}
+.btn-icon{background:transparent;color:var(--text2);border:1px solid var(--border);padding:7px 10px;}
+.btn-icon:hover{border-color:var(--gold);color:var(--gold);}
+
+/* Filtros */
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.filter-chip{
+  padding:3px 10px;border-radius:12px;font-family:var(--font-cond);font-size:11px;
+  font-weight:600;letter-spacing:0.5px;cursor:pointer;border:1px solid transparent;
+  display:flex;align-items:center;gap:4px;transition:all 0.15s;opacity:0.6;
+}
+.filter-chip.active{opacity:1;box-shadow:0 0 8px rgba(0,0,0,0.3);}
+.filter-chip .chip-dot{width:8px;height:8px;border-radius:50%;}
+.fc-sesion{background:rgba(42,122,26,0.3);border-color:#3a7a28;color:#90ee90;}
+.fc-sesion.active{background:rgba(42,122,26,0.6);}
+.fc-partido-liga{background:rgba(200,168,75,0.2);border-color:var(--gold);color:var(--gold);}
+.fc-partido-liga.active{background:rgba(200,168,75,0.35);}
+.fc-partido-copa{background:rgba(120,80,200,0.2);border-color:#9060e0;color:#b090ff;}
+.fc-partido-copa.active{background:rgba(120,80,200,0.4);}
+.fc-partido-amistoso{background:rgba(80,140,200,0.2);border-color:#5080c0;color:#80b0ff;}
+.fc-partido-amistoso.active{background:rgba(80,140,200,0.4);}
+.fc-descanso{background:rgba(60,60,80,0.4);border-color:#505060;color:var(--text2);}
+.fc-descanso.active{background:rgba(60,60,80,0.7);}
+.fc-cumple{background:rgba(200,80,150,0.2);border-color:#c04090;color:#ff80c0;}
+.fc-cumple.active{background:rgba(200,80,150,0.4);}
+.fc-otro{background:rgba(27,42,107,0.4);border-color:var(--navy);color:#88aaff;}
+.fc-otro.active{background:rgba(27,42,107,0.7);}
+
+/* ── MAIN ── */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.view{display:none;flex:1;overflow:auto;padding:16px;}
+.view.active{display:flex;flex-direction:column;gap:12px;}
+
+/* ── CALENDARIO ── */
+.cal-header-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:12px 18px;
+}
+.cal-nav-group{display:flex;align-items:center;gap:10px;}
+.cal-nav-btn{
+  background:rgba(200,168,75,0.1);border:1px solid var(--border);
+  color:var(--gold);width:28px;height:28px;border-radius:4px;cursor:pointer;
+  font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;
+}
+.cal-nav-btn:hover{background:rgba(200,168,75,0.25);}
+.cal-title-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.cal-month-name{font-family:var(--font-cond);font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
+.cal-year-sel{
+  background:transparent;border:none;color:var(--text2);font-family:var(--font-cond);
+  font-size:13px;letter-spacing:1px;cursor:pointer;outline:none;text-align:center;
+}
+.cal-year-sel option{background:var(--navy2);}
+
+.cal-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:var(--navy);}
+.cal-wd{
+  padding:7px;text-align:center;font-family:var(--font-cond);
+  font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--gold);border-right:1px solid var(--border);
+}
+.cal-wd:last-child{border-right:none;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-cell{
+  min-height:88px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:5px;position:relative;cursor:pointer;transition:background 0.12s;
+}
+.cal-cell:hover{background:rgba(200,168,75,0.04);}
+.cal-cell:nth-child(7n){border-right:none;}
+.cal-cell.other-month .cal-day-num{opacity:0.2;}
+.cal-cell.today{background:rgba(200,168,75,0.07);}
+.cal-cell.today .cal-day-num{
+  background:var(--gold);color:var(--navy2);width:20px;height:20px;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+}
+.cal-day-num{font-family:var(--font-cond);font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px;}
+.cal-events{display:flex;flex-direction:column;gap:2px;}
+.cal-event{
+  border-radius:3px;padding:2px 5px;font-size:10px;font-family:var(--font-cond);
+  font-weight:600;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:pointer;display:flex;align-items:center;gap:3px;
+}
+.ev-sesion{background:rgba(42,122,26,0.6);color:#a0ffb0;border-left:2px solid #3a7a28;}
+.ev-partido-liga{background:rgba(200,168,75,0.3);color:var(--gold);border-left:2px solid var(--gold);}
+.ev-partido-copa{background:rgba(120,80,200,0.4);color:#c0a0ff;border-left:2px solid #9060e0;}
+.ev-partido-amistoso{background:rgba(80,140,200,0.4);color:#a0c8ff;border-left:2px solid #5080c0;}
+.ev-descanso{background:rgba(50,50,70,0.7);color:var(--text2);border-left:2px solid #505060;}
+.ev-cumple{background:rgba(200,80,150,0.3);color:#ffb0d8;border-left:2px solid #c04090;}
+.ev-otro{background:rgba(27,42,107,0.5);color:#8899cc;border-left:2px solid var(--navy);}
+.ev-vs{display:flex;align-items:center;gap:3px;}
+.ev-crest{width:12px;height:12px;object-fit:contain;border-radius:1px;}
+
+/* ── MODAL ── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,0.75);
+  z-index:300;display:none;align-items:center;justify-content:center;
+}
+.modal-bg.open{display:flex;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:22px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,0.6);
+}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal-title{font-family:var(--font-cond);font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);}
+.modal-close{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1;}
+.modal-close:hover{color:var(--gold);}
+.modal-date-lbl{font-size:11px;color:var(--text2);letter-spacing:1px;font-family:var(--font-cond);margin-bottom:14px;}
+.form-row{margin-bottom:12px;}
+.form-label{font-size:10px;letter-spacing:1.2px;color:var(--text2);font-family:var(--font-cond);text-transform:uppercase;margin-bottom:4px;display:block;}
+.form-input,.form-sel,.form-textarea{
+  width:100%;background:var(--navy2);border:1px solid var(--border);
+  color:var(--text);border-radius:5px;padding:8px 10px;
+  font-family:var(--font);font-size:13px;outline:none;
+}
+.form-input:focus,.form-sel:focus,.form-textarea:focus{border-color:var(--gold);}
+.form-textarea{resize:vertical;min-height:55px;}
+.form-sel option{background:var(--navy2);}
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.type-tile{
+  padding:7px 6px;border-radius:5px;cursor:pointer;text-align:center;
+  font-family:var(--font-cond);font-size:10px;font-weight:700;letter-spacing:0.8px;
+  border:1.5px solid transparent;transition:all 0.15s;
+}
+.type-tile.active{filter:brightness(1.3);border-color:rgba(255,255,255,0.3);}
+.tt-sesion{background:rgba(42,122,26,0.3);color:#90ee90;border-color:#3a7a28;}
+.tt-liga{background:rgba(200,168,75,0.2);color:var(--gold);border-color:var(--gold);}
+.tt-copa{background:rgba(120,80,200,0.3);color:#b090ff;border-color:#9060e0;}
+.tt-amistoso{background:rgba(80,140,200,0.3);color:#80b0ff;border-color:#5080c0;}
+.tt-descanso{background:rgba(50,50,70,0.5);color:var(--text2);border-color:#505060;}
+.tt-cumple{background:rgba(200,80,150,0.25);color:#ff80c0;border-color:#c04090;}
+.tt-otro{background:rgba(27,42,107,0.4);color:#8899cc;border-color:var(--navy);}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+.btn-sm{padding:7px 16px;border-radius:5px;cursor:pointer;font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;border:none;transition:all 0.2s;}
+.btn-save{background:var(--gold);color:var(--navy2);}
+.btn-save:hover{filter:brightness(1.1);}
+.btn-cancel{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-cancel:hover{border-color:var(--gold);color:var(--gold);}
+.btn-del{background:rgba(122,26,26,0.4);color:#ff8888;border:1px solid rgba(180,60,60,0.3);}
+.btn-del:hover{background:rgba(122,26,26,0.7);}
+
+/* Rival section */
+.rival-section{background:var(--navy2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:8px;}
+.rival-header{font-family:var(--font-cond);font-size:11px;letter-spacing:1px;color:var(--gold);text-transform:uppercase;margin-bottom:10px;}
+.rival-row{display:flex;align-items:center;gap:8px;}
+.rival-crest-upload{
+  width:44px;height:44px;border:1.5px dashed rgba(200,168,75,0.4);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:rgba(200,168,75,0.05);flex-shrink:0;transition:all 0.15s;
+}
+.rival-crest-upload:hover{border-color:var(--gold);background:rgba(200,168,75,0.1);}
+.rival-crest-img{width:100%;height:100%;object-fit:contain;border-radius:3px;display:none;}
+.vs-preview{
+  display:flex;align-items:center;gap:8px;margin-top:10px;
+  padding:8px;background:rgba(27,42,107,0.3);border-radius:6px;
+}
+.vs-crest{width:28px;height:28px;object-fit:contain;border-radius:3px;}
+.vs-crest-ph{width:28px;height:28px;background:rgba(200,168,75,0.1);border:1px dashed rgba(200,168,75,0.3);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text2);}
+.vs-text{font-family:var(--font-cond);font-size:13px;font-weight:700;color:var(--gold);letter-spacing:2px;}
+.vs-team{font-family:var(--font-cond);font-size:11px;color:var(--text);text-align:center;max-width:60px;word-break:break-word;}
+.rival-saved-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.rival-saved-chip{
+  padding:3px 8px;background:rgba(27,42,107,0.4);border:1px solid var(--border);
+  border-radius:4px;font-size:10px;font-family:var(--font-cond);color:var(--text2);
+  cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;
+}
+.rival-saved-chip:hover{border-color:var(--gold);color:var(--gold);}
+.rival-saved-chip img{width:14px;height:14px;object-fit:contain;}
+
+/* ── PLANNING SEMANAL ── */
+.plan-header-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 18px;
+  flex-wrap:wrap;gap:10px;
+}
+.plan-week-info{display:flex;flex-direction:column;}
+.plan-week-title{font-family:var(--font-cond);font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);}
+.plan-week-sub{font-size:11px;color:var(--text2);letter-spacing:0.5px;font-family:var(--font-cond);margin-top:2px;}
+.plan-week-nav{display:flex;align-items:center;gap:8px;}
+
+.plan-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:auto;}
+.plan-table{border-collapse:collapse;width:100%;min-width:860px;}
+.plan-table th,.plan-table td{border:1px solid var(--border);}
+
+.day-header-cell{background:var(--navy);padding:0;text-align:center;min-width:115px;}
+.day-header-inner{padding:8px 6px;}
+.day-num{font-family:var(--font-cond);font-size:11px;color:var(--text2);margin-bottom:2px;}
+.day-name{font-family:var(--font-cond);font-size:13px;font-weight:700;color:var(--text);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.day-type-sel{
+  width:100%;background:rgba(27,42,107,0.4);border:1px solid rgba(200,168,75,0.2);
+  color:var(--text2);font-family:var(--font-cond);font-size:9px;letter-spacing:0.5px;
+  border-radius:3px;padding:2px 4px;cursor:pointer;outline:none;text-align:center;
+}
+.day-type-sel option{background:var(--navy2);}
+.day-type-sel.regen{background:rgba(42,122,26,0.25);color:#90ee90;border-color:#3a7a28;}
+.day-type-sel.descanso{background:rgba(50,50,70,0.4);color:var(--text2);border-color:#505060;}
+.day-type-sel.tension{background:rgba(122,30,30,0.3);color:#ff9090;border-color:#802020;}
+.day-type-sel.duracion{background:rgba(150,80,20,0.3);color:#ffb060;border-color:#904010;}
+.day-type-sel.velocidad{background:rgba(30,70,140,0.4);color:#80b0ff;border-color:#2050a0;}
+.day-type-sel.activacion{background:rgba(120,100,20,0.3);color:#ffe080;border-color:#907010;}
+.day-type-sel.partido{background:rgba(200,168,75,0.25);color:var(--gold);border-color:var(--gold);}
+
+.hora-cell{
+  background:rgba(200,168,75,0.06);padding:6px 8px;
+  width:58px;min-width:58px;text-align:center;vertical-align:middle;
+}
+.hora-lbl{font-family:var(--font-cond);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:0.5px;}
+
+.plan-cell{padding:4px;min-width:115px;height:64px;vertical-align:top;}
+.plan-cell textarea{
+  width:100%;height:100%;resize:none;background:transparent;border:none;
+  outline:none;color:var(--text);font-family:var(--font);font-size:10.5px;
+  line-height:1.45;cursor:text;
+}
+.plan-cell textarea::placeholder{color:rgba(160,152,144,0.25);}
+.plan-cell:focus-within{background:rgba(200,168,75,0.04);}
+.plan-cell.is-descanso{background:rgba(40,40,60,0.35);position:relative;}
+.plan-cell.is-descanso textarea{display:none;}
+.descanso-icon{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  opacity:0.4;font-size:20px;
+}
+.plan-cell.is-partido{background:rgba(200,168,75,0.04);}
+
+/* ── TOPNAV UNIFICADO ── */
+.topnav{
+  height:54px;background:#0d1530;
+  border-bottom:2px solid #C8A84B;
+  display:flex;align-items:center;padding:0 14px;gap:10px;
+  flex-shrink:0;z-index:100;
+}
+.nav-back{
+  display:flex;align-items:center;gap:10px;
+  text-decoration:none;color:#ddd8cc;transition:color 0.2s;
+}
+.nav-back:hover{color:#C8A84B;}
+.nav-logo-circle{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,#1B2A6B,#0d1530);
+  border:1.5px solid rgba(200,168,75,0.5);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;overflow:hidden;
+}
+.nav-logo-circle img{width:100%;height:100%;object-fit:contain;}
+.nav-logo-text{display:flex;flex-direction:column;line-height:1.15;}
+.nav-logo-sub{font-size:8px;letter-spacing:2px;color:#C8A84B;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.nav-logo-main{font-size:13px;font-weight:700;letter-spacing:1px;color:#ddd8cc;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.nav-sep{flex:1;}
+.nav-section-title{
+  font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:#C8A84B;
+  position:absolute;left:50%;transform:translateX(-50%);
+}
+.nav-crest{
+  width:36px;height:36px;border-radius:6px;
+  border:1.5px solid rgba(200,168,75,0.3);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(200,168,75,0.05);overflow:hidden;cursor:pointer;
+  transition:border-color 0.2s;flex-shrink:0;
+}
+.nav-crest:hover{border-color:#C8A84B;}
+.nav-crest img{width:100%;height:100%;object-fit:contain;display:none;}
+.nav-crest svg{opacity:0.35;}
+
+
+/* ── FIX CALENDARIO ── */
+.cal-grid-wrap { overflow: visible !important; }
+.cal-cell { min-height: 90px !important; display: block !important; }
+.view.active { overflow-y: auto !important; }
+#view-cal { flex: 1; overflow-y: auto; }
+.main { flex: 1; overflow: hidden; }
+
+
+/* ── PLANNING SEMANAL: MEJORAS ── */
+
+/* Hora editable */
+.hora-cell { cursor: pointer; position: relative; }
+.hora-cell input {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: #C8A84B; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  text-align: center; cursor: pointer; padding: 0;
+}
+.hora-cell input:focus { background: rgba(200,168,75,0.08); border-radius: 3px; }
+
+/* Celdas con selector de tarea + escritura libre */
+.plan-cell { padding: 3px !important; height: 72px !important; }
+.cell-task-wrap { display: flex; flex-direction: column; height: 100%; gap: 2px; }
+.cell-task-sel {
+  background: rgba(27,42,107,0.5); border: 1px solid rgba(200,168,75,0.15);
+  color: #C8A84B; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 9px; letter-spacing: 0.5px; border-radius: 3px;
+  padding: 2px 4px; cursor: pointer; outline: none; width: 100%;
+  flex-shrink: 0;
+}
+.cell-task-sel option { background: #0d1530; }
+.cell-free-text {
+  flex: 1; resize: none; background: transparent; border: none;
+  outline: none; color: #ddd8cc; font-family: 'Barlow', sans-serif;
+  font-size: 10px; line-height: 1.4; cursor: text; width: 100%;
+  min-height: 0;
+}
+.cell-free-text::placeholder { color: rgba(160,152,144,0.2); }
+.plan-cell:focus-within { background: rgba(200,168,75,0.04); }
+
+/* Filtro: botones seleccionar/deseleccionar todo */
+.filter-all-btns { display: flex; gap: 4px; }
+.filter-all-btn {
+  padding: 2px 8px; border-radius: 10px; cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 10px;
+  font-weight: 600; letter-spacing: 0.5px; border: 1px solid var(--border);
+  background: transparent; color: var(--text2); transition: all 0.15s;
+}
+.filter-all-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* Nuevo tipo tarea */
+.new-tipo-wrap {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; background: rgba(27,42,107,0.2);
+  border: 1px dashed rgba(200,168,75,0.2); border-radius: 5px;
+}
+.new-tipo-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: #ddd8cc; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; letter-spacing: 0.5px;
+}
+.new-tipo-input::placeholder { color: rgba(160,152,144,0.3); }
+.new-tipo-btn {
+  background: rgba(200,168,75,0.2); border: 1px solid rgba(200,168,75,0.4);
+  color: #C8A84B; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700;
+  transition: all 0.15s;
+}
+.new-tipo-btn:hover { background: rgba(200,168,75,0.35); }
+
+/* Print */
+@media print {
+  .oi-topnav, .toolbar, .plan-week-nav, .plan-header-row { display: none !important; }
+  body { overflow: visible !important; }
+  .main, .view { overflow: visible !important; height: auto !important; }
+  .plan-table-wrap { overflow: visible !important; }
+  .plan-table { font-size: 8px !important; }
+  .plan-cell { height: 48px !important; }
+  .day-header-inner { padding: 4px !important; }
+  .hora-cell { padding: 3px !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+
+.ev-partido-rival{background:rgba(150,50,200,0.35);color:#d090ff;border-left:2px solid #9032c8;}
+.ev-partido-captacion{background:rgba(0,150,180,0.35);color:#60d8f8;border-left:2px solid #0096b4;}
+.fc-partido-rival,.fc-partido-captacion{opacity:0.7;}
+.fc-partido-rival.active,.fc-partido-captacion.active{opacity:1;}
+
+
+/* Celda partido en planning semanal */
+.plan-cell.is-partido { background:rgba(200,168,75,0.06) !important; }
+.plan-cell.is-partido .cell-task-wrap { display:none !important; }
+.partido-vs-cell {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:4px;
+}
+.partido-vs-row {
+  display:flex; align-items:center; gap:6px;
+}
+.partido-vs-crest {
+  width:22px; height:22px; object-fit:contain; border-radius:2px;
+}
+.partido-vs-ph {
+  width:22px; height:22px; background:rgba(200,168,75,0.15);
+  border:1px dashed rgba(200,168,75,0.4); border-radius:3px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; color:rgba(200,168,75,0.5);
+}
+.partido-vs-txt {
+  font-family:'Barlow Condensed',sans-serif; font-size:11px;
+  font-weight:700; color:#C8A84B; letter-spacing:1px;
+}
+.partido-vs-hora {
+  font-family:'Barlow Condensed',sans-serif; font-size:10px;
+  color:rgba(200,168,75,0.6); letter-spacing:0.5px;
+}
+.partido-edit-btn {
+  font-size:9px; color:rgba(200,168,75,0.4); cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif; letter-spacing:0.5px;
+  border:none; background:none; padding:0;
+}
+.partido-edit-btn:hover { color:#C8A84B; }
+
+</style>
+</head>
+<body>
+
+<!-- TOPNAV -->
+<div class="topnav" style="position:relative;">
+  <a href="inicio.html" class="nav-back" title="Volver al inicio">
+    <div class="nav-logo-circle">
+      <img src="logo.png" alt="El Once Inicial" onerror="this.style.display='none'">
+    </div>
+    <div class="nav-logo-text">
+      <span class="nav-logo-sub">El Once Inicial</span>
+      <span class="nav-logo-main">Planificación</span>
+    </div>
+  </a>
+  <div class="nav-sep"></div>
+  <div class="nav-crest" id="crest-nav" title="Escudo del equipo">
+    <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1L13 4V8C13 12 10.5 14.5 7 15.5C3.5 14.5 1 12 1 8V4Z"/></svg>
+    <img id="crest-nav-img" alt="Escudo">
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="tabs-inline">
+      <button class="tab-btn active" id="tb-cal" onclick="switchTab('cal')">📅 Calendario</button>
+      <button class="tab-btn" id="tb-plan" onclick="switchTab('plan')">📋 Planning semanal</button>
+    </div>
+    <div class="filter-chips" id="filter-chips">
+      <span style="font-family:var(--font-cond);font-size:10px;letter-spacing:1px;color:var(--text2);">FILTRO:</span>
+      <div class="filter-all-btns">
+        <button class="filter-all-btn" onclick="selectAllFilters()">Todo</button>
+        <button class="filter-all-btn" onclick="clearAllFilters()">Ninguno</button>
+      </div>
+      <div class="filter-chip fc-sesion active" data-type="sesion" onclick="toggleFilter(this)"><div class="chip-dot" style="background:#3a7a28;"></div>Sesión</div>
+      <div class="filter-chip fc-partido-liga active" data-type="partido-liga" onclick="toggleFilter(this)"><div class="chip-dot" style="background:var(--gold);"></div>Liga</div>
+      <div class="filter-chip fc-partido-copa active" data-type="partido-copa" onclick="toggleFilter(this)"><div class="chip-dot" style="background:#9060e0;"></div>Copa</div>
+      <div class="filter-chip fc-partido-amistoso active" data-type="partido-amistoso" onclick="toggleFilter(this)"><div class="chip-dot" style="background:#5080c0;"></div>Amistoso</div>
+      <div class="filter-chip fc-descanso active" data-type="descanso" onclick="toggleFilter(this)"><div class="chip-dot" style="background:#505060;"></div>Descanso</div>
+      <div class="filter-chip fc-cumple active" data-type="cumple" onclick="toggleFilter(this)"><div class="chip-dot" style="background:#c04090;"></div>Cumpleaños</div>
+      <div class="filter-chip fc-otro active" data-type="otro" onclick="toggleFilter(this)"><div class="chip-dot" style="background:var(--navy);"></div>Otro</div>
+      <div class="filter-chip active" data-type="partido-rival" onclick="toggleFilter(this)" style="background:rgba(150,50,200,0.2);border-color:#9032c8;color:#c080ff;"><div class="chip-dot" style="background:#9032c8;border-radius:50%;"></div>Rival</div>
+      <div class="filter-chip active" data-type="partido-captacion" onclick="toggleFilter(this)" style="background:rgba(0,150,180,0.2);border-color:#0096b4;color:#40d0f0;"><div class="chip-dot" style="background:#0096b4;border-radius:50%;"></div>Captación</div>
+    </div>
+  </div>
+  <div class="toolbar-right">
+    <button class="btn btn-icon" onclick="printView()" title="Imprimir / Exportar PDF">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="2" width="10" height="5" rx="1"/><rect x="2" y="7" width="12" height="7" rx="1"/><rect x="5" y="10" width="6" height="4" rx="0.5"/><line x1="11" y1="9" x2="12" y2="9"/></svg>
+      Imprimir
+    </button>
+    <button class="btn btn-primary" onclick="openModal(null)">+ Añadir evento</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ══ VISTA CALENDARIO ══ -->
+  <div class="view active" id="view-cal">
+    <div class="cal-header-row">
+      <div class="cal-nav-group">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-title-wrap">
+          <div class="cal-month-name" id="cal-month-name">Agosto</div>
+          <select class="cal-year-sel" id="cal-year-sel" onchange="yearChanged(this.value)"></select>
+        </div>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <button class="btn btn-secondary" onclick="goToday()">Hoy</button>
+    </div>
+
+    <div class="cal-grid-wrap">
+      <div class="cal-weekdays">
+        <div class="cal-wd">Lun</div><div class="cal-wd">Mar</div><div class="cal-wd">Mié</div>
+        <div class="cal-wd">Jue</div><div class="cal-wd">Vie</div><div class="cal-wd">Sáb</div><div class="cal-wd">Dom</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
+
+  <!-- ══ VISTA PLANNING SEMANAL ══ -->
+  <div class="view" id="view-plan">
+    <div class="plan-header-row">
+      <div class="plan-week-info">
+        <div class="plan-week-title" id="plan-week-title">Semana</div>
+        <div class="plan-week-sub" id="plan-week-sub"></div>
+      </div>
+      <div class="plan-week-nav">
+        <button class="btn btn-secondary" onclick="changeWeek(-1)">‹ Anterior</button>
+        <button class="btn btn-secondary" onclick="goThisWeek()">Esta semana</button>
+        <button class="btn btn-secondary" onclick="changeWeek(1)">Siguiente ›</button>
+        <button class="btn btn-secondary btn-icon" onclick="printView()" title="Imprimir">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="2" width="10" height="5" rx="1"/><rect x="2" y="7" width="12" height="7" rx="1"/><rect x="5" y="10" width="6" height="4"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="plan-table-wrap">
+      <table class="plan-table" id="plan-table"></table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ MODAL EVENTO ══ -->
+<div class="modal-bg" id="modal-bg" onclick="bgClick(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="modal-title-txt">Nuevo evento</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-date-lbl" id="modal-date-lbl"></div>
+
+    <div class="form-row">
+      <label class="form-label">Tipo de evento</label>
+      <div class="type-grid">
+        <div class="type-tile tt-sesion active" data-type="sesion" onclick="selTypeTile(this)">⚽ Sesión</div>
+        <div class="type-tile tt-liga" data-type="partido-liga" onclick="selTypeTile(this)">🏆 Liga</div>
+        <div class="type-tile tt-copa" data-type="partido-copa" onclick="selTypeTile(this)">🥇 Copa</div>
+        <div class="type-tile tt-amistoso" data-type="partido-amistoso" onclick="selTypeTile(this)">🤝 Amistoso</div>
+        <div class="type-tile tt-descanso" data-type="descanso" onclick="selTypeTile(this)">😴 Descanso</div>
+        <div class="type-tile tt-cumple" data-type="cumple" onclick="selTypeTile(this)">🎂 Cumpleaños</div>
+        <div class="type-tile tt-otro" data-type="otro" onclick="selTypeTile(this)">📌 Otro</div>
+        <div class="type-tile" data-type="partido-rival" onclick="selTypeTile(this)" style="background:rgba(150,50,200,0.25);color:#d090ff;border-color:#9032c8;">⚔️ P. Rival</div>
+        <div class="type-tile" data-type="partido-captacion" onclick="selTypeTile(this)" style="background:rgba(0,150,180,0.25);color:#60d8f8;border-color:#0096b4;">🔍 P. Captación</div>
+      </div>
+    </div>
+
+    <div class="form-row" id="row-titulo">
+      <label class="form-label">Título / descripción</label>
+      <input class="form-input" id="ev-titulo" placeholder="Sesión táctica, Descanso…">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Hora</label>
+      <input class="form-input" type="time" id="ev-hora">
+    </div>
+
+    <!-- SECCIÓN RIVAL (partidos) -->
+    <div id="rival-section" style="display:none;">
+      <div class="rival-section">
+        <div class="rival-header">⚔️ Rival</div>
+        <div class="rival-row">
+          <div class="rival-crest-upload" onclick="document.getElementById('rival-crest-input').click()" title="Subir escudo rival">
+            <img id="rival-crest-img" class="rival-crest-img" alt="">
+            <svg id="rival-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
+          </div>
+          <input class="form-input" id="ev-rival" placeholder="Nombre del equipo rival" oninput="updateVsPreview()" list="rivals-list">
+          <datalist id="rivals-list"></datalist>
+        </div>
+        <input type="file" id="rival-crest-input" accept="image/*" style="display:none" onchange="rivalCrestChosen(event)">
+        <div class="rival-saved-list" id="rival-saved-list"></div>
+        <div class="vs-preview" id="vs-preview">
+          <div class="vs-crest-ph" id="vs-our-crest">🛡</div>
+          <div>
+            <div class="vs-text">VS</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div class="vs-crest-ph" id="vs-rival-crest">?</div>
+            <div class="vs-team" id="vs-rival-name">Rival</div>
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:8px;margin-bottom:0;">
+          <label class="form-label">Competición / tipo</label>
+          <select class="form-sel" id="ev-competicion">
+            <option value="">— Sin especificar —</option>
+            <option value="Liga">Liga</option>
+            <option value="Copa">Copa del Rey</option>
+            <option value="Playoff">Playoff</option>
+            <option value="Supercopa">Supercopa</option>
+            <option value="Amistoso">Amistoso</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-bottom:0;margin-top:8px;">
+          <label class="form-label">Sede</label>
+          <select class="form-sel" id="ev-sede">
+            <option value="Local">Local</option>
+            <option value="Visitante">Visitante</option>
+            <option value="Neutral">Campo neutral</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-top:10px;">
+      <label class="form-label">Notas</label>
+      <textarea class="form-textarea" id="ev-notas" placeholder="Campo, concentración, indicaciones…"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-sm btn-del" id="btn-del" style="display:none" onclick="deleteEvent()">🗑 Eliminar</button>
+      <button class="btn-sm btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-sm btn-save" onclick="saveEvent()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATOS ──
+const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAY_NAMES=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const FRANJAS=['9:00','9:30','10:00','10:30','11:00','11:30','12:00','12:30'];
+const TIPOS_SEMANA=[
+  {val:'regen',lbl:'🔋 Regenerativo'},
+  {val:'descanso',lbl:'😴 Descanso'},
+  {val:'tension',lbl:'⚡ Tensión'},
+  {val:'duracion',lbl:'⏱ Duración'},
+  {val:'velocidad',lbl:'💨 Velocidad'},
+  {val:'activacion',lbl:'🚀 Activación'},
+  {val:'partido',lbl:'🏆 Partido'},
+  {val:'mix_td',lbl:'🔀 Mix Tensión-Duración'},
+  {val:'mix_dv',lbl:'🔀 Mix Duración-Velocidad'},
+  {val:'mix_va',lbl:'🔀 Mix Velocidad-Activación'},
+  {val:'mix_rc',lbl:'🔀 Mix Regen-Compensatorio'},
+];
+// Tipos que NO son sesión de entrenamiento (no sincronizan como sesión)
+const TIPOS_NO_SESION = ['descanso','partido',''];
+var TIPOS_DIA=[
+  {val:'',lbl:'—'},
+  {val:'mas1',lbl:'+1'},
+  {val:'mas2',lbl:'+2'},
+  {val:'menos4',lbl:'-4'},
+  {val:'menos3',lbl:'-3'},
+  {val:'menos2',lbl:'-2'},
+  {val:'menos1',lbl:'-1'},
+  {val:'dp',lbl:'DP'},
+];
+
+var curMonth=new Date().getMonth(); var curYear=new Date().getFullYear();
+var weekStart=getMonday(new Date());
+var events=JSON.parse(localStorage.getItem('oi_cal_v2')||'{}');
+var weeklyPlan=JSON.parse(localStorage.getItem('oi_weekly_v2')||'{}');
+var weekDayTypes=JSON.parse(localStorage.getItem('oi_week_types_v1')||'{}');
+var rivals=JSON.parse(localStorage.getItem('oi_rivals_v1')||'[]');
+var activeFilters=new Set(['sesion','partido-liga','partido-copa','partido-amistoso','partido-rival','partido-captacion','descanso','cumple','otro']);
+var modalDateKey=null; var modalEvIdx=null; var curSelType='sesion', tmpRivalCrest=null;
+
+// ── UTILS ──
+function dk(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function getMonday(d){const r=new Date(d);const day=r.getDay();r.setDate(r.getDate()-day+(day===0?-6:1));r.setHours(0,0,0,0);return r;}
+function wkKey(d){const u=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=u.getUTCDay()||7;u.setUTCDate(u.getUTCDate()+4-dn);const ys=new Date(Date.UTC(u.getUTCFullYear(),0,1));return `${u.getUTCFullYear()}-W${Math.ceil((((u-ys)/86400000)+1)/7)}`;}
+
+// ── ESCUDO ──
+function loadCrest(){
+  const c=localStorage.getItem('oi_team_crest');
+  if(c){const img=document.getElementById('crest-nav-img');img.src=c;img.style.display='block';img.previousElementSibling.style.display='none';}
+}
+
+// ── AÑO ── 
+function buildYearSel(){
+  const sel=document.getElementById('cal-year-sel');
+  sel.innerHTML='';
+  for(let y=2020;y<=2035;y++){
+    const o=document.createElement('option');
+    o.value=y;o.textContent=y;
+    if(y===curYear)o.selected=true;
+    sel.appendChild(o);
+  }
+}
+function yearChanged(y){curYear=parseInt(y);renderCalendar();}
+
+// ── FILTROS ──
+function toggleFilter(el){
+  const t=el.dataset.type;
+  if(activeFilters.has(t)){activeFilters.delete(t);el.classList.remove('active');}
+  else{activeFilters.add(t);el.classList.add('active');}
+  renderCalendar();
+}
+
+// ── TABS ──
+function switchTab(t){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('tb-'+t).classList.add('active');
+  document.getElementById('view-'+t).classList.add('active');
+  document.getElementById('filter-chips').style.display=t==='cal'?'':'none';
+  if(t==='plan'){ renderWeeklyPlan(); setTimeout(renderWeekTitleWithName,50); }
+  if(t==='cal'){ renderCalendar(); } // Siempre refrescar calendario al entrar
+}
+
+// ── CALENDARIO ──
+function renderCalendar(){
+  document.getElementById('cal-month-name').textContent=MONTHS[curMonth];
+  document.getElementById('cal-year-sel').value=curYear;
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  const first=new Date(curYear,curMonth,1);
+  let dow=first.getDay();if(dow===0)dow=7;dow--;
+  const dim=new Date(curYear,curMonth+1,0).getDate();
+  const dimPrev=new Date(curYear,curMonth,0).getDate();
+  const today=new Date();
+  const total=Math.ceil((dow+dim)/7)*7;
+
+  for(let i=0;i<total;i++){
+    let day,mo,yr;
+    if(i<dow){day=dimPrev-dow+i+1;mo=curMonth-1;yr=curMonth===0?curYear-1:curYear;}
+    else if(i>=dow+dim){day=i-dow-dim+1;mo=curMonth+1;yr=curMonth===11?curYear+1:curYear;}
+    else{day=i-dow+1;mo=curMonth;yr=curYear;}
+
+    const cell=document.createElement('div');
+    cell.className='cal-cell'+(i<dow||i>=dow+dim?' other-month':'');
+    const isToday=day===today.getDate()&&mo===today.getMonth()&&yr===today.getFullYear();
+    if(isToday)cell.classList.add('today');
+    const key=dk(yr,mo,day);
+    cell.dataset.key=key;
+
+    const numEl=document.createElement('div');
+    numEl.className='cal-day-num';
+    numEl.textContent=day;
+    cell.appendChild(numEl);
+
+    const evWrap=document.createElement('div');
+    evWrap.className='cal-events';
+    cell.appendChild(evWrap);
+    cell.onclick=()=>openModal(key);
+    grid.appendChild(cell);
+
+    // Eventos del día filtrados
+    const dayEvs=(events[key]||[]).filter(ev=>activeFilters.has(ev.type));
+    dayEvs.forEach((ev,idx)=>{
+      const el=document.createElement('div');
+      el.className=`cal-event ev-${ev.type}`;
+      const hora=ev.hora?`<span style="opacity:0.7">${ev.hora}</span> `:'';
+      if(ev.type.startsWith('partido')&&ev.rival){
+        const rc=ev.rivalCrest?`<img class="ev-crest" src="${ev.rivalCrest}">`:'⚔️';
+        el.innerHTML=`${hora}${rc} vs ${ev.rival}`;
+      } else if(ev.type==='cumple'){
+        el.innerHTML=`🎂 ${ev.titulo||'Cumpleaños'}`;
+      } else {
+        el.textContent=(ev.hora?ev.hora+' ':'')+( ev.titulo||ev.type);
+      }
+      el.onclick=e=>{e.stopPropagation();const allEvs=events[key];const realIdx=allEvs.indexOf(allEvs.filter(x=>activeFilters.has(x.type))[idx]);openModal(key,allEvs.findIndex((e,i)=>dayEvs[idx]===e));};
+      evWrap.appendChild(el);
+    });
+  }
+}
+
+function changeMonth(d){curMonth+=d;if(curMonth>11){curMonth=0;curYear++;}if(curMonth<0){curMonth=11;curYear--;}document.getElementById('cal-year-sel').value=curYear;renderCalendar();}
+function goToday(){curMonth=new Date().getMonth();curYear=new Date().getFullYear();renderCalendar();}
+
+// ── MODAL ──
+function openModal(key,idx=null){
+  modalDateKey=key;modalEvIdx=idx;tmpRivalCrest=null;
+  curSelType='sesion';
+  if(key){
+    const d=new Date(key+'T12:00:00');
+    document.getElementById('modal-date-lbl').textContent=DAY_NAMES[d.getDay()===0?6:d.getDay()-1]+', '+d.getDate()+' de '+MONTHS[d.getMonth()].toLowerCase()+' de '+d.getFullYear();
+  }
+  if(idx!==null&&key){
+    const ev=events[key][idx];
+    document.getElementById('modal-title-txt').textContent='Editar evento';
+    setType(ev.type);
+    document.getElementById('ev-titulo').value=ev.titulo||'';
+    document.getElementById('ev-hora').value=ev.hora||'';
+    document.getElementById('ev-rival').value=ev.rival||'';
+    document.getElementById('ev-competicion').value=ev.competicion||'';
+    document.getElementById('ev-sede').value=ev.sede||'Local';
+    document.getElementById('ev-notas').value=ev.notas||'';
+    if(ev.rivalCrest){showRivalCrest(ev.rivalCrest);}
+    document.getElementById('btn-del').style.display='';
+  } else {
+    document.getElementById('modal-title-txt').textContent='Nuevo evento';
+    setType('sesion');
+    ['ev-titulo','ev-hora','ev-rival','ev-notas'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ev-competicion').value='';
+    document.getElementById('ev-sede').value='Local';
+    resetRivalCrest();
+    document.getElementById('btn-del').style.display='none';
+  }
+  buildRivalsList();
+  updateVsPreview();
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+function bgClick(e){if(e.target.id==='modal-bg')closeModal();}
+
+function selTypeTile(el){setType(el.dataset.type);}
+function setType(t){
+  curSelType=t;
+  document.querySelectorAll('.type-tile').forEach(el=>el.classList.toggle('active',el.dataset.type===t));
+  document.getElementById('rival-section').style.display=t.startsWith('partido')?'':'none';
+}
+
+function saveEvent(){
+  if(!modalDateKey)return;
+  if(!events[modalDateKey])events[modalDateKey]=[];
+  var wasSync = modalEvIdx!==null && events[modalDateKey][modalEvIdx] && events[modalDateKey][modalEvIdx]._sync;
+  var ev={
+    type:curSelType,
+    titulo:document.getElementById('ev-titulo').value.trim(),
+    hora:document.getElementById('ev-hora').value,
+    rival:document.getElementById('ev-rival').value.trim(),
+    rivalCrest:tmpRivalCrest||(modalEvIdx!==null?events[modalDateKey][modalEvIdx]?.rivalCrest:null),
+    competicion:document.getElementById('ev-competicion').value,
+    sede:document.getElementById('ev-sede').value,
+    notas:document.getElementById('ev-notas').value.trim(),
+  };
+  // Si era un evento auto-sync que el usuario está editando → marcar como editado por el usuario
+  // Esto evita que syncWeekDayToCalendar lo borre y re-cree
+  if(wasSync){ ev._userEdited = true; }
+  // Guardar rival en historial
+  if(ev.rival&&!rivals.find(function(r){return r.name===ev.rival;})){
+    rivals.push({name:ev.rival,crest:ev.rivalCrest||null});
+    localStorage.setItem('oi_rivals_v1',JSON.stringify(rivals));
+  }
+  if(modalEvIdx!==null)events[modalDateKey][modalEvIdx]=ev;
+  else events[modalDateKey].push(ev);
+  localStorage.setItem('oi_cal_v2',JSON.stringify(events));
+  closeModal();renderCalendar();
+}
+function deleteEvent(){
+  if(modalDateKey&&modalEvIdx!==null){
+    events[modalDateKey].splice(modalEvIdx,1);
+    if(!events[modalDateKey].length)delete events[modalDateKey];
+    localStorage.setItem('oi_cal_v2',JSON.stringify(events));
+  }
+  closeModal();renderCalendar();
+}
+
+// ── RIVAL ──
+function buildRivalsList(){
+  const dl=document.getElementById('rivals-list');
+  dl.innerHTML=rivals.map(r=>`<option value="${r.name}">`).join('');
+  const saved=document.getElementById('rival-saved-list');
+  saved.innerHTML=rivals.length?'<span style="font-size:10px;color:var(--text2);font-family:var(--font-cond);letter-spacing:0.5px;">Historial: </span>':'';
+  rivals.forEach(r=>{
+    const chip=document.createElement('div');
+    chip.className='rival-saved-chip';
+    chip.innerHTML=(r.crest?`<img src="${r.crest}">`:'⚽')+` ${r.name}`;
+    chip.onclick=()=>{document.getElementById('ev-rival').value=r.name;if(r.crest)showRivalCrest(r.crest);updateVsPreview();};
+    saved.appendChild(chip);
+  });
+}
+function rivalCrestChosen(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{tmpRivalCrest=ev.target.result;showRivalCrest(ev.target.result);updateVsPreview();};
+  reader.readAsDataURL(file);
+}
+function showRivalCrest(src){
+  const img=document.getElementById('rival-crest-img');
+  img.src=src;img.style.display='block';
+  document.getElementById('rival-crest-ph').style.display='none';
+}
+function resetRivalCrest(){
+  document.getElementById('rival-crest-img').style.display='none';
+  document.getElementById('rival-crest-ph').style.display='';
+  tmpRivalCrest=null;
+}
+function updateVsPreview(){
+  const name=document.getElementById('ev-rival').value||'Rival';
+  document.getElementById('vs-rival-name').textContent=name;
+  // Nuestro escudo
+  const ourCrest=localStorage.getItem('oi_team_crest');
+  const ourEl=document.getElementById('vs-our-crest');
+  if(ourCrest){ourEl.innerHTML=`<img class="vs-crest" src="${ourCrest}">`;}
+  // Escudo rival
+  const rivEl=document.getElementById('vs-rival-crest');
+  const rc=tmpRivalCrest||(rivals.find(r=>r.name===name)?.crest);
+  rivEl.innerHTML=rc?`<img class="vs-crest" src="${rc}">`:'?';
+}
+
+// ── PLANNING SEMANAL ──
+function renderWeeklyPlan(){
+  const wk=wkKey(weekStart);
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(weekStart);d.setDate(d.getDate()+i);days.push(d);}
+  const mon=days[0],sun=days[6];
+  document.getElementById('plan-week-title').textContent=`Semana ${wk}`;
+  document.getElementById('plan-week-sub').textContent=`${mon.getDate()} ${MONTHS[mon.getMonth()]} — ${sun.getDate()} ${MONTHS[sun.getMonth()]} ${sun.getFullYear()}`;
+  if(!weekDayTypes[wk])weekDayTypes[wk]={};
+  if(!weeklyPlan[wk])weeklyPlan[wk]={};
+
+  // Cargar tipos de tarea de pizarra (pz_tipos) + los propios de planificación
+  var pzTipos=JSON.parse(localStorage.getItem('pz_tipos')||'["JP","Rondo","AD","PM","PMR","ABP","EVO","TE","Conservación"]');
+  var planTipos=JSON.parse(localStorage.getItem('oi_plan_tipos')||'[]');
+  var allTipos=[...new Set([...pzTipos,...planTipos])];
+
+  // Obtener franjas personalizadas
+  var franjas=JSON.parse(localStorage.getItem(`oi_franjas_${wk}`)||JSON.stringify(FRANJAS));
+
+  const table=document.getElementById('plan-table');
+  var html2='<thead><tr><th class="hora-cell" style="width:64px;"><div class="hora-lbl">HORA</div></th>';
+  days.forEach(function(d,i){
+    var key=`${wk}_dt_${i}`;
+    var typ=weekDayTypes[wk][key]||'';
+    var opts=TIPOS_SEMANA.map(function(t){return `<option value="${t.val}"${t.val===typ?'selected':''}>${t.lbl}</option>`;}).join('');
+    var dtRelKey=`${wk}_dr_${i}`;
+    var typRel=weekDayTypes[wk][dtRelKey]||'';
+    var optsRel=TIPOS_DIA.map(function(t){return `<option value="${t.val}"${t.val===typRel?' selected':''}>${t.lbl}</option>`;}).join('');
+    html2+=`<th class="day-header-cell">
+      <div class="day-header-inner">
+        <div class="day-num">${d.getDate()} ${MONTHS[d.getMonth()].substring(0,3)}</div>
+        <div class="day-name">${DAY_NAMES[i]}</div>
+        <select class="day-type-sel" style="margin-bottom:2px;font-size:9px;background:rgba(200,168,75,0.08);color:#C8A84B;border-color:rgba(200,168,75,0.3);"
+          data-wk="${wk}" data-di="${i}" data-rel="1" onchange="dayRelChanged(this)">${optsRel}</select>
+        <select class="day-type-sel ${typ}" data-wk="${wk}" data-di="${i}" onchange="dayTypeChanged(this)">${opts}</select>
+      </div>
+    </th>`;
+  });
+  html2+='</tr></thead><tbody>';
+
+  franjas.forEach(function(hora,fi){
+    html2+=`<tr><td class="hora-cell" style="position:relative;">
+      <input type="text" value="${toTimeInput(hora)}" data-wk="${wk}" data-fi="${fi}"
+        onchange="saveHora(this)" onblur="saveHora(this)" title="Editar hora (HH:MM)"
+        class="hora-lbl" placeholder="00:00"
+        style="width:calc(100% - 16px);text-align:center;font-size:11px;font-weight:700;
+        color:#C8A84B;background:transparent;border:none;outline:none;cursor:text;"
+        onfocus="this.select()">
+      <span onclick="deleteFranja('${wk}',${fi})" title="Eliminar franja"
+        style="position:absolute;top:2px;right:2px;cursor:pointer;font-size:9px;
+        color:rgba(200,80,80,0.5);line-height:1;" 
+        onmouseover="this.style.color='#ff6060'" onmouseout="this.style.color='rgba(200,80,80,0.5)'">✕</span>
+    </td>`;
+    days.forEach(function(d,di){
+      var dtKey=`${wk}_dt_${di}`;
+      var typ=weekDayTypes[wk][dtKey]||'';
+      var isDescanso=typ==='descanso';
+      var isPartido=typ==='partido';
+      var cellKey=`${wk}_${di}_${fi}`;
+      var cellData=weeklyPlan[wk][cellKey]||{tipo:'',texto:''};
+      if(typeof cellData==='string') cellData={tipo:'',texto:cellData};
+      html2+=`<td class="plan-cell${isDescanso?' is-descanso':''}${isPartido?' is-partido':''}" style="position:relative;">
+        ${isDescanso?'<div class="descanso-icon">⚽💤</div>':''}
+        ${isPartido&&fi===0?getPlanPartidoCellHtml(wk,di):''}
+        ${!isDescanso&&!isPartido?`<div class="cell-task-wrap">
+          <select class="cell-task-sel" data-key="${cellKey}" onchange="saveCellTipo(this)">
+            <option value="">— Tipo de tarea —</option>
+            ${allTipos.map(function(t){return `<option value="${t}"${cellData.tipo===t?'selected':''}>${t}</option>`;}).join('')}
+            <option value="__new__">+ Crear nuevo tipo…</option>
+          </select>
+          <textarea class="cell-free-text" data-key="${cellKey}" placeholder="Descripción libre…" onchange="saveCellTexto(this)" oninput="saveCellTexto(this)">${cellData.texto||''}</textarea>
+        </div>`:''}
+      </td>`;
+    });
+    html2+='</tr>';
+  });
+
+  // Fila para añadir nueva franja
+  html2+=`<tr><td class="hora-cell" style="cursor:pointer;" onclick="addFranja('${wk}')" title="Añadir franja horaria">
+    <div style="text-align:center;font-size:16px;color:rgba(200,168,75,0.4);">+</div>
+  </td>${days.map(function(){return '<td class="plan-cell" style="background:rgba(200,168,75,0.02);"></td>';}).join('')}</tr>`;
+
+  html2+='</tbody>';
+  table.innerHTML=html2;
+  // Aplicar nombre personalizado
+  setTimeout(renderWeekTitleWithName, 10);
+  // Sincronizar con calendario al renderizar
+  var wk2=wkKey(weekStart);
+  setTimeout(function(){ syncPlanToCalendar(wk2); }, 50);
+}
+
+function toTimeInput(hora){
+  // "9:30" → "09:30"
+  var parts=hora.split(':');
+  return String(parts[0]).padStart(2,'0')+':'+(parts[1]||'00');
+}
+function fromTimeInput(val){
+  // "09:30" → "9:30"
+  var parts=val.split(':');
+  return parseInt(parts[0])+':'+(parts[1]||'00');
+}
+function saveHora(el){
+  var wk=el.dataset.wk, fi=parseInt(el.dataset.fi);
+  var val=el.value.trim();
+  if(!val) return;
+  // Aceptar formato H:MM o HH:MM
+  if(!/^\d{1,2}:\d{2}$/.test(val)){
+    // Intentar autocompletar: "930" → "9:30", "9" → "9:00"
+    val=val.replace(/[^0-9:]/g,'');
+    if(val.indexOf(':')===-1 && val.length>=3){
+      val=val.slice(0,-2)+':'+val.slice(-2);
+    }
+  }
+  var franjas=JSON.parse(localStorage.getItem('oi_franjas_'+wk)||JSON.stringify(FRANJAS));
+  franjas[fi]=val;
+  localStorage.setItem('oi_franjas_'+wk,JSON.stringify(franjas));
+  el.value=val; // actualizar el input con el valor normalizado
+}
+function addFranja(wk){
+  var franjas=JSON.parse(localStorage.getItem(`oi_franjas_${wk}`)||JSON.stringify(FRANJAS));
+  // Añadir 30 min después de la última
+  var last=franjas[franjas.length-1]||'12:00';
+  var parts=last.split(':');
+  var h=parseInt(parts[0]), m=parseInt(parts[1]||0)+30;
+  if(m>=60){h++;m-=60;}
+  franjas.push(h+':'+(m===0?'00':m));
+  localStorage.setItem(`oi_franjas_${wk}`,JSON.stringify(franjas));
+  renderWeeklyPlan();
+}
+function saveCellTipo(sel){
+  if(sel.value==='__new__'){
+    var newTipo=prompt('Nombre del nuevo tipo de tarea:');
+    if(!newTipo){sel.value='';return;}
+    newTipo=newTipo.trim().toUpperCase();
+    // Guardar en pz_tipos (compartido con pizarra)
+    var pzTipos=JSON.parse(localStorage.getItem('pz_tipos')||'[]');
+    if(!pzTipos.includes(newTipo)){pzTipos.push(newTipo);localStorage.setItem('pz_tipos',JSON.stringify(pzTipos));}
+    // También en plan_tipos
+    var planTipos=JSON.parse(localStorage.getItem('oi_plan_tipos')||'[]');
+    if(!planTipos.includes(newTipo)){planTipos.push(newTipo);localStorage.setItem('oi_plan_tipos',JSON.stringify(planTipos));}
+    renderWeeklyPlan();
+    return;
+  }
+  var key=sel.dataset.key;
+  var wk=key.split('_').slice(0,2).join('_');
+  if(!weeklyPlan[wk])weeklyPlan[wk]={};
+  var cell=weeklyPlan[wk][key]||{tipo:'',texto:''};
+  if(typeof cell==='string')cell={tipo:'',texto:cell};
+  cell.tipo=sel.value;
+  weeklyPlan[wk][key]=cell;
+  localStorage.setItem('oi_weekly_v2',JSON.stringify(weeklyPlan));
+}
+function saveCellTexto(el){
+  var key=el.dataset.key;
+  var wk=key.split('_').slice(0,2).join('_');
+  if(!weeklyPlan[wk])weeklyPlan[wk]={};
+  var cell=weeklyPlan[wk][key]||{tipo:'',texto:''};
+  if(typeof cell==='string')cell={tipo:'',texto:cell};
+  cell.texto=el.value;
+  weeklyPlan[wk][key]=cell;
+  localStorage.setItem('oi_weekly_v2',JSON.stringify(weeklyPlan));
+}
+
+
+function changeWeek(d){weekStart.setDate(weekStart.getDate()+d*7);renderWeeklyPlan();}
+function goThisWeek(){weekStart=getMonday(new Date());renderWeeklyPlan();}
+
+// ── IMPRIMIR ──
+function printView(){window.print();}
+
+// ── INIT ──
+buildYearSel();
+renderCalendar();
+loadCrest();
+
+function clearWeek(){
+  if(!confirm('¿Limpiar todos los contenidos de esta semana?'))return;
+  var wk=wkKey(weekStart);
+  delete weeklyPlan[wk];
+  delete weekDayTypes[wk];
+  localStorage.removeItem(`oi_franjas_${wk}`);
+  localStorage.setItem('oi_weekly_v2',JSON.stringify(weeklyPlan));
+  localStorage.setItem('oi_week_types_v1',JSON.stringify(weekDayTypes));
+  renderWeeklyPlan();
+}
+function selectAllFilters(){
+  document.querySelectorAll('.filter-chip').forEach(function(el){
+    activeFilters.add(el.dataset.type);
+    el.classList.add('active');
+  });
+  renderCalendar();
+}
+function clearAllFilters(){
+  activeFilters.clear();
+  document.querySelectorAll('.filter-chip').forEach(function(el){
+    el.classList.remove('active');
+  });
+  renderCalendar();
+}
+
+
+// ══════════════════════════════════════════════
+// MEJORAS v36: filtros, semana, sincronización
+// ══════════════════════════════════════════════
+
+// ── FILTRO: corregir toggle ──
+// El problema era que activeFilters es un Set y el toggle no funciona bien
+// Reescribir toggleFilter
+function toggleFilter(el){
+  var t = el.dataset.type;
+  if(activeFilters.has(t)){ activeFilters.delete(t); el.classList.remove('active'); }
+  else { activeFilters.add(t); el.classList.add('active'); }
+  renderCalendar();
+}
+
+// ── PLANNING: nombre de semana personalizable ──
+function getWeekName(wk){
+  return localStorage.getItem('oi_wkname_'+wk) || '';
+}
+function setWeekName(wk, name){
+  localStorage.setItem('oi_wkname_'+wk, name);
+}
+function editWeekName(){
+  var wk = wkKey(weekStart);
+  var current = getWeekName(wk) || wk;
+  var name = prompt('Nombre de la semana:', current);
+  if(name !== null){
+    setWeekName(wk, name.trim() || wk);
+    renderWeekTitleWithName();
+  }
+}
+function renderWeekTitleWithName(){
+  var wk = wkKey(weekStart);
+  var name = getWeekName(wk);
+  var el = document.getElementById('plan-week-title');
+  if(el){
+    el.innerHTML = (name || wk) + ' <span style="font-size:13px;opacity:0.5;cursor:pointer;" title="Editar nombre">✏️</span>';
+    el.title = 'Click para renombrar la semana';
+    el.style.cursor = 'pointer';
+    el.onclick = editWeekName;
+  }
+}
+
+// ── PLANNING: eliminar franja horaria ──
+function deleteFranja(wk, fi){
+  var franjas = JSON.parse(localStorage.getItem('oi_franjas_'+wk) || JSON.stringify(FRANJAS));
+  if(franjas.length <= 1){ alert('Debe haber al menos una franja'); return; }
+  franjas.splice(fi, 1);
+  localStorage.setItem('oi_franjas_'+wk, JSON.stringify(franjas));
+  // También eliminar datos de esa franja en todas las columnas
+  if(weeklyPlan[wk]){
+    for(var di=0; di<7; di++){
+      delete weeklyPlan[wk][wk+'_'+di+'_'+fi];
+    }
+    localStorage.setItem('oi_weekly_v2', JSON.stringify(weeklyPlan));
+  }
+  renderWeeklyPlan();
+}
+
+// ── PLANNING: descanso aplica a toda la columna ──
+// dayTypeChanged ya existe, pero hay que asegurar que re-renderiza bien
+// y que sincroniza con calendario
+
+// ── SINCRONIZACIÓN: planning semanal → calendario mensual ──
+function syncPlanToCalendar(wk){
+  // Para cada día de la semana, ver si hay tipo definido y sincronizar
+  var mon = weekStartFromWk(wk);
+  if(!mon) return;
+  
+  for(var di=0; di<7; di++){
+    var dtKey = wk+'_dt_'+di;
+    var typ = weekDayTypes[wk] ? weekDayTypes[wk][dtKey] : null;
+    var d = new Date(mon);
+    d.setDate(d.getDate() + di);
+    var key = dk(d.getFullYear(), d.getMonth(), d.getDate());
+    
+    if(!typ) continue;
+    
+    // Eliminar eventos auto-sincronizados anteriores de este día
+    if(!events[key]) events[key] = [];
+    events[key] = events[key].filter(function(ev){ return !ev._sync || ev._userEdited; });
+    
+    if(typ === 'descanso'){
+      events[key].push({type:'descanso', titulo:'Descanso', _sync:true});
+    } else if(typ === 'partido'){
+      // Buscar si hay partido registrado en calendario ese día
+      // Si no, poner placeholder
+      var yaPartido = events[key].some(function(ev){ return ev.type && ev.type.startsWith('partido'); });
+      if(!yaPartido){
+        events[key].push({type:'partido-liga', titulo:'Partido', _sync:true});
+      }
+    } else if(typ === 'regen' || typ === 'tension' || typ === 'duracion' || typ === 'velocidad' || typ === 'activacion'){
+      // Es día de entrenamiento — ver si hay contenido en alguna celda
+      var hasSesion = false;
+      if(weeklyPlan[wk]){
+        var franjas = JSON.parse(localStorage.getItem('oi_franjas_'+wk) || JSON.stringify(FRANJAS));
+        for(var fi=0; fi<franjas.length; fi++){
+          var cell = weeklyPlan[wk][wk+'_'+di+'_'+fi];
+          if(cell && (typeof cell === 'string' ? cell.trim() : (cell.tipo||cell.texto||'').trim())){
+            hasSesion = true; break;
+          }
+        }
+      }
+      if(hasSesion){
+        events[key].push({type:'sesion', titulo:'Sesión entrenamiento', _sync:true});
+      }
+    }
+    
+    if(events[key].length === 0) delete events[key];
+  }
+  localStorage.setItem('oi_cal_v2', JSON.stringify(events));
+  renderCalendar();
+}
+
+// Obtener lunes de la semana a partir de la clave wk
+function weekStartFromWk(wk){
+  // wk = "2026-W32" → calcular el lunes de esa semana
+  var parts = wk.split('-W');
+  if(parts.length < 2) return null;
+  var year = parseInt(parts[0]), week = parseInt(parts[1]);
+  // ISO week: lunes de la semana 1 del año
+  var jan4 = new Date(year, 0, 4);
+  var dayOfWeek = jan4.getDay() || 7;
+  var week1Mon = new Date(jan4);
+  week1Mon.setDate(jan4.getDate() - dayOfWeek + 1);
+  var mon = new Date(week1Mon);
+  mon.setDate(week1Mon.getDate() + (week-1)*7);
+  return mon;
+}
+
+// ── SINCRONIZACIÓN: calendario mensual → planning semanal ──
+// Cuando se guarda un evento de calendario, marcar el tipo en el planning
+function syncCalToWeekly(dateKey, type){
+  var d = new Date(dateKey + 'T12:00:00');
+  var mon = getMonday(d);
+  var wk = wkKey(mon);
+  var di = (d.getDay() + 6) % 7; // 0=Lun
+  
+  if(!weekDayTypes[wk]) weekDayTypes[wk] = {};
+  var dtKey = wk+'_dt_'+di;
+  
+  if(type === 'descanso') weekDayTypes[wk][dtKey] = 'descanso';
+  else if(type && type.startsWith('partido')) weekDayTypes[wk][dtKey] = 'partido';
+  else if(type === 'sesion') weekDayTypes[wk][dtKey] = 'tension'; // sesión → día de entrenamiento
+  
+  localStorage.setItem('oi_week_types_v1', JSON.stringify(weekDayTypes));
+}
+
+// Sobrescribir saveEvent para incluir sincronización
+var _origSaveEvent2 = window.saveEvent;
+window.saveEvent = function(){
+  if(_origSaveEvent2) _origSaveEvent2();
+  if(modalDateKey && curSelType){
+    syncCalEventToWeekly(modalDateKey, curSelType);
+  }
+};
+
+// ── dayTypeChanged robusto con sync inmediato ──
+// ── SYNC: planning → calendario (inmediato) ──
+// Tipos que pueden coexistir con cualquier evento
+var COEXIST_TYPES = ['cumple','partido-liga','partido-copa','partido-amistoso','partido-rival','partido-captacion','otro'];
+
+function syncWeekDayToCalendar(wk, di, typ){
+  var mon = weekStartFromWk(wk);
+  if(!mon) return;
+  var d = new Date(mon); d.setDate(d.getDate() + di);
+  var key = dk(d.getFullYear(), d.getMonth(), d.getDate());
+  if(!events[key]) events[key] = [];
+
+  // Separar eventos del usuario (no tocables) de los auto-sync
+  var userEvs = events[key].filter(function(ev){ return ev._userEdited || !ev._sync; });
+  // Los que coexisten con todo (cumpleaños, partidos registrados por usuario, otro)
+  var COEX = ['cumple','partido-liga','partido-copa','partido-amistoso','partido-rival','partido-captacion','otro'];
+
+  if(!typ || typ === ''){
+    // Sin tipo: mantener solo eventos del usuario
+    events[key] = userEvs;
+  } else if(typ === 'descanso'){
+    // Descanso: quitar sesiones auto-sync, añadir descanso si no hay ya uno del usuario
+    var keep = userEvs.filter(function(ev){ return COEX.indexOf(ev.type) !== -1 || ev.type === 'descanso'; });
+    var yaDescanso = keep.some(function(ev){ return ev.type === 'descanso'; });
+    if(!yaDescanso) keep.push({type:'descanso', titulo:'Descanso', hora:'', _sync:true});
+    events[key] = keep;
+  } else if(typ === 'partido'){
+    // Partido: quitar sesiones/descansos auto-sync, añadir partido con datos si no hay ya uno del usuario
+    var keep = userEvs.filter(function(ev){ return COEX.indexOf(ev.type) !== -1 || ev.type.startsWith('partido'); });
+    var yaPartido = keep.some(function(ev){ return ev.type && ev.type.startsWith('partido'); });
+    if(!yaPartido){
+      var pdata = weeklyPlan[wk] && weeklyPlan[wk][wk+'_partido_'+di];
+      keep.push(pdata ? {
+        type: 'partido-' + (pdata.competicion||'liga'),
+        titulo: pdata.rival || 'Partido',
+        hora: pdata.hora || '',
+        rival: pdata.rival || '',
+        rivalCrest: pdata.rivalCrest || null,
+        sede: pdata.sede || 'Local',
+        _sync: true
+      } : {type:'partido-liga', titulo:'Partido', hora:'', _sync:true});
+    }
+    events[key] = keep;
+  } else {
+    // Sesión (regen, tension, duracion, velocidad, activacion, mix_*):
+    // quitar descansos auto-sync, mantener partidos del usuario, añadir sesión
+    var keep = userEvs.filter(function(ev){ return COEX.indexOf(ev.type) !== -1 || ev.type === 'sesion'; });
+    var yaSesion = keep.some(function(ev){ return ev.type === 'sesion'; });
+    if(!yaSesion) keep.push({type:'sesion', titulo:'Sesión', hora:'', _sync:true});
+    events[key] = keep;
+  }
+
+  if(events[key].length === 0) delete events[key];
+  localStorage.setItem('oi_cal_v2', JSON.stringify(events));
+  renderCalendar();
+}
+
+window.dayTypeChanged = function(sel){
+  var wk=sel.dataset.wk, di=parseInt(sel.dataset.di);
+  var key=wk+'_dt_'+di;
+  if(!weekDayTypes[wk]) weekDayTypes[wk]={};
+  weekDayTypes[wk][key]=sel.value;
+  sel.className='day-type-sel '+sel.value;
+  localStorage.setItem('oi_week_types_v1',JSON.stringify(weekDayTypes));
+  if(sel.value==='partido'){
+    syncWeekDayToCalendar(wk,di,'partido');
+    renderWeeklyPlan();
+    setTimeout(function(){openModalPartido(wk,di);},150);
+  } else {
+    syncWeekDayToCalendar(wk,di,sel.value);
+    renderWeeklyPlan();
+  }
+};
+
+
+// ── OVERRIDE saveCellTexto para sincronizar sesión ──
+var _origSaveCellTexto = window.saveCellTexto;
+window.saveCellTexto = function(el){
+  if(_origSaveCellTexto) _origSaveCellTexto(el);
+  var key = el.dataset.key;
+  var parts = key.split('_');
+  var wk = parts[0]+'_'+parts[1];
+  setTimeout(function(){ syncPlanToCalendar(wk); }, 200);
+};
+
+// ── SINCRONIZAR TODOS LOS DÍAS GUARDADOS AL CARGAR ──
+function syncAllWeeksToCalendar(){
+  // Recorrer todas las semanas guardadas en weekDayTypes
+  Object.keys(weekDayTypes).forEach(function(wk){
+    var dayTypes = weekDayTypes[wk];
+    Object.keys(dayTypes).forEach(function(dtKey){
+      // dtKey = "2026-W32_dt_0"
+      var parts = dtKey.split('_dt_');
+      if(parts.length < 2) return;
+      var di = parseInt(parts[1]);
+      var typ = dayTypes[dtKey];
+      if(typ) syncWeekDayToCalendar(wk, di, typ);
+    });
+  });
+  localStorage.setItem('oi_cal_v2', JSON.stringify(events));
+}
+
+// ── INIT adicional ──
+(function(){
+  // Cuando el planning semanal se muestre, renderizar el nombre
+  var origSwitchTab = window.switchTab;
+  window.switchTab = function(t){
+    if(origSwitchTab) origSwitchTab(t);
+    if(t === 'plan'){
+      setTimeout(renderWeekTitleWithName, 50);
+    }
+  };
+  // También en changeWeek
+  var origChangeWeek = window.changeWeek;
+  window.changeWeek = function(d){
+    if(origChangeWeek) origChangeWeek(d);
+    setTimeout(renderWeekTitleWithName, 50);
+  };
+  var origGoThisWeek = window.goThisWeek;
+  window.goThisWeek = function(){
+    if(origGoThisWeek) origGoThisWeek();
+    setTimeout(renderWeekTitleWithName, 50);
+  };
+  // Sincronizar todos los días guardados al cargar
+  setTimeout(syncAllWeeksToCalendar, 100);
+})();
+
+
+// ── SELECTOR DE RELACIÓN (+1/+2/-4...) ──
+function dayRelChanged(sel){
+  var wk=sel.dataset.wk, di=parseInt(sel.dataset.di);
+  var key=wk+'_dr_'+di;
+  if(!weekDayTypes[wk]) weekDayTypes[wk]={};
+  weekDayTypes[wk][key]=sel.value;
+  localStorage.setItem('oi_week_types_v1',JSON.stringify(weekDayTypes));
+}
+
+// ── SINCRONIZAR calendario → planning semanal ──
+function syncCalEventToWeekly(dateKey, type){
+  var d = new Date(dateKey+'T12:00:00');
+  var mon = getMonday(d);
+  var wk = wkKey(mon);
+  var di = (d.getDay()+6)%7; // 0=Lun
+  if(!weekDayTypes[wk]) weekDayTypes[wk]={};
+  var dtKey = wk+'_dt_'+di;
+  if(type==='descanso') weekDayTypes[wk][dtKey]='descanso';
+  else if(type&&type.startsWith('partido')) weekDayTypes[wk][dtKey]='partido';
+  else if(type==='sesion') weekDayTypes[wk][dtKey]='tension';
+  localStorage.setItem('oi_week_types_v1',JSON.stringify(weekDayTypes));
+}
+
+
+// ══ FUNCIONES MODAL PARTIDO PLANNING ══
+var _mpWk=null,_mpDi=null,_mpRivalCrest=null;
+
+function openModalPartido(wk,di){
+  _mpWk=wk; _mpDi=typeof di==='string'?parseInt(di):di; _mpRivalCrest=null;
+  var mon=weekStartFromWk(wk);
+  var d=new Date(mon); d.setDate(d.getDate()+_mpDi);
+  var DN=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  var el=document.getElementById('mpartido-day-label');
+  if(el) el.textContent=DN[_mpDi]+' '+d.getDate()+' '+MONTHS[d.getMonth()];
+  var ex=weeklyPlan[wk]&&weeklyPlan[wk][wk+'_partido_'+_mpDi];
+  var ids=['mpartido-rival-name','mpartido-hora','mpartido-sede','mpartido-comp'];
+  var vals=[ex&&ex.rival||'',ex&&ex.hora||'',ex&&ex.sede||'Local',ex&&ex.competicion||'liga'];
+  ids.forEach(function(id,i){var el=document.getElementById(id);if(el)el.value=vals[i];});
+  var oc=localStorage.getItem('oi_team_crest');
+  var oi=document.getElementById('mpartido-our-crest');
+  if(oi&&oc){oi.src=oc;oi.style.display='block';}
+  var ri=document.getElementById('mpartido-rival-crest-img');
+  var rp=document.getElementById('mpartido-rival-ph');
+  if(ex&&ex.rivalCrest){_mpRivalCrest=ex.rivalCrest;if(ri){ri.src=ex.rivalCrest;ri.style.display='block';}if(rp)rp.style.display='none';}
+  else{if(ri)ri.style.display='none';if(rp)rp.style.display='';}
+  var bg=document.getElementById('modal-partido-bg');
+  if(bg)bg.style.display='flex';
+}
+
+function closeModalPartido(){
+  var bg=document.getElementById('modal-partido-bg');
+  if(bg)bg.style.display='none';
+}
+
+function mpartidoRivalCrest(e){
+  var file=e.target.files&&e.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var MAX=100,c=document.createElement('canvas');
+      var w=img.width,h=img.height;
+      if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+      c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+      _mpRivalCrest=c.toDataURL('image/png');
+      var ri=document.getElementById('mpartido-rival-crest-img');
+      var rp=document.getElementById('mpartido-rival-ph');
+      if(ri){ri.src=_mpRivalCrest;ri.style.display='block';}
+      if(rp)rp.style.display='none';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveModalPartido(){
+  if(_mpWk===null||_mpDi===null)return;
+  if(!weeklyPlan[_mpWk])weeklyPlan[_mpWk]={};
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  var pd={rival:g('mpartido-rival-name'),hora:g('mpartido-hora'),sede:g('mpartido-sede'),competicion:g('mpartido-comp'),rivalCrest:_mpRivalCrest};
+  weeklyPlan[_mpWk][_mpWk+'_partido_'+_mpDi]=pd;
+  localStorage.setItem('oi_weekly_v2',JSON.stringify(weeklyPlan));
+  if(pd.rival&&!rivals.find(function(r){return r.name===pd.rival;})){rivals.push({name:pd.rival,crest:pd.rivalCrest||null});localStorage.setItem('oi_rivals_v1',JSON.stringify(rivals));}
+  syncWeekDayToCalendar(_mpWk,_mpDi,'partido');
+  closeModalPartido();
+  renderWeeklyPlan();
+}
+
+
+function getPlanPartidoCellHtml(wk,di){
+  var pd = weeklyPlan[wk] && weeklyPlan[wk][wk+'_partido_'+di];
+  var isV = pd && pd.sede === 'Visitante';
+  var oc = localStorage.getItem('oi_team_crest');
+  var oImg = oc ? '<img style="width:26px;height:26px;object-fit:contain;border-radius:2px;" src="'+oc+'">' : '<span style="font-size:14px;">🛡</span>';
+  var rImg = (pd && pd.rivalCrest) ? '<img style="width:26px;height:26px;object-fit:contain;border-radius:2px;" src="'+pd.rivalCrest+'">' : '<span style="font-size:12px;color:rgba(200,168,75,0.4);">?</span>';
+  var leftEl = isV ? rImg : oImg;
+  var rightEl = isV ? oImg : rImg;
+  var hora = pd && pd.hora ? pd.hora : '';
+  var rival = pd && pd.rival ? pd.rival : '';
+  var h = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">';
+  h += '<div style="display:flex;align-items:center;gap:8px;">' + leftEl;
+  h += '<span style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;color:#C8A84B;letter-spacing:1px;">VS</span>';
+  h += rightEl + '</div>';
+  if(hora) h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:11px;color:rgba(200,168,75,0.8);">' + hora + '</div>';
+  if(rival) h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:9px;color:rgba(200,168,75,0.5);">' + rival + '</div>';
+  h += '<button onclick="openModalPartido(\''+wk+'\','+di+')" style="font-size:8px;color:rgba(200,168,75,0.4);background:none;border:none;cursor:pointer;margin-top:1px;">✏️ editar</button>';
+  h += '</div>';
+  return h;
+}
+
+</script>
+
+<!-- ══ MODAL PARTIDO PLANNING ══ -->
+<div id="modal-partido-bg" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:400;display:none;align-items:center;justify-content:center;" onclick="if(event.target.id==='modal-partido-bg')closeModalPartido()">
+  <div style="background:#1e2d40;border:1px solid rgba(200,168,75,0.2);border-radius:10px;padding:22px;width:420px;max-width:95vw;box-shadow:0 24px 64px rgba(0,0,0,0.6);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#C8A84B;">⚔️ Configurar Partido</div>
+      <button onclick="closeModalPartido()" style="background:none;border:none;color:#a09890;font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div id="mpartido-day-label" style="font-size:11px;color:#a09890;letter-spacing:1px;font-family:'Barlow Condensed',sans-serif;margin-bottom:14px;"></div>
+
+    <div style="background:#0d1530;border:1px solid rgba(200,168,75,0.15);border-radius:6px;padding:12px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <!-- Nuestro escudo -->
+        <div style="text-align:center;">
+          <div id="mpartido-our-crest-wrap" style="width:44px;height:44px;border-radius:4px;overflow:hidden;background:rgba(200,168,75,0.05);border:1px solid rgba(200,168,75,0.2);display:flex;align-items:center;justify-content:center;">
+            <img id="mpartido-our-crest" style="display:none;width:100%;height:100%;object-fit:contain;" alt=""><span id="mpartido-our-ph" style="font-size:9px;color:rgba(200,168,75,0.4);">Local</span>
+            <span style="font-size:9px;color:rgba(200,168,75,0.4);">Local</span>
+          </div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#C8A84B;letter-spacing:2px;">VS</div>
+        <!-- Escudo rival -->
+        <div style="text-align:center;">
+          <div id="mpartido-rival-wrap" onclick="document.getElementById('mpartido-rival-crest-input').click()" style="width:44px;height:44px;border-radius:4px;overflow:hidden;background:rgba(200,168,75,0.05);border:1.5px dashed rgba(200,168,75,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <img id="mpartido-rival-crest-img" style="display:none;width:100%;height:100%;object-fit:contain;" alt="">
+            <span id="mpartido-rival-ph" style="font-size:9px;color:rgba(200,168,75,0.4);">+</span>
+          </div>
+          <input type="file" id="mpartido-rival-crest-input" accept="image/*" style="display:none;" onchange="mpartidoRivalCrest(event)">
+        </div>
+        <div style="flex:1;">
+          <input id="mpartido-rival-name" class="form-input" placeholder="Nombre del rival" style="margin-bottom:6px;" oninput="updateMPartidoPreview()" list="rivals-list">
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <label class="form-label">Hora</label>
+        <input class="form-input" type="time" id="mpartido-hora">
+      </div>
+      <div>
+        <label class="form-label">Sede</label>
+        <select class="form-sel" id="mpartido-sede">
+          <option value="Local">Local</option>
+          <option value="Visitante">Visitante</option>
+          <option value="Neutral">Neutral</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label class="form-label">Competición</label>
+      <select class="form-sel" id="mpartido-comp">
+        <option value="liga">Liga</option>
+        <option value="copa">Copa</option>
+        <option value="amistoso">Amistoso</option>
+        <option value="rival">Partido Rival</option>
+        <option value="captacion">Captación</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid rgba(200,168,75,0.1);">
+      <button class="btn-sm btn-cancel" onclick="closeModalPartido()">Cancelar</button>
+      <button class="btn-sm btn-save" onclick="saveModalPartido()">Guardar partido</button>
+    </div>
+  </div>
+</div>
+
+</body>
+<!-- build-old:1786284371 -->
+
+
+
+
+
+
+</html>
+<!-- build:1786792175-9219 -->
+<!-- v1786865251 -->
