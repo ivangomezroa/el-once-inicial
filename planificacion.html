@@ -886,6 +886,7 @@ var weekDayTypes=JSON.parse(localStorage.getItem('oi_week_types_v1')||'{}');
 var rivals=JSON.parse(localStorage.getItem('oi_rivals_v1')||'[]');
 var activeFilters=new Set(['sesion','partido-liga','partido-copa','partido-amistoso','partido-rival','partido-captacion','descanso','cumple','otro']);
 var modalDateKey=null; var modalEvIdx=null; var curSelType='sesion', tmpRivalCrest=null;
+var syncBlockedDays=JSON.parse(localStorage.getItem('oi_sync_blocked')||'[]');
 
 // ── UTILS ──
 function dk(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
