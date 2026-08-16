@@ -771,31 +771,48 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <input class="form-input" type="time" id="ev-hora">
     </div>
 
-    <!-- SECCIÓN RIVAL (partidos) -->
+    <!-- SECCIÓN PARTIDO (dos equipos editables) -->
     <div id="rival-section" style="display:none;">
       <div class="rival-section">
-        <div class="rival-header">⚔️ Rival</div>
-        <div class="rival-row">
-          <div class="rival-crest-upload" onclick="document.getElementById('rival-crest-input').click()" title="Subir escudo rival">
-            <img id="rival-crest-img" class="rival-crest-img" alt="">
-            <svg id="rival-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
-          </div>
-          <input class="form-input" id="ev-rival" placeholder="Nombre del equipo rival" oninput="updateVsPreview()" list="rivals-list">
-          <datalist id="rivals-list"></datalist>
+
+        <!-- Toggle: ¿nuestro equipo juega? -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <label style="font-size:10px;letter-spacing:1px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;">¿Juega nuestro equipo?</label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+            <input type="checkbox" id="ev-nuestro-equipo" checked onchange="toggleNuestroEquipo()" style="accent-color:#C8A84B;">
+            <span style="font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;" id="ev-nuestro-label">Sí</span>
+          </label>
         </div>
-        <input type="file" id="rival-crest-input" accept="image/*" style="display:none" onchange="rivalCrestChosen(event)">
-        <div class="rival-saved-list" id="rival-saved-list"></div>
-        <div class="vs-preview" id="vs-preview">
-          <div class="vs-crest-ph" id="vs-our-crest">🛡</div>
-          <div>
-            <div class="vs-text">VS</div>
+
+        <!-- VS Preview -->
+        <div class="vs-preview" id="vs-preview" style="margin-bottom:10px;">
+          <!-- EQUIPO LOCAL -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <div class="rival-crest-upload" id="local-crest-wrap" onclick="document.getElementById('local-crest-input').click()" title="Subir escudo local">
+              <img id="local-crest-img" class="rival-crest-img" alt="">
+              <svg id="local-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
+            </div>
+            <input class="form-input" id="ev-local-name" placeholder="Equipo local" oninput="updateVsPreview()" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <div class="vs-crest-ph" id="vs-rival-crest">?</div>
-            <div class="vs-team" id="vs-rival-name">Rival</div>
+            <div class="vs-text">VS</div>
+          </div>
+          <!-- EQUIPO VISITANTE -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <div class="rival-crest-upload" id="rival-crest-wrap" onclick="document.getElementById('rival-crest-input').click()" title="Subir escudo visitante">
+              <img id="rival-crest-img" class="rival-crest-img" alt="">
+              <svg id="rival-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
+            </div>
+            <input class="form-input" id="ev-rival" placeholder="Equipo visitante" oninput="updateVsPreview()" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
           </div>
         </div>
-        <div class="form-row" style="margin-top:8px;margin-bottom:0;">
+
+        <input type="file" id="local-crest-input" accept="image/*" style="display:none" onchange="localCrestChosen(event)">
+        <input type="file" id="rival-crest-input" accept="image/*" style="display:none" onchange="rivalCrestChosen(event)">
+        <datalist id="rivals-list"></datalist>
+        <div class="rival-saved-list" id="rival-saved-list"></div>
+
+        <div class="form-row" style="margin-top:6px;margin-bottom:0;">
           <label class="form-label">Competición / tipo</label>
           <select class="form-sel" id="ev-competicion">
             <option value="">— Sin especificar —</option>
@@ -806,8 +823,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <option value="Amistoso">Amistoso</option>
           </select>
         </div>
-        <div class="form-row" style="margin-bottom:0;margin-top:8px;">
-          <label class="form-label">Sede</label>
+        <div class="form-row" style="margin-bottom:0;margin-top:8px;" id="row-sede">
+          <label class="form-label">Sede (solo si jugamos nosotros)</label>
           <select class="form-sel" id="ev-sede">
             <option value="Local">Local</option>
             <option value="Visitante">Visitante</option>
@@ -1006,7 +1023,14 @@ function openModal(key,idx=null){
   updateVsPreview();
   document.getElementById('modal-bg').classList.add('open');
 }
-function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+function closeModal(){
+  document.getElementById('modal-bg').classList.remove('open');
+  tmpLocalCrest = null;
+  // Reset equipo local
+  var li=document.getElementById('local-crest-img'); if(li){li.style.display='none';li.src='';}
+  var lp=document.getElementById('local-crest-ph'); if(lp)lp.style.display='';
+  var ln=document.getElementById('ev-local-name'); if(ln){ln.value='';ln.readOnly=false;ln.style.opacity='1';}
+}
 function bgClick(e){if(e.target.id==='modal-bg')closeModal();}
 
 function selTypeTile(el){setType(el.dataset.type);}
@@ -1020,12 +1044,18 @@ function saveEvent(){
   if(!modalDateKey)return;
   if(!events[modalDateKey])events[modalDateKey]=[];
   var wasSync = modalEvIdx!==null && events[modalDateKey][modalEvIdx] && events[modalDateKey][modalEvIdx]._sync;
+  var nuestroEquipo = document.getElementById('ev-nuestro-equipo') ? document.getElementById('ev-nuestro-equipo').checked : true;
+  var localName = nuestroEquipo ? '' : (document.getElementById('ev-local-name')?document.getElementById('ev-local-name').value.trim():'');
+  var localCrestVal = nuestroEquipo ? localStorage.getItem('oi_team_crest') : (tmpLocalCrest||(modalEvIdx!==null&&events[modalDateKey][modalEvIdx]?events[modalDateKey][modalEvIdx].localCrest:null));
   var ev={
     type:curSelType,
     titulo:document.getElementById('ev-titulo').value.trim(),
     hora:document.getElementById('ev-hora').value,
     rival:document.getElementById('ev-rival').value.trim(),
-    rivalCrest:tmpRivalCrest||(modalEvIdx!==null?events[modalDateKey][modalEvIdx]?.rivalCrest:null),
+    rivalCrest:tmpRivalCrest||(modalEvIdx!==null&&events[modalDateKey][modalEvIdx]?events[modalDateKey][modalEvIdx].rivalCrest:null),
+    localName:localName,
+    localCrest:localCrestVal,
+    nuestroEquipo:nuestroEquipo,
     competicion:document.getElementById('ev-competicion').value,
     sede:document.getElementById('ev-sede').value,
     notas:document.getElementById('ev-notas').value.trim(),
@@ -1083,16 +1113,7 @@ function resetRivalCrest(){
   tmpRivalCrest=null;
 }
 function updateVsPreview(){
-  const name=document.getElementById('ev-rival').value||'Rival';
-  document.getElementById('vs-rival-name').textContent=name;
-  // Nuestro escudo
-  const ourCrest=localStorage.getItem('oi_team_crest');
-  const ourEl=document.getElementById('vs-our-crest');
-  if(ourCrest){ourEl.innerHTML=`<img class="vs-crest" src="${ourCrest}">`;}
-  // Escudo rival
-  const rivEl=document.getElementById('vs-rival-crest');
-  const rc=tmpRivalCrest||(rivals.find(r=>r.name===name)?.crest);
-  rivEl.innerHTML=rc?`<img class="vs-crest" src="${rc}">`:'?';
+  // Ya no hay vs-rival-name separado — los nombres están en los inputs
 }
 
 // ── PLANNING SEMANAL ──
