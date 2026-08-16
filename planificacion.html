@@ -969,7 +969,8 @@ function renderCalendar(){
 
     // Eventos del día filtrados
     const dayEvs=(events[key]||[]).filter(ev=>activeFilters.has(ev.type));
-    dayEvs.forEach((ev,idx)=>{
+    dayEvs.forEach(function(ev, idx){
+      var realIdx = (events[key]||[]).indexOf(ev);
       const el=document.createElement('div');
       el.className=`cal-event ev-${ev.type}`;
       const hora=ev.hora?`<span style="opacity:0.7">${ev.hora}</span> `:'';
