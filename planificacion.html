@@ -650,6 +650,70 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 @media print {
   .print-only-header { display: block !important; }
   #print-crest { display: block !important; }
+/* ── OCULTAR CONTROLES DE EDICIÓN ── */
+  .cell-task-sel,          /* selector tipo tarea */
+  select,                  /* todos los selects */
+  .plan-cell textarea + *,
+  button, .btn,
+  .hs-tip,
+  [title="Eliminar franja"],
+  .descanso-icon ~ button { display: none !important; }
+
+  /* Mostrar solo el valor del select como texto */
+  .day-type-sel { 
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    pointer-events: none !important;
+  }
+
+  /* Ocultar las X de eliminar franja y botones editar */
+  .hora-cell span[onclick],
+  .partido-edit-btn,
+  .plan-table tbody tr:last-child { display: none !important; }
+
+  /* ── CELDA PARTIDO — ajustar a espacio disponible ── */
+  .plan-cell.is-partido > div {
+    flex-direction: column !important;
+    gap: 2px !important;
+    padding: 2px !important;
+  }
+  .plan-cell.is-partido img {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .plan-cell.is-partido [style*="VS"] {
+    font-size: 9px !important;
+  }
+  .plan-cell.is-partido [style*="hora"],
+  .plan-cell.is-partido [style*="rival"] {
+    font-size: 8px !important;
+  }
+
+  /* ── ELIMINAR cabecera "El Once Inicial Sistema de Gestión" ── */
+  .print-only-header > div > div:first-child > div:first-child, /* texto sub */
+  #print-date, /* fecha impresión */
+  .print-only-header > div > div:last-child { display: none !important; }
+
+  /* Solo mostrar: escudo + nombre semana + fechas */
+  .print-only-header #print-crest { 
+    height: 36px !important; 
+    width: 36px !important; 
+  }
+  #print-week-name {
+    font-size: 18px !important;
+    color: #1B2A6B !important;
+  }
+  #print-week-dates {
+    font-size: 10px !important;
+    color: #555 !important;
+  }
+
+  /* La topnav de la APP ya lleva logo — NO duplicar en print header */
+  .print-only-header [style*="El Once Inicial"] { display: none !important; }
+  .print-only-header [style*="Sistema"] { display: none !important; }
+
+}
+
 }
 
 </style>
@@ -1717,70 +1781,7 @@ function getPlanPartidoCellHtml(wk,di){
   h += '<button onclick="openModalPartido(\''+wk+'\','+di+')" style="font-size:8px;color:rgba(200,168,75,0.4);background:none;border:none;cursor:pointer;margin-top:1px;">✏️ editar</button>';
   h += '</div>';
   return h;
-  /* ── OCULTAR CONTROLES DE EDICIÓN ── */
-  .cell-task-sel,          /* selector tipo tarea */
-  select,                  /* todos los selects */
-  .plan-cell textarea + *,
-  button, .btn,
-  .hs-tip,
-  [title="Eliminar franja"],
-  .descanso-icon ~ button { display: none !important; }
-
-  /* Mostrar solo el valor del select como texto */
-  .day-type-sel { 
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    pointer-events: none !important;
-  }
-
-  /* Ocultar las X de eliminar franja y botones editar */
-  .hora-cell span[onclick],
-  .partido-edit-btn,
-  .plan-table tbody tr:last-child { display: none !important; }
-
-  /* ── CELDA PARTIDO — ajustar a espacio disponible ── */
-  .plan-cell.is-partido > div {
-    flex-direction: column !important;
-    gap: 2px !important;
-    padding: 2px !important;
-  }
-  .plan-cell.is-partido img {
-    width: 18px !important;
-    height: 18px !important;
-  }
-  .plan-cell.is-partido [style*="VS"] {
-    font-size: 9px !important;
-  }
-  .plan-cell.is-partido [style*="hora"],
-  .plan-cell.is-partido [style*="rival"] {
-    font-size: 8px !important;
-  }
-
-  /* ── ELIMINAR cabecera "El Once Inicial Sistema de Gestión" ── */
-  .print-only-header > div > div:first-child > div:first-child, /* texto sub */
-  #print-date, /* fecha impresión */
-  .print-only-header > div > div:last-child { display: none !important; }
-
-  /* Solo mostrar: escudo + nombre semana + fechas */
-  .print-only-header #print-crest { 
-    height: 36px !important; 
-    width: 36px !important; 
-  }
-  #print-week-name {
-    font-size: 18px !important;
-    color: #1B2A6B !important;
-  }
-  #print-week-dates {
-    font-size: 10px !important;
-    color: #555 !important;
-  }
-
-  /* La topnav de la APP ya lleva logo — NO duplicar en print header */
-  .print-only-header [style*="El Once Inicial"] { display: none !important; }
-  .print-only-header [style*="Sistema"] { display: none !important; }
-
 }
-
 </script>
 
 <!-- ══ MODAL PARTIDO PLANNING ══ -->
