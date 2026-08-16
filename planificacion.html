@@ -399,111 +399,174 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .new-tipo-btn:hover { background: rgba(200,168,75,0.35); }
 
 /* Print */
-/* ══ ESTILOS DE IMPRESIÓN — Ahorro de tinta, legible, bonito ══ */
+/* ══ IMPRESIÓN — Horizontal A4, cabeceras visibles, ahorro tinta ══ */
 @media print {
-  /* Ocultar navegación y controles */
+  /* Forzar orientación landscape */
+  @page {
+    size: A4 landscape;
+    margin: 8mm 6mm;
+  }
+
+  /* Ocultar controles UI */
   .oi-topnav, .toolbar, .plan-week-nav,
-  .plan-header-row .plan-week-nav,
-  .btn, button:not(.no-print-hide) { display: none !important; }
+  .plan-actions button { display: none !important; }
 
-  /* Página A4 horizontal */
-  @page { size: A4 landscape; margin: 10mm 8mm; }
+  /* Mostrar solo la vista activa */
+  body { background: white !important; overflow: visible !important; }
+  .main { background: white !important; overflow: visible !important; height: auto !important; }
+  .view { overflow: visible !important; height: auto !important; background: white !important; }
 
-  /* Reset fondo oscuro → blanco */
-  *, *::before, *::after {
-    background: white !important;
-    color: #222 !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
-    border-color: #ccc !important;
-  }
-
-  body, html {
-    background: white !important;
-    overflow: visible !important;
-    font-family: 'Barlow Condensed', Arial, sans-serif;
-  }
-  .main, .view {
-    overflow: visible !important;
-    height: auto !important;
-    background: white !important;
-  }
-
-  /* Cabecera de impresión — minimalista */
+  /* Cabecera de semana — simple y limpia */
   .plan-header-row {
     display: flex !important;
-    justify-content: space-between !important;
     align-items: center !important;
-    padding: 4px 0 6px !important;
-    margin-bottom: 6px !important;
+    justify-content: space-between !important;
+    padding: 4px 0 8px !important;
     border-bottom: 2px solid #1B2A6B !important;
+    margin-bottom: 6px !important;
     background: white !important;
   }
   .plan-week-title {
-    font-size: 16px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
     color: #1B2A6B !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
     letter-spacing: 1px !important;
+    text-transform: uppercase !important;
   }
   .plan-week-sub {
-    font-size: 10px !important;
-    color: #666 !important;
+    font-size: 9px !important;
+    color: #555 !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    letter-spacing: 0.5px !important;
   }
 
-  /* Tabla limpia */
+  /* Escudo en cabecera de impresión */
+  .print-crest-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  /* Tabla */
   .plan-table-wrap {
     overflow: visible !important;
     border: 1px solid #ccc !important;
     border-radius: 0 !important;
+    background: white !important;
   }
   .plan-table {
-    font-size: 8px !important;
+    font-size: 7.5px !important;
     width: 100% !important;
     border-collapse: collapse !important;
+    background: white !important;
   }
   .plan-table th, .plan-table td {
-    border: 0.5px solid #ddd !important;
+    border: 0.5px solid #bbb !important;
   }
 
-  /* Headers de días */
+  /* ── CABECERA DÍAS — fondo navy visible ── */
   .day-header-cell {
     background: #1B2A6B !important;
-    color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
     padding: 0 !important;
+  }
+  .day-header-inner {
+    padding: 4px 3px !important;
+    background: #1B2A6B !important;
+  }
+  .day-num {
+    color: rgba(255,255,255,0.65) !important;
+    font-size: 7px !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+  }
+  .day-name {
+    color: #ffffff !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    text-transform: uppercase !important;
+  }
+
+  /* Selector de relación (+1/+2/DP) */
+  .day-type-sel:first-of-type {
+    background: rgba(255,255,255,0.15) !important;
+    color: rgba(255,255,255,0.7) !important;
+    border: none !important;
+    font-size: 7px !important;
+    padding: 1px 2px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  .day-header-inner { padding: 4px 3px !important; }
-  .day-name {
-    color: white !important;
-    font-size: 9px !important;
-    font-weight: 700 !important;
-  }
-  .day-num { color: rgba(255,255,255,0.7) !important; font-size: 7px !important; }
 
-  /* Selectores de tipo → solo texto */
-  .day-type-sel {
-    background: transparent !important;
-    border: none !important;
-    color: #C8A84B !important;
-    font-size: 7px !important;
-    font-weight: 700 !important;
+  /* Selector de carga (Regenerativo/Tensión...) */
+  .day-type-sel.regen {
+    background: rgba(42,122,26,0.85) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-type-sel.tension {
+    background: rgba(160,30,30,0.85) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-type-sel.duracion {
+    background: rgba(160,90,20,0.85) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-type-sel.velocidad {
+    background: rgba(20,70,160,0.85) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-type-sel.activacion {
+    background: rgba(150,120,0,0.85) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-type-sel.partido {
+    background: rgba(200,168,75,0.85) !important;
+    color: #1B2A6B !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-type-sel.descanso {
+    background: rgba(80,80,100,0.6) !important;
+    color: #fff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   /* Celdas de contenido */
   .plan-cell {
-    height: 52px !important;
+    height: 50px !important;
     padding: 3px !important;
     background: white !important;
     vertical-align: top !important;
   }
-  .plan-cell textarea, .cell-free-text {
-    color: #333 !important;
-    font-size: 8px !important;
+  .plan-cell.is-descanso {
+    background: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .plan-cell.is-partido {
+    background: #fffbf0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .cell-free-text, .plan-cell textarea {
+    color: #222 !important;
+    font-size: 7.5px !important;
     line-height: 1.4 !important;
-    background: white !important;
+    background: transparent !important;
   }
   .cell-task-sel {
     color: #1B2A6B !important;
@@ -512,12 +575,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     background: transparent !important;
     border: none !important;
     border-bottom: 0.5px solid #ddd !important;
-    padding: 0 0 1px !important;
   }
 
-  /* Celda de hora */
+  /* Hora */
   .hora-cell {
-    background: #f5f5f5 !important;
+    background: #f8f8f8 !important;
     padding: 3px 4px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -526,37 +588,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     color: #1B2A6B !important;
     font-size: 8px !important;
     font-weight: 700 !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
   }
 
-  /* Descanso */
-  .plan-cell.is-descanso {
-    background: #f0f0f0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .descanso-icon { color: #999 !important; font-size: 14px !important; }
+  /* Icono descanso */
+  .descanso-icon { color: #aaa !important; font-size: 16px !important; }
 
-  /* Partido VS */
-  .partido-vs-txt { color: #1B2A6B !important; font-weight: 700 !important; }
+  /* Ocultar fila de añadir */
+  .plan-table tbody tr:last-child { display: none !important; }
 
-  /* Fila de añadir hora → ocultar */
-  .plan-table tr:last-child { display: none !important; }
-
-  /* Selector de relación → mostrar solo texto */
-  .day-type-sel:first-of-type { color: #888 !important; font-size: 6px !important; }
-
-  /* Vista calendario — si se imprime */
-  .cal-cell { min-height: 60px !important; border: 0.5px solid #ddd !important; }
-  .cal-wd { background: #1B2A6B !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .cal-event { font-size: 8px !important; }
-  .ev-sesion { background: #d4edda !important; color: #155724 !important; border-left: 2px solid #28a745 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .ev-partido-liga { background: #fff3cd !important; color: #856404 !important; border-left: 2px solid #C8A84B !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .ev-descanso { background: #f8f9fa !important; color: #666 !important; border-left: 2px solid #999 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .ev-cumple { background: #fce4ec !important; color: #880e4f !important; border-left: 2px solid #e91e63 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-  /* Evitar cortes de página dentro de la tabla */
-  .plan-table { page-break-inside: avoid; }
-  tr { page-break-inside: avoid; }
+  /* Sin cortes */
+  .plan-table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
 }
 
 
@@ -600,6 +643,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   border:none; background:none; padding:0;
 }
 .partido-edit-btn:hover { color:#C8A84B; }
+
+
+/* Cabecera print */
+.print-only-header { display: none !important; }
+@media print {
+  .print-only-header { display: block !important; }
+  #print-crest { display: block !important; }
+}
 
 </style>
 </head>
@@ -684,7 +735,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
   <!-- ══ VISTA PLANNING SEMANAL ══ -->
   <div class="view" id="view-plan">
-    <div class="plan-header-row">
+    <!-- Cabecera solo para impresión -->
+<div class="print-only-header" style="display:none;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 6px;border-bottom:2px solid #1B2A6B;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img id="print-crest" style="height:32px;width:32px;object-fit:contain;" src="" alt="">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;color:#888;letter-spacing:1px;text-transform:uppercase;">El Once Inicial — Sistema de Gestión</div>
+        <div id="print-week-name" style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#1B2A6B;letter-spacing:1px;text-transform:uppercase;"></div>
+        <div id="print-week-dates" style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:#555;"></div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:8px;color:#888;">Impreso el <span id="print-date"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="plan-header-row">
       <div class="plan-week-info">
         <div class="plan-week-title" id="plan-week-title">Semana</div>
         <div class="plan-week-sub" id="plan-week-sub"></div>
