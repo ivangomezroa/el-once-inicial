@@ -1277,18 +1277,7 @@ function printWeeklyPlan(){
   if(!weeklyPlan[wk]) weeklyPlan[wk]={};
 
   var ourCrest = localStorage.getItem('oi_team_crest') || '';
-  // Capturar logo como base64 — esperar carga completa
-  var logoB64 = location.origin + '/logo.png';
-  // Buscar si ya está cargado en el DOM
-  var existingLogo = document.querySelector('.nav-logo-circle img, .oi-logo-circle img');
-  if(existingLogo && existingLogo.complete && existingLogo.naturalWidth > 0){
-    try {
-      var lc = document.createElement('canvas');
-      lc.width = existingLogo.naturalWidth; lc.height = existingLogo.naturalHeight;
-      lc.getContext('2d').drawImage(existingLogo, 0, 0);
-      logoB64 = lc.toDataURL('image/png');
-    } catch(e) {}
-  }
+
   var weekName = getWeekName(wk) || wk;
   var mon = days[0], sun = days[6];
   var dateRange = mon.getDate()+' '+MONTHS[mon.getMonth()]+' — '+sun.getDate()+' '+MONTHS[sun.getMonth()]+' '+sun.getFullYear();
@@ -1374,12 +1363,11 @@ function printWeeklyPlan(){
     +'</style></head><body>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:2px solid #1B2A6B;margin-bottom:10px;">'
     +'<div style="display:flex;align-items:center;gap:10px;">'
-    +'<img src="'+logoB64+'" style="height:38px;width:38px;object-fit:contain;">'
-    +'<div style="width:1px;height:30px;background:#ddd;margin:0 6px;"></div>'
-    +'<div style="margin-right:14px;">'
-    +'<div style="font-size:8px;letter-spacing:2px;color:#C8A84B;text-transform:uppercase;font-weight:600;">El Once Inicial</div>'
-    +'<div style="font-size:10px;font-weight:700;color:#1B2A6B;letter-spacing:1px;text-transform:uppercase;">Planificación</div>'
+    +'<div style="display:flex;flex-direction:column;justify-content:center;margin-right:14px;">'
+    +'<div style="font-size:8px;letter-spacing:2px;color:#C8A84B;text-transform:uppercase;font-weight:700;">El Once Inicial</div>'
+    +'<div style="font-size:13px;font-weight:700;color:#1B2A6B;letter-spacing:1.5px;text-transform:uppercase;">Planificación</div>'
     +'</div>'
+    +'<div style="width:1px;height:30px;background:#ddd;margin:0 8px;"></div>'
     +crestHtml
     +'<div><div style="font-size:20px;font-weight:700;color:#1B2A6B;letter-spacing:1px;text-transform:uppercase;">'+weekName+'</div>'
     +'<div style="font-size:10px;color:#555;margin-top:2px;">'+dateRange+'</div></div>'
