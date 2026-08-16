@@ -380,6 +380,45 @@
 .oi-nav-crest img{width:100%;height:100%;object-fit:contain;display:none;}
 .oi-nav-crest svg{opacity:0.35;}
 
+
+/* ══ IMPRESIÓN SESIÓN — Amigable con la tinta ══ */
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  
+  .oi-topnav, #sessions-panel { display: none !important; }
+  
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  body, html { background: white !important; overflow: visible !important; }
+  
+  /* Header de sesión */
+  .sess-header {
+    background: #1B2A6B !important;
+    color: white !important;
+    border-radius: 0 !important;
+  }
+  
+  /* Fondos oscuros → blanco */
+  .task-card { 
+    background: white !important; 
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+  }
+  
+  /* Campo SVG — fondo blanco */
+  .field-wrap, .field-bg { background: white !important; }
+  .field-line { stroke: #333 !important; }
+  
+  /* Texto legible */
+  * { color: #222 !important; }
+  .phase-banner { -webkit-print-color-adjust: exact !important; }
+  
+  /* Evitar cortes */
+  .task-card { page-break-inside: avoid !important; }
+}
 </style>
 </head>
 <body>

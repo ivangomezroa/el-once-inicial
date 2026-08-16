@@ -399,16 +399,164 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .new-tipo-btn:hover { background: rgba(200,168,75,0.35); }
 
 /* Print */
+/* ══ ESTILOS DE IMPRESIÓN — Ahorro de tinta, legible, bonito ══ */
 @media print {
-  .oi-topnav, .toolbar, .plan-week-nav, .plan-header-row { display: none !important; }
-  body { overflow: visible !important; }
-  .main, .view { overflow: visible !important; height: auto !important; }
-  .plan-table-wrap { overflow: visible !important; }
-  .plan-table { font-size: 8px !important; }
-  .plan-cell { height: 48px !important; }
-  .day-header-inner { padding: 4px !important; }
-  .hora-cell { padding: 3px !important; }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Ocultar navegación y controles */
+  .oi-topnav, .toolbar, .plan-week-nav,
+  .plan-header-row .plan-week-nav,
+  .btn, button:not(.no-print-hide) { display: none !important; }
+
+  /* Página A4 horizontal */
+  @page { size: A4 landscape; margin: 10mm 8mm; }
+
+  /* Reset fondo oscuro → blanco */
+  *, *::before, *::after {
+    background: white !important;
+    color: #222 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    border-color: #ccc !important;
+  }
+
+  body, html {
+    background: white !important;
+    overflow: visible !important;
+    font-family: 'Barlow Condensed', Arial, sans-serif;
+  }
+  .main, .view {
+    overflow: visible !important;
+    height: auto !important;
+    background: white !important;
+  }
+
+  /* Cabecera de impresión — minimalista */
+  .plan-header-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 4px 0 6px !important;
+    margin-bottom: 6px !important;
+    border-bottom: 2px solid #1B2A6B !important;
+    background: white !important;
+  }
+  .plan-week-title {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #1B2A6B !important;
+    letter-spacing: 1px !important;
+  }
+  .plan-week-sub {
+    font-size: 10px !important;
+    color: #666 !important;
+  }
+
+  /* Tabla limpia */
+  .plan-table-wrap {
+    overflow: visible !important;
+    border: 1px solid #ccc !important;
+    border-radius: 0 !important;
+  }
+  .plan-table {
+    font-size: 8px !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  .plan-table th, .plan-table td {
+    border: 0.5px solid #ddd !important;
+  }
+
+  /* Headers de días */
+  .day-header-cell {
+    background: #1B2A6B !important;
+    color: white !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .day-header-inner { padding: 4px 3px !important; }
+  .day-name {
+    color: white !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+  }
+  .day-num { color: rgba(255,255,255,0.7) !important; font-size: 7px !important; }
+
+  /* Selectores de tipo → solo texto */
+  .day-type-sel {
+    background: transparent !important;
+    border: none !important;
+    color: #C8A84B !important;
+    font-size: 7px !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Celdas de contenido */
+  .plan-cell {
+    height: 52px !important;
+    padding: 3px !important;
+    background: white !important;
+    vertical-align: top !important;
+  }
+  .plan-cell textarea, .cell-free-text {
+    color: #333 !important;
+    font-size: 8px !important;
+    line-height: 1.4 !important;
+    background: white !important;
+  }
+  .cell-task-sel {
+    color: #1B2A6B !important;
+    font-size: 7px !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 0.5px solid #ddd !important;
+    padding: 0 0 1px !important;
+  }
+
+  /* Celda de hora */
+  .hora-cell {
+    background: #f5f5f5 !important;
+    padding: 3px 4px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .hora-lbl, .hora-cell input {
+    color: #1B2A6B !important;
+    font-size: 8px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Descanso */
+  .plan-cell.is-descanso {
+    background: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .descanso-icon { color: #999 !important; font-size: 14px !important; }
+
+  /* Partido VS */
+  .partido-vs-txt { color: #1B2A6B !important; font-weight: 700 !important; }
+
+  /* Fila de añadir hora → ocultar */
+  .plan-table tr:last-child { display: none !important; }
+
+  /* Selector de relación → mostrar solo texto */
+  .day-type-sel:first-of-type { color: #888 !important; font-size: 6px !important; }
+
+  /* Vista calendario — si se imprime */
+  .cal-cell { min-height: 60px !important; border: 0.5px solid #ddd !important; }
+  .cal-wd { background: #1B2A6B !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .cal-event { font-size: 8px !important; }
+  .ev-sesion { background: #d4edda !important; color: #155724 !important; border-left: 2px solid #28a745 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .ev-partido-liga { background: #fff3cd !important; color: #856404 !important; border-left: 2px solid #C8A84B !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .ev-descanso { background: #f8f9fa !important; color: #666 !important; border-left: 2px solid #999 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .ev-cumple { background: #fce4ec !important; color: #880e4f !important; border-left: 2px solid #e91e63 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Evitar cortes de página dentro de la tabla */
+  .plan-table { page-break-inside: avoid; }
+  tr { page-break-inside: avoid; }
 }
 
 
