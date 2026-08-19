@@ -1,9 +1,36 @@
-// El 11 Inicial — v3.9 build 1780654533
-// ── SUPABASE ─────────────────────────────────────────────────────
-const SB_URL = 'https://dhvekklfuoamaedcuahp.supabase.co';
-const SB_KEY = 'sb_publishable_r85OsmPFHbKGzm3I9JVkHw_E2PITg4X';
-const sb = supabase.createClient(SB_URL, SB_KEY);
 
+// ── MIGRACIÓN SUPABASE → localStorage (una sola vez) ──────────────
+async function migrateFromSupabase() {
+  const existing = localStorage.getItem('oi_jugadores_v1');
+  if(existing && JSON.parse(existing).length > 0) return; // ya migrado
+  
+  const SB_URL = 'https://dhvekklfuoamaedcuahp.supabase.co';
+  const SB_KEY = 'sb_publishable_r85OsmPFHbKGzm3I9JVkHw_E2PITg4X';
+  
+  try {
+    const resp = await fetch(SB_URL + '/rest/v1/jugadores?select=*&order=id', {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    if(!resp.ok) return; // Supabase no disponible — no migrar
+    const data = await resp.json();
+    if(data && data.length > 0) {
+      // Marcar plantilla
+      const pResp = await fetch(SB_URL + '/rest/v1/plantilla?select=jugador_id', {
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+      });
+      const plantilla = pResp.ok ? await pResp.json() : [];
+      const plantIds = new Set(plantilla.map(function(x){ return x.jugador_id; }));
+      data.forEach(function(j){ j._enPlantilla = plantIds.has(j.id); });
+      localStorage.setItem('oi_jugadores_v1', JSON.stringify(data));
+      console.log('✅ Migrados ' + data.length + ' jugadores de Supabase a localStorage');
+    }
+  } catch(e) {
+    console.log('Supabase no disponible, usando localStorage existente');
+  }
+}
+
+// El 11 Inicial — v3.9 build 1780654533
+// ── ALMACENAMIENTO LOCAL ──────────────────────────────────────
 // ── ESTADOS ───────────────────────────────────────────────────────
 const EST = {
   "EN PLANTILLA":          {bg:"#FFFFFF",tx:"#1B2A6B",bd:"#1B2A6B"},
@@ -133,15 +160,10 @@ let claudeMsgs=[], claudeLoading=false;
 async function loadData() {
   shT("Cargando datos...","info");
   try {
-    const {data:j,error:je} = await sb.from("jugadores").select("*").order("id");
-    if(je) throw je;
-    jug = j.map(x=>({...x,ico:x.ico||[]}));
-    const {data:p,error:pe} = await sb.from("plantilla").select("jugador_id");
-    if(pe) throw pe;
-    const ids = new Set(p.map(x=>x.jugador_id));
-    // Asignar _posAsignada automática (primera posición del jugador) si no la tienen
-    plant = jug.filter(j=>ids.has(j.id)).map(j=>({...j, _posAsignada: j.pos_campo||jugPos(j)[0]}));
-    syncStatus="ok"; render(); shT(`${jug.length} jugadores ✓`);
+    const stored = localStorage.getItem('oi_jugadores_v1');
+    jug = stored ? JSON.parse(stored) : [];
+    jug.sort(function(a,b){ return a.id - b.id; });
+    syncStatus="ok"; render(); shT(jug.length + " jugadores ✓");
   } catch(e) {
     syncStatus="error"; shT("Error: "+e.message,"err"); render();
   }
@@ -153,14 +175,18 @@ async function updJug(id, ch) {
   plant = plant.map(j=>j.id===id?{...j,...ch}:j);
   render();
   try {
-    await sb.from("jugadores").update({...ch,updated_at:new Date().toISOString()}).eq("id",id);
+    const i2 = jug.findIndex(function(x){ return x.id===id; });
+    if(i2>=0){ jug[i2]=Object.assign({},jug[i2],ch,{updated_at:new Date().toISOString()}); }
+    localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
+    render();
   } catch(e) { shT("Error al guardar: "+e.message,"err"); }
 }
 
 async function delJug(id) {
   if(!confirm("¿Eliminar jugador?")) return;
   jug=jug.filter(j=>j.id!==id); plant=plant.filter(j=>j.id!==id); render();
-  try { await sb.from("jugadores").delete().eq("id",id); } catch(e){shT("Error: "+e.message,"err");}
+  jug = jug.filter(function(x){ return x.id!==id; });
+  localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
 }
 async function addPlant(id, posAsignada) {
   const j=jug.find(x=>x.id===id);
@@ -173,14 +199,17 @@ async function addPlant(id, posAsignada) {
   const pa = posAsignada || jugPos(j)[0];
   plant=[...plant,{...j,_posAsignada:pa}]; render(); shT(`${j.n} → ${pa}`);
   try {
-    await sb.from("plantilla").upsert({jugador_id:id});
     // Guardar posición asignada en el jugador
-    await sb.from("jugadores").update({pos_campo:pa}).eq("id",id);
+    j._enPlantilla=true; j.pos_campo=pa;
+    localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
+    render();
   } catch(e){shT("Error: "+e.message,"err");}
 }
 async function remPlant(id) {
   plant=plant.filter(p=>p.id!==id); render();
-  try { await sb.from("plantilla").delete().eq("jugador_id",id); } catch(e){shT("Error: "+e.message,"err");}
+  const jj=jug.find(function(x){ return x.id===id; });
+  if(jj){ jj._enPlantilla=false; }
+  localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
 }
 async function addJug() {
   const n=(document.getElementById("rn")?.value||"").trim();
@@ -199,9 +228,8 @@ async function addJug() {
   };
   delete nuevo.posArr;
   try {
-    const {error} = await sb.from("jugadores").insert(nuevo);
-    if(error) throw error;
     jug=[...jug,nuevo];
+    localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
     // Reset COMPLETO — posArr a null para que no arrastre posiciones del jugador anterior
     fd={s:"PORTEROS",pos:"P1",n:"",eq:"",cat:"",est:"INTERESA",ico:[],repre:"",contacto:"",tel:"",tm:"",bs:"",obs:"",perfil:"",posArr:null};
     render();
@@ -773,7 +801,7 @@ window.moverPos = async (id, nuevaPos) => {
   shT('Movido a ' + nuevaPos);
   // Persistir en Supabase
   try {
-    await sb.from("jugadores").update({pos_campo: nuevaPos}).eq("id", id);
+    // pos_campo ya actualizado en memoria — guardar
   } catch(e) { shT("Error al guardar posición: "+e.message,"err"); }
 };
 window.tEC  = id => { editCid=editCid===id?null:id; render(); };
