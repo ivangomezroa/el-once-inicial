@@ -2060,12 +2060,11 @@ var _campoImg = null;
 function setupCampoImage(){
   _campoImg = new Image();
   _campoImg.onload = function(){
-    var orig = drawFullField;
-    window.drawFullField = function(){
+    // Override drawFullField to use campo.png
+    drawFullField = function(){
       var r = fieldRect();
       ctx.drawImage(_campoImg, r.x, r.y, r.w, r.h);
     };
-    if(typeof render === 'function') render();
   };
   _campoImg.src = 'campo.png';
 }
@@ -2310,10 +2309,8 @@ function renderCampoPreview(campoKey, size){
   // Campo imagen como background (usar rect verde si no hay imagen)
   svgParts.push('<image href="campo.png" x="'+PAD+'" y="'+PAD+'" width="'+fw+'" height="'+fh+'" preserveAspectRatio="none"/>');
   // Elementos
-  var scaleX = fw / (cv ? cv.width||700 : 700);
-  var scaleY = fh / (cv ? cv.height||500 : 500);
-  // Calcular la escala real del campo
-  var {x:fx,y:fy,w:cfw,h:cfh} = typeof fieldRect === 'function' ? fieldRect() : {x:PAD,y:PAD,w:fw,h:fh};
+  // Usar coordenadas fijas del campo para el preview (no depende del canvas)
+  var fx = PAD, fy = PAD, cfw = fw, cfh = fh;
   elemsData.forEach(function(el){
     if(el.type==='player'){
       // Mapear coordenadas del canvas a SVG
