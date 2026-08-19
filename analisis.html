@@ -497,75 +497,31 @@ function editRivalName(){
 }
 
 function renderXI(inf){
-  var rows = FORMACIONES[inf.formacion] || FORMACIONES['4-4-2'];
-  var jugs = inf.jugadoresXI || [];
-  
-  // Construir el campo con jugadores
-  var fieldHTML = '';
-  var rowPcts = getRowPositions(rows.length);
-  var jugIdx = 0;
-  
-  rows.forEach(function(row, ri){
-    var pct = rowPcts[ri];
-    row.forEach(function(_, ci){
-      var jug = jugs[jugIdx] || {dorsal:'', nombre:'', iconos:[]};
-      var left = ((ci+1)/(row.length+1)*100).toFixed(1);
-      var icons = (jug.iconos||[]).map(function(k){
-        var ic = ICONOS.find(function(i){return i.k===k;});
-        return ic ? ic.e : '';
-      }).join('');
-            var _ji = jugIdx;
-      var _pArr = [
-        '<div class="xi-player" style="position:absolute;left:'+left+'%;top:'+pct+'%;transform:translate(-50%,-50%);" onclick="openModalJugador(\'xi\','+_ji+')">  ',
-        '<div class="xi-player-circle" style="background:'+(jug.nombre?'var(--gold)':' rgba(200,168,75,0.3)')+'">',
-        String(jug.dorsal||'?'),
-        '</div>',
-        '<div class="xi-player-name">'+(jug.nombre||'Añadir')+'</div>',
-        icons?'<div class="xi-icons">'+icons+'</div>':'  ',
-        '</div>'
-      ];
-      fieldHTML += _pArr.join("");
-      jugIdx++;
-
-    });
-  });
-  
   var formOptions = Object.keys(FORMACIONES).map(function(f){
     return '<option'+(f===inf.formacion?' selected':'')+'>'+f+'</option>';
   }).join('');
   
+  var editorSrc = 'campo-editor.html?id='+inf.id+'&tipo=xi';
+  
   return '<div class="sec-xi">'
-    +'<div class="sec-title">⚽ Posible 11 — Sistema: '
-    +'<select style="background:var(--navy2);border:1px solid var(--border);color:var(--text);padding:2px 8px;border-radius:3px;font-family:var(--fc);font-size:11px;outline:none;" onchange="changeFormacion(this.value)">'+formOptions+'</select>'
+    +'<div class="sec-title">&#x26BD; Posible 11'
+    +'<select style="background:var(--navy2);border:1px solid var(--border);color:var(--text);padding:2px 8px;border-radius:3px;font-family:var(--fc);font-size:11px;outline:none;margin-left:8px;" onchange="cambiarFormacionXI(this.value)">'+formOptions+'</select>'
     +'</div>'
-    +'<div class="xi-field">'
-    +renderFieldSVG()
-    +'<div class="xi-players-wrap">'+fieldHTML+'</div>'
-    +'</div>'
+    +'<iframe id="iframe-xi" src="'+editorSrc+'" style="width:100%;height:500px;border:none;border-radius:6px;overflow:hidden;" allowfullscreen></iframe>'
     +'</div>';
 }
 
-function getRowPositions(numRows){
-  // Distribuir filas de arriba (portero = 90%) a abajo (delanteros = 10%)
-  var positions = [];
-  for(var i=0;i<numRows;i++){
-    positions.push(90 - (80/(numRows-1))*i);
+function cambiarFormacionXI(f){
+  var inf = getInforme(currentId); if(!inf) return;
+  inf.formacion = f;
+  saveInformes();
+  // Enviar al iframe
+  var iframe = document.getElementById('iframe-xi');
+  if(iframe && iframe.contentWindow){
+    iframe.contentWindow.postMessage({type:'applyFormation', sistema:f, colorJ:'#C8A84B', colorF:'#1B2A6B'}, '*');
   }
-  return positions;
 }
 
-function renderFieldSVG(){
-  return '<svg class="xi-field-lines" viewBox="0 0 100 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">'
-    +'<rect x="0" y="0" width="100" height="140" fill="#1a5c1a"/>'
-    +'<rect x="5" y="5" width="90" height="130" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.5"/>'
-    +'<line x1="5" y1="70" x2="95" y2="70" stroke="rgba(255,255,255,0.5)" stroke-width="0.5"/>'
-    +'<circle cx="50" cy="70" r="12" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="0.5"/>'
-    +'<rect x="25" y="5" width="50" height="18" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>'
-    +'<rect x="35" y="5" width="30" height="8" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>'
-    +'<rect x="25" y="117" width="50" height="18" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>'
-    +'<rect x="35" y="127" width="30" height="8" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>'
-    +'</svg>';
-}
 
 function renderAlineaciones(inf){
   var alins = inf.alineaciones || [];
@@ -616,25 +572,40 @@ function renderMiniField(alin){
 
 function renderMomentos(inf){
   var tabsHTML = MOMENTOS_TABS.map(function(t,ti){
-    return '<button class="momento-tab'+(ti===0?' active':'')+'" onclick="switchMomento(\''+t.k+'\')" id="mtab-'+t.k+'">'+t.l+'</button>';
+    var active = ti===0?' active':'';
+    return '<button class="momento-tab'+active+'" data-mkey="'+t.k+'" onclick="switchMomento(this.dataset.mkey)" id="mtab-'+t.k+'">'+t.l+'</button>';
   }).join('');
+  
   var contsHTML = MOMENTOS_TABS.map(function(t,ti){
     var m=(inf.momentos||{})[t.k]||{};
-    return ['<div class="momento-content'+(ti===0?' active':'')+'" id="mcont-'+t.k+'">',
-      '<div class="momento-split">',
-      '<div class="momento-field-wrap">',
-      '<input placeholder="Titulo..." style="background:transparent;border:none;outline:none;border-bottom:1px solid var(--border);color:var(--text);font-family:var(--fc);font-size:11px;margin-bottom:6px;width:100%;" value="'+esc(m.titulo1||'')+'" onchange="saveMomento(\''+t.k+'\',\'titulo1\',this.value)">',
-      '<div class="momento-field" style="min-height:100px;">'+renderMiniField({formacion:inf.formacion,jugadores:inf.jugadoresXI})+'</div>',
-      '<textarea class="momento-text" placeholder="Descripcion tactica..." onchange="saveMomento(\''+t.k+'\',\'texto1\',this.value)">'+esc(m.texto1||'')+'</textarea>',
-      '</div>',
-      '<div class="momento-field-wrap">',
-      '<input placeholder="Titulo..." style="background:transparent;border:none;outline:none;border-bottom:1px solid var(--border);color:var(--text);font-family:var(--fc);font-size:11px;margin-bottom:6px;width:100%;" value="'+esc(m.titulo2||'')+'" onchange="saveMomento(\''+t.k+'\',\'titulo2\',this.value)">',
-      '<div class="momento-field" style="min-height:100px;">'+renderMiniField({formacion:inf.formacion,jugadores:inf.jugadoresXI})+'</div>',
-      '<textarea class="momento-text" placeholder="Descripcion tactica..." onchange="saveMomento(\''+t.k+'\',\'texto2\',this.value)">'+esc(m.texto2||'')+'</textarea>',
-      '</div></div></div>'
-    ].join('');
+    var active = ti===0?' active':'';
+    var s1 = 'campo-editor.html?id='+inf.id+'&tipo=mom_'+t.k+'_1';
+    var s2 = 'campo-editor.html?id='+inf.id+'&tipo=mom_'+t.k+'_2';
+    var inpStyle = 'background:transparent;border:none;outline:none;border-bottom:1px solid var(--border);color:var(--text);font-family:var(--fc);font-size:11px;margin-bottom:6px;width:100%;';
+    var ifStyle = 'width:100%;height:260px;border:1px solid var(--border);border-radius:6px;';
+    var parts = [
+      '<div class="momento-content'+active+'" id="mcont-'+t.k+'">',
+        '<div class="momento-split">',
+          '<div class="momento-field-wrap">',
+            '<input placeholder="Titulo..." style="'+inpStyle+'" value="'+esc(m.titulo1||'')+'" data-mt="'+t.k+'" data-mf="titulo1" onchange="saveMomentoEl(this)">',
+            '<iframe src="'+s1+'" style="'+ifStyle+'" allowfullscreen></iframe>',
+            '<textarea class="momento-text" placeholder="Descripcion tactica..." data-mt="'+t.k+'" data-mf="texto1" onchange="saveMomentoEl(this)">'+esc(m.texto1||'')+'</textarea>',
+          '</div>',
+          '<div class="momento-field-wrap">',
+            '<input placeholder="Titulo..." style="'+inpStyle+'" value="'+esc(m.titulo2||'')+'" data-mt="'+t.k+'" data-mf="titulo2" onchange="saveMomentoEl(this)">',
+            '<iframe src="'+s2+'" style="'+ifStyle+'" allowfullscreen></iframe>',
+            '<textarea class="momento-text" placeholder="Descripcion tactica..." data-mt="'+t.k+'" data-mf="texto2" onchange="saveMomentoEl(this)">'+esc(m.texto2||'')+'</textarea>',
+          '</div>',
+        '</div>',
+      '</div>'
+    ];
+    return parts.join('');
   }).join('');
+  
   return '<div class="sec-momentos"><div class="sec-title">Momentos del juego</div><div class="momentos-tabs">'+tabsHTML+'</div>'+contsHTML+'</div>';
+}
+function saveMomentoEl(el){
+  saveMomento(el.dataset.mt, el.dataset.mf, el.value);
 }
 
 function renderNotas(inf){
