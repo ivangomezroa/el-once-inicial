@@ -544,8 +544,7 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
 
 </div>
 
-<script>
-const cv=document.getElementById('fc');
+<script>const cv=document.getElementById('fc');
 const ctx=cv.getContext('2d');
 const CW=document.getElementById('cwrap');
 
@@ -1517,13 +1516,13 @@ function onRClick(e){
   menu.style.left=left+'px';menu.style.top=top+'px';menu.classList.add('show');
 }
 
-document.getElementById('ctx-copy').onclick=()=>{closeCtx();copySelected();};
-document.getElementById('ctx-cut').onclick=()=>{closeCtx();cutSelected();};
-document.getElementById('ctx-paste').onclick=()=>{closeCtx();pasteClipboard();};
-document.getElementById('ctx-color').onclick=()=>{closeCtx();if(ctxEl)openColorProps(ctxEl);if(ctxLine)openLineColorProps(ctxLine);};
-document.getElementById('ctx-label').onclick=()=>{closeCtx();if(ctxEl){const l=prompt('Texto/Siglas:',ctxEl.label||ctxEl.num||ctxEl.text||'');if(l!==null){if(ctxEl.type==='player')ctxEl.num=l.trim();else if(ctxEl.type==='ct')ctxEl.label=l.trim().substring(0,4);else ctxEl.text=l.trim();render();}}};
-document.getElementById('ctx-resize').onclick=()=>{closeCtx();if(ctxEl)openResizeProps(ctxEl);};
-document.getElementById('ctx-del').onclick=()=>{closeCtx();if(ctxEl){ELS=ELS.filter(e=>e!==ctxEl);selEl=null;}if(ctxLine){LINES=LINES.filter(l=>l!==ctxLine);selLine=null;}render();};
+(function(){var _ce=document.getElementById('ctx-copy');if(_ce){document.getElementById('ctx-copy').onclick=()=>{closeCtx();copySelected();};}})();
+(function(){var _ce=document.getElementById('ctx-cut');if(_ce){document.getElementById('ctx-cut').onclick=()=>{closeCtx();cutSelected();};}})();
+(function(){var _ce=document.getElementById('ctx-paste');if(_ce){document.getElementById('ctx-paste').onclick=()=>{closeCtx();pasteClipboard();};}})();
+(function(){var _ce=document.getElementById('ctx-color');if(_ce){document.getElementById('ctx-color').onclick=()=>{closeCtx();if(ctxEl)openColorProps(ctxEl);if(ctxLine)openLineColorProps(ctxLine);};}})();
+(function(){var _ce=document.getElementById('ctx-label');if(_ce){document.getElementById('ctx-label').onclick=()=>{closeCtx();if(ctxEl){const l=prompt('Texto/Siglas:',ctxEl.label||ctxEl.num||ctxEl.text||'');if(l!==null){if(ctxEl.type==='player')ctxEl.num=l.trim();else if(ctxEl.type==='ct')ctxEl.label=l.trim().substring(0,4);else ctxEl.text=l.trim();render();}}};}})();
+(function(){var _ce=document.getElementById('ctx-resize');if(_ce){document.getElementById('ctx-resize').onclick=()=>{closeCtx();if(ctxEl)openResizeProps(ctxEl);};}})();
+(function(){var _ce=document.getElementById('ctx-del');if(_ce){document.getElementById('ctx-del').onclick=()=>{closeCtx();if(ctxEl){ELS=ELS.filter(e=>e!==ctxEl);selEl=null;}if(ctxLine){LINES=LINES.filter(l=>l!==ctxLine);selLine=null;}render();};}})();
 function closeCtx(){document.getElementById('ctx').classList.remove('show');}
 
 function hexFromRgba(s){try{const m=s.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);if(m)return'#'+[m[1],m[2],m[3]].map(v=>parseInt(v).toString(16).padStart(2,'0')).join('');return s;}catch(e){return '#C8A84B';}}
@@ -2048,497 +2047,6 @@ function onFS(){
   showMDJSuggestions('s', fs);
 }
 
-function showMDJSuggestions(side, faseKey){
-  const box=document.getElementById('mdj-suggest-'+side);
-  if(!box)return;
-  const km={'OF-ORG-SB':'OF-ORG','OF-ORG-PR':'OF-ORG','OF-ORG-FI':'OF-ORG','OF-TR-CA':'OF-TR','OF-TR-IO':'OF-TR','DEF-ORG-SB':'DEF-ORG','DEF-ORG-PR':'DEF-ORG','DEF-ORG-FI':'DEF-ORG','DEF-TR-PR':'DEF-TR','DEF-TR-PP':'DEF-TR','DEF-TR-RE':'DEF-TR'};
-  const mdjKey=km[faseKey]||faseKey;
-  const subs=mdj[mdjKey]||[];
-  const current=side==='p'?iP:iS;
-  const available=subs.filter(s=>!current.includes(s));
-  if(!available.length){box.style.display='none';box.innerHTML='';return;}
-  box.style.display='flex';
-  box.style.alignItems='center';
-  box.style.gap='6px';
-  box.innerHTML=`<span style="font-size:9px;color:var(--text3);flex-shrink:0;">Del modelo:</span>
-    <select onchange="addIIFromMDJ('${side}',this.value);this.value='';" style="flex:1;background:var(--surface);border:1px solid rgba(200,168,75,0.35);border-radius:5px;padding:3px 6px;font-size:10px;color:var(--gold);cursor:pointer;">
-      <option value="">— Seleccionar principio —</option>
-      ${available.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join('')}
-    </select>`;
-}
-
-// Track items added from MDJ (already registered, no need to re-add)
-let iP_fromMDJ=new Set(), iS_fromMDJ=new Set();
-
-function addIIFromMDJ(side, val){
-  if(side==='p'){
-    if(!iP.includes(val)){iP.push(val);iP_fromMDJ.add(val);renderII('p');}
-  } else {
-    if(!iS.includes(val)){iS.push(val);iS_fromMDJ.add(val);renderII('s');}
-  }
-  const fk=side==='p'?document.getElementById('fase-p').value:document.getElementById('fase-s').value;
-  showMDJSuggestions(side, fk);
-}
-function updPct(v){document.getElementById('pmain').style.width=v+'%';document.getElementById('psec').style.width=(100-v)+'%';document.getElementById('pmainv').textContent=v+'%';document.getElementById('psecv').textContent=(100-v)+'%';}
-function updSocio(){document.getElementById('socio-prev').textContent=document.getElementById('socio').value||'—';}
-// ============ EXTRA ROLES ============
-let extraRoles=[]; // [{label,name,value}]
-
-function addExtraRol(){
-  const label=document.getElementById('rol-extra-label').value.trim().substring(0,4).toUpperCase();
-  const name=document.getElementById('rol-extra-name').value.trim();
-  if(!label||!name){notify('Añade siglas y nombre',true);return;}
-  extraRoles.push({label,name,value:''});
-  document.getElementById('rol-extra-label').value='';
-  document.getElementById('rol-extra-name').value='';
-  renderExtraRoles();
-}
-
-function renderExtraRoles(){
-  const c=document.getElementById('roles-extra');
-  if(!c)return;
-  c.innerHTML='';
-  extraRoles.forEach((r,i)=>{
-    const div=document.createElement('div');div.className='rrow';
-    div.style.marginTop='4px';
-    div.innerHTML=`<span class="rbadge" style="background:var(--navy);border:1px solid var(--gold);color:var(--gold);">${r.label}</span>
-      <textarea class="fta" placeholder="${r.name}..." style="min-height:40px;flex:1;" oninput="extraRoles[${i}].value=this.value">${r.value}</textarea>
-      <button class="btn btn-sm btn-danger" onclick="removeExtraRol(${i})" style="flex-shrink:0;margin-left:3px;">✕</button>`;
-    c.appendChild(div);
-  });
-}
-
-function removeExtraRol(i){extraRoles.splice(i,1);renderExtraRoles();}
-
-function addPunt(){const l=document.getElementById('punt-list');const d=document.createElement('div');d.className='vitem';d.innerHTML=`<input type="text" class="fi" placeholder="Ej: Gol = 2 pts · Pase puerta = 1 pt" style="flex:1;"><button class="btn btn-sm btn-danger" onclick="this.closest('.vitem').remove()" style="flex-shrink:0;">✕</button>`;l.appendChild(d);}
-function addVar(){const l=document.getElementById('var-list');const d=document.createElement('div');d.className='vitem';d.innerHTML=`<input type="text" class="fi" placeholder="Describe la variante..." style="flex:1;"><button class="btn btn-sm btn-danger" onclick="this.closest('.vitem').remove()" style="flex-shrink:0;">✕</button>`;l.appendChild(d);}
-
-function getForm(){return{name:document.getElementById('task-name').value,tipos:getSelTipos(),fasePrincipal:document.getElementById('fase-p').value,faseSecundaria:document.getElementById('fase-s').value,iP:[...iP],iS:[...iS],pct:document.getElementById('pslider').value,socio:document.getElementById('socio').value,espTipo:document.getElementById('esp-tipo').value,espW:document.getElementById('esp-w').value,espH:document.getElementById('esp-h').value,desarrollo:document.getElementById('desarrollo').value,puntuaciones:[...document.querySelectorAll('#punt-list .fi')].map(i=>i.value).filter(Boolean),roles:{e:document.getElementById('rol-e').value,e2:document.getElementById('rol-e2').value,pf:document.getElementById('rol-pf').value,ep:document.getElementById('rol-ep').value},extraRoles:JSON.parse(JSON.stringify(extraRoles)),materiales:{goal:document.getElementById('mat-goal').checked,mini:document.getElementById('mat-mini').checked,cone:document.getElementById('mat-cone').checked,pole:document.getElementById('mat-pole').checked,ball:document.getElementById('mat-ball').checked,vest:document.getElementById('mat-vest').checked},variantes:[...document.querySelectorAll('#var-list .fi')].map(i=>i.value).filter(Boolean),ELS:JSON.parse(JSON.stringify(ELS)),LINES:JSON.parse(JSON.stringify(LINES)),canvasW:cv.width,canvasH:cv.height};}
-function saveTask(){
-  const d=getForm();
-  if(!d.name){notify('Añade un nombre',true);return;}
-  // Register iP/iS into MDJ — skip items that already came from MDJ
-  const fp=document.getElementById('fase-p').value;
-  const fs=document.getElementById('fase-s').value;
-  const mdjKM={'OF-ORG-SB':'OF-ORG','OF-ORG-PR':'OF-ORG','OF-ORG-FI':'OF-ORG','OF-TR-CA':'OF-TR','OF-TR-IO':'OF-TR','DEF-ORG-SB':'DEF-ORG','DEF-ORG-PR':'DEF-ORG','DEF-ORG-FI':'DEF-ORG','DEF-TR-PR':'DEF-TR','DEF-TR-PP':'DEF-TR','DEF-TR-RE':'DEF-TR'};
-  const fpMDJ=mdjKM[fp]||fp, fsMDJ=mdjKM[fs]||fs;
-  if(fpMDJ){
-    iP.filter(v=>!iP_fromMDJ.has(v)).forEach(v=>addMDJ(fpMDJ,v));
-    if(mdj[fpMDJ]&&iS.length) mdj[fpMDJ]=mdj[fpMDJ].filter(v=>!iS.includes(v));
-  }
-  if(fsMDJ) iS.filter(v=>!iS_fromMDJ.has(v)).forEach(v=>addMDJ(fsMDJ,v));
-  if(tid){const i=tasks.findIndex(t=>t.id===tid);if(i>=0)tasks[i]={...tasks[i],...d,upd:Date.now()};}
-  else{tid=Date.now().toString();tasks.push({id:tid,cre:Date.now(),upd:Date.now(),...d});}
-  localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks));
-  renderLib();renderMDJ();notify('✓ Tarea guardada');
-}
-function newTask(){tid=null;ELS=[];LINES=[];selEl=null;selLine=null;iP=[];iS=[];iP_fromMDJ=new Set();iS_fromMDJ=new Set();['task-name','socio','desarrollo','rol-e','rol-e2','rol-pf','rol-ep','esp-w','esp-h'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('fase-p').value='';document.getElementById('fase-s').value='';document.getElementById('socio-prev').textContent='—';document.querySelectorAll('#twrap .tchip').forEach(c=>c.classList.remove('sel'));['mat-goal','mat-mini','mat-cone','mat-pole','mat-ball','mat-vest'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});renderII('p');renderII('s');extraRoles=[];renderExtraRoles();document.getElementById('punt-list').innerHTML='';addPunt();document.getElementById('var-list').innerHTML='';addVar();updPct(70);document.getElementById('pslider').value=70;closeProps();render();notify('Nueva tarea lista');}
-function loadTask(t){
-  tid=t.id;
-  ELS=JSON.parse(JSON.stringify(t.ELS||[]));
-  LINES=JSON.parse(JSON.stringify(t.LINES||[]));
-  iP=[...(t.iP||[])];iS=[...(t.iS||[])];
-  iP_fromMDJ=new Set();iS_fromMDJ=new Set();
-  // Declare fp/fs FIRST so all code below can use them
-  const fp=t.fasePrincipal||'';
-  const fs=t.faseSecundaria||'';
-  document.getElementById('task-name').value=t.name||'';
-  document.getElementById('fase-p').value=fp;
-  document.getElementById('fase-s').value=fs;
-  document.getElementById('socio').value=t.socio||'';
-  document.getElementById('socio-prev').textContent=t.socio||'—';
-  document.getElementById('esp-tipo').value=t.espTipo||'';
-  document.getElementById('esp-w').value=t.espW||'';
-  document.getElementById('esp-h').value=t.espH||'';
-  document.getElementById('desarrollo').value=t.desarrollo||'';
-  if(t.pct){document.getElementById('pslider').value=t.pct;updPct(t.pct);}
-  if(t.roles){['e','e2','pf','ep'].forEach(r=>{const el=document.getElementById('rol-'+r);if(el)el.value=t.roles[r]||'';});}
-  if(t.materiales)Object.keys(t.materiales).forEach(k=>{const el=document.getElementById('mat-'+k);if(el)el.checked=t.materiales[k];});
-  document.querySelectorAll('#twrap .tchip').forEach((c,i)=>{c.classList.toggle('sel',(t.tipos||[]).includes(tipos[i]));});
-  document.getElementById('punt-list').innerHTML='';
-  (t.puntuaciones||[]).forEach(p=>{addPunt();const ins=document.querySelectorAll('#punt-list .fi');ins[ins.length-1].value=p;});
-  document.getElementById('var-list').innerHTML='';
-  (t.variantes||[]).forEach(v=>{addVar();const ins=document.querySelectorAll('#var-list .fi');ins[ins.length-1].value=v;});
-  renderII('p');renderII('s');
-  extraRoles=JSON.parse(JSON.stringify(t.extraRoles||[]));renderExtraRoles();
-  showMDJSuggestions('p',fp);
-  showMDJSuggestions('s',fs);
-  // Register MDJ
-  const km={'OF-ORG-SB':'OF-ORG','OF-ORG-PR':'OF-ORG','OF-ORG-FI':'OF-ORG','OF-TR-CA':'OF-TR','OF-TR-IO':'OF-TR','DEF-ORG-SB':'DEF-ORG','DEF-ORG-PR':'DEF-ORG','DEF-ORG-FI':'DEF-ORG','DEF-TR-PR':'DEF-TR','DEF-TR-PP':'DEF-TR','DEF-TR-RE':'DEF-TR'};
-  const fpM=km[fp]||fp, fsM=km[fs]||fs;
-  if(fpM){iP.forEach(v=>addMDJ(fpM,v));if(mdj[fpM]&&iS.length)mdj[fpM]=mdj[fpM].filter(v=>!iS.includes(v));localStorage.setItem('pz_mdj',JSON.stringify(mdj));}
-  if(fsM)iS.forEach(v=>addMDJ(fsM,v));
-  if(fp||fs)renderMDJ();
-  // Switch to editor THEN render canvas
-  sv('editor');
-  setTimeout(()=>render(),50);
-  notify('✓ Tarea cargada');
-}
-window.loadTaskById=function(id){
-  const t=tasks.find(t=>t.id===id);
-  if(t){loadTask(t);}
-  else{console.error('Task not found:',id,'tasks:',tasks.map(t=>t.id));}
-}
-
-window.duplicateTask=function(id){
-  const orig=tasks.find(t=>t.id===id);
-  if(!orig)return;
-  // Deep clone and assign new id
-  const dup=JSON.parse(JSON.stringify(orig));
-  dup.id=Date.now().toString();
-  dup.cre=Date.now();
-  dup.upd=Date.now();
-  dup.name=(orig.name||'Tarea')+' (copia)';
-  tasks.push(dup);
-  localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks));
-  // Load the duplicate in editor so user can modify it
-  loadTask(dup);
-  notify('⧉ Tarea duplicada — modifícala en el editor');
-}
-
-// Event delegation registered in init() below
-function deleteTask(id){if(!confirm('¿Eliminar?'))return;tasks=tasks.filter(t=>t.id!==id);localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks));if(tid===id)tid=null;renderLib();}
-
-function getFT(f){if(!f)return'';if(f.startsWith('OF-ORG'))return`<span class="tag tag-of">Org.Of</span>`;if(f.startsWith('OF-TR'))return`<span class="tag tag-to">Trans.Of</span>`;if(f.startsWith('DEF-ORG'))return`<span class="tag tag-def">Org.Def</span>`;if(f.startsWith('DEF-TR'))return`<span class="tag tag-td">Trans.Def</span>`;if(f.startsWith('ABP'))return`<span class="tag tag-abp">ABP</span>`;return'';}
-function renderLib(){
-  const g=document.getElementById('lib-grid');
-  const sr=(document.getElementById('lib-search')?.value||'').toLowerCase();
-  const ff=document.getElementById('lib-fase')?.value||'';
-  const ft2=document.getElementById('lib-tipo')?.value||'';
-
-  // Populate tipo filter dynamically
-  const tipoSel=document.getElementById('lib-tipo');
-  if(tipoSel){
-    const allTipos=[...new Set(tasks.flatMap(t=>t.tipos||[]))];
-    const curVal=tipoSel.value;
-    tipoSel.innerHTML='<option value="">Todos los tipos</option>'+allTipos.map(tp=>`<option value="${tp}"${tp===curVal?' selected':''}>${tp}</option>`).join('');
-  }
-
-  const filt=tasks.filter(t=>{
-    const ms=!sr||t.name.toLowerCase().includes(sr);
-    const mf=!ff||(t.fasePrincipal||'')===ff;
-    const mt=!ft2||(t.tipos||[]).includes(ft2);
-    return ms&&mf&&mt;
-  });
-
-  g.innerHTML='';
-  if(!filt.length){g.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px;">No hay tareas guardadas aún</div>';return;}
-
-  // Phase color map
-  const FCOLS={'OF-ORG':{bg:'#1a5c1a',brd:'#2ecc40',tx:'#fff',lbl:'ORG. OFENSIVA'},'OF-TR':{bg:'#2d7a2d',brd:'#5ddd5d',tx:'#fff',lbl:'TRANS. OFENSIVA'},'DEF-ORG':{bg:'#7a1a1a',brd:'#e05252',tx:'#fff',lbl:'ORG. DEFENSIVA'},'DEF-TR':{bg:'#7a3d00',brd:'#ff9500',tx:'#fff',lbl:'TRANS. DEFENSIVA'},'ABP':{bg:'#1a3060',brd:'#C8A84B',tx:'#fff',lbl:'ABP'}};
-  const ML={'OF-ORG-SB':'Salida de Balón','OF-ORG-PR':'Progresión','OF-ORG-FI':'Finalización','OF-TR-CA':'Contrataque','OF-TR-IO':'Iniciar Org. Ofensiva','DEF-ORG-SB':'Def. Salida de Balón','DEF-ORG-PR':'Def. Progresión','DEF-ORG-FI':'Def. Finalización','DEF-TR-PR':'Presionar','DEF-TR-PP':'Presionar y Replegar','DEF-TR-RE':'Replegar','ABP-OF':'ABP Ofensiva','ABP-DEF':'ABP Defensiva'};
-  function fc(k){if(k==='OF-ORG'||k.startsWith('OF-ORG'))return FCOLS['OF-ORG'];if(k==='OF-TR'||k.startsWith('OF-TR'))return FCOLS['OF-TR'];if(k==='DEF-ORG'||k.startsWith('DEF-ORG'))return FCOLS['DEF-ORG'];if(k==='DEF-TR'||k.startsWith('DEF-TR'))return FCOLS['DEF-TR'];if(k==='ABP-OF'||k==='ABP-DEF')return {...FCOLS['ABP'],lbl:k==='ABP-OF'?'ABP OFENSIVA':'ABP DEFENSIVA'};return FCOLS['ABP'];}
-
-  // Field SVG generator — matches editor exactly (105:68, horizontal)
-  function makeFieldSVG(t){
-    const VW=900,VH=Math.round(900*(68/105)); // 900x583 viewBox, 105:68 ratio
-    const ratio=105/68;
-    const PAD=20;
-    const fw=VW-PAD*2, fh=VH-PAD*2;
-    const m=fw/105; // pixels per metre
-    const cx=PAD+fw/2, cy=PAD+fh/2;
-    const G1='#1e3d1e',G2='#183318';
-    let s=`<rect width="${VW}" height="${VH}" fill="#0d1a0d"/>`;
-    // Stripes
-    for(let i=0;i<10;i++)s+=`<rect x="${PAD+i*fw/10}" y="${PAD}" width="${fw/10}" height="${fh}" fill="${i%2===0?G1:G2}"/>`;
-    // Boundary
-    s+=`<rect x="${PAD}" y="${PAD}" width="${fw}" height="${fh}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"/>`;
-    // Halfway
-    s+=`<line x1="${cx}" y1="${PAD}" x2="${cx}" y2="${PAD+fh}" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"/>`;
-    // Centre circle R=9.15m
-    s+=`<circle cx="${cx}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"/>`;
-    s+=`<circle cx="${cx}" cy="${cy}" r="3" fill="rgba(255,255,255,0.85)"/>`;
-    // Penalty areas (40.32m wide, 16.5m deep)
-    const paW=40.32*m, paD=16.5*m;
-    s+=`<rect x="${PAD}" y="${cy-paW/2}" width="${paD}" height="${paW}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
-    s+=`<rect x="${PAD+fw-paD}" y="${cy-paW/2}" width="${paD}" height="${paW}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
-    // Goal areas (18.32m wide, 5.5m deep)
-    const gaW=18.32*m, gaD=5.5*m;
-    s+=`<rect x="${PAD}" y="${cy-gaW/2}" width="${gaD}" height="${gaW}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1"/>`;
-    s+=`<rect x="${PAD+fw-gaD}" y="${cy-gaW/2}" width="${gaD}" height="${gaW}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1"/>`;
-    // Goals (7.32m)
-    const gW=7.32*m, gDep=6;
-    s+=`<rect x="${PAD-gDep}" y="${cy-gW/2}" width="${gDep}" height="${gW}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>`;
-    s+=`<rect x="${PAD+fw}" y="${cy-gW/2}" width="${gDep}" height="${gW}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>`;
-    // Penalty spots at 11m
-    const psXL=PAD+11*m, psXR=PAD+fw-11*m;
-    s+=`<circle cx="${psXL}" cy="${cy}" r="2.5" fill="rgba(255,255,255,0.85)"/>`;
-    s+=`<circle cx="${psXR}" cy="${cy}" r="2.5" fill="rgba(255,255,255,0.85)"/>`;
-    // Penalty arcs — clip to outside box
-    // Left arc
-    s+=`<clipPath id="larc"><rect x="${PAD+paD}" y="${PAD}" width="${fw-paD*2}" height="${fh}"/></clipPath>`;
-    s+=`<circle cx="${psXL}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" clip-path="url(#larc)"/>`;
-    s+=`<circle cx="${psXR}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" clip-path="url(#larc)"/>`;
-    // Corner arcs R=1m
-    const cr=1*m;
-    [[PAD,PAD,0,90],[PAD+fw,PAD,90,180],[PAD,PAD+fh,-90,0],[PAD+fw,PAD+fh,180,270]].forEach(([ax,ay,sa,ea])=>{
-      const r1=sa*Math.PI/180,r2=ea*Math.PI/180;
-      const x1=ax+cr*Math.cos(r1),y1=ay+cr*Math.sin(r1),x2=ax+cr*Math.cos(r2),y2=ay+cr*Math.sin(r2);
-      s+=`<path d="M${x1},${y1} A${cr},${cr} 0 0,1 ${x2},${y2}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
-    });
-
-    // --- SCALE ELEMENTS ---
-    // The editor uses canvas coords. We need to map canvas → SVG viewBox
-    // Canvas was approx 900wide x 580tall based on typical window
-    // But elements are stored in raw canvas px. We scale to our VW×VH viewBox
-    // using the same fieldRect logic: field is centred with 30px padding
-    // Editor canvas ~1200x700 typical, field 105:68 ratio inside
-    // We'll use the same approach: assume field occupies full VW×VH minus PAD
-    const scx=fw/105/m; // = 1, since m=fw/105 — elements stored in canvas px
-    // Actually elements are in canvas pixels. The editor field uses:
-    // horiz=true: fw = canvasW-60, fh = fw/ratio. fieldX=(canvasW-fw)/2=30, fieldY=(canvasH-fh)/2
-    // We need to map: elX -> (elX - fieldOriginX_editor) / m_editor * m_svg + PAD
-    // Since we don't know the exact canvas size at save time, we approximate:
-    // Assume editor was ~900px wide canvas. fieldW=840, fieldH=840*(68/105)=544
-    // fieldOriginX=30, fieldOriginY=(canvasH-544)/2
-    const allEls=t.ELS||[], allLns=t.LINES||[];
-    // Use saved canvas dimensions if available, else estimate from element positions
-    // The editor saves elements in raw canvas px with horiz=true field
-    // fieldRect(horiz=true, PAD=30): fw=min(canvasW-60, (canvasH-60)*ratio), fh=fw/ratio
-    // fieldX=(canvasW-fw)/2=30, fieldY=(canvasH-fh)/2
-    // We reconstruct from bounding box of all points
-    const allPts=[...allEls.map(e=>({x:e.x,y:e.y})),...allLns.flatMap(l=>[{x:l.x1,y:l.y1},{x:l.x2,y:l.y2}])];
-    let estCW=1200, estCH=650; // defaults
-    if(t.canvasW&&t.canvasH){estCW=t.canvasW;estCH=t.canvasH;}
-    else if(allPts.length){
-      const xs=allPts.map(p=>p.x),ys=allPts.map(p=>p.y);
-      const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-      // Elements are inside the field. Field is centred in canvas.
-      // Estimate canvas from element spread + margins
-      const spreadX=maxX-minX, spreadY=maxY-minY;
-      // Field is at least as large as the spread + some padding
-      // Assume elements use ~60-80% of field dimensions
-      const estFW=Math.max(spreadX*1.6,400), estFH=estFW/ratio;
-      estCW=estFW+60; estCH=estFH+60;
-    }
-    // Compute fieldRect same as editor
-    const edPAD=30,avW=estCW-edPAD*2,avH=estCH-edPAD*2;
-    let edFW,edFH;
-    if(avW/avH>=ratio){edFH=avH;edFW=edFH*ratio;}else{edFW=avW;edFH=edFW/ratio;}
-    const edFX=(estCW-edFW)/2,edFY=(estCH-edFH)/2;
-    // Map: editor canvas px → SVG px (same ratio)
-    function toSVGx(ex){return PAD+(ex-edFX)/edFW*fw;}
-    function toSVGy(ey){return PAD+(ey-edFY)/edFH*fh;}
-
-    // Draw zones
-    allEls.filter(el=>el.type==='zone').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y);
-      const rot=el.rot||0, zw=(el.zw||80)/edFW*fw, zh=(el.zh||60)/edFH*fh;
-      if(Math.abs(rot)<0.01){
-        s+=`<rect x="${ex-zw/2}" y="${ey-zh/2}" width="${zw}" height="${zh}" fill="${el.fillC||'rgba(200,168,75,0.12)'}" stroke="${el.strokeC||'#C8A84B'}" stroke-width="1.2" stroke-dasharray="5,2.5"/>`;
-      } else {
-        const co=Math.cos(rot),si=Math.sin(rot);
-        const pts=[[-zw/2,-zh/2],[zw/2,-zh/2],[zw/2,zh/2],[-zw/2,zh/2]].map(([lx,ly])=>`${ex+lx*co-ly*si},${ey+lx*si+ly*co}`).join(' ');
-        s+=`<polygon points="${pts}" fill="${el.fillC||'rgba(200,168,75,0.12)'}" stroke="${el.strokeC||'#C8A84B'}" stroke-width="1.2" stroke-dasharray="5,2.5"/>`;
-      }
-    });
-
-    // Lines
-    const LC={pass:'#3366CC',run:'#00B050',dribble:'#C8A84B',shot:'#FF0000',pressure:'#FFC000',dots:'#ffffff'};
-    allLns.forEach(l=>{
-      const lx1=toSVGx(l.x1),ly1=toSVGy(l.y1),lx2=toSVGx(l.x2),ly2=toSVGy(l.y2);
-      const lc=l.customColor||LC[l.lt]||'#3366CC', lw=l.lt==='shot'?2.5:2;
-      const da=l.lt==='run'?'stroke-dasharray="8,4"':l.lt==='pressure'?'stroke-dasharray="3,2.5"':l.lt==='dots'?'stroke-dasharray="2,5"':'';
-      if(l.lt==='dribble'){
-        const dx=lx2-lx1,dy=ly2-ly1,len=Math.sqrt(dx*dx+dy*dy)||1;
-        const steps=Math.max(2,Math.floor(len/16));const amp=5;
-        let d=`M${lx1},${ly1}`;
-        for(let i=1;i<=steps;i++){const tt=i/steps,t2=(i-.5)/steps,sg=i%2?1:-1;const cpx=lx1+dx*t2-dy/len*amp*sg,cpy=ly1+dy*t2+dx/len*amp*sg;d+=` Q${cpx.toFixed(1)},${cpy.toFixed(1)} ${(lx1+dx*tt).toFixed(1)},${(ly1+dy*tt).toFixed(1)}`;}
-        s+=`<path d="${d}" fill="none" stroke="${lc}" stroke-width="${lw}"/>`;
-      } else {
-        s+=`<line x1="${lx1.toFixed(1)}" y1="${ly1.toFixed(1)}" x2="${lx2.toFixed(1)}" y2="${ly2.toFixed(1)}" stroke="${lc}" stroke-width="${lw}" ${da}/>`;
-      }
-      if(l.lt!=='dots'){const a=Math.atan2(ly2-ly1,lx2-lx1),sz=8;s+=`<polygon points="${lx2},${ly2} ${lx2-sz*Math.cos(a-.38)},${ly2-sz*Math.sin(a-.38)} ${lx2-sz*Math.cos(a+.38)},${ly2-sz*Math.sin(a+.38)}" fill="${lc}"/>`;}
-    });
-
-    // Goals/hurdles/ladders
-    allEls.filter(el=>['goal-big','goal-mini','hurdle-s','hurdle-l','ladder'].includes(el.type)).forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y);
-      const rot=el.rot||0,gw=(el.gw||70)/edFW*fw,gh=(el.gh||28)/edFH*fh;
-      const co=Math.cos(rot),si=Math.sin(rot);
-      const pts=[[-gw/2,-gh/2],[gw/2,-gh/2],[gw/2,gh/2],[-gw/2,gh/2]].map(([lx,ly])=>`${ex+lx*co-ly*si},${ey+lx*si+ly*co}`).join(' ');
-      const sc=el.strokeC||(el.type.startsWith('goal')?'rgba(220,220,220,0.9)':el.type==='ladder'?'#ffdd57':'#ff9500');
-      s+=`<polygon points="${pts}" fill="rgba(255,255,255,0.04)" stroke="${sc}" stroke-width="1.5"/>`;
-      if(el.type==='goal-big'||el.type==='goal-mini'){
-        const d=el.type==='goal-big'?9/edFH*fh:6/edFH*fh;
-        const bpts=[[-gw/2,-gh/2-d],[gw/2,-gh/2-d],[gw/2,-gh/2],[-gw/2,-gh/2]].map(([lx,ly])=>`${ex+lx*co-ly*si},${ey+lx*si+ly*co}`).join(' ');
-        s+=`<polygon points="${bpts}" fill="none" stroke="#C8A84B" stroke-width="2"/>`;
-      }
-    });
-
-    // Hoops
-    allEls.filter(el=>el.type==='hoop').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y),r=(el.size||22)/edFW*fw*0.5;
-      s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="none" stroke="${el.strokeC||'#ff6b6b'}" stroke-width="1.5"/>`;
-    });
-
-    // Cones flat
-    allEls.filter(el=>el.type==='cone-flat').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y),rx=(el.size||6)/edFW*fw,ry=(el.sizeY||6)/edFH*fh;
-      s+=`<ellipse cx="${ex}" cy="${ey}" rx="${rx}" ry="${ry}" fill="${el.coneColor||'#ff9500'}" stroke="${el.coneDark||'#cc7000'}" stroke-width="0.8"/>`;
-    });
-
-    // Cones 3D
-    allEls.filter(el=>el.type==='cone').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y),sz=(el.size||9)/edFW*fw;
-      s+=`<polygon points="${ex},${ey-sz} ${ex-sz*0.75},${ey+sz*0.55} ${ex+sz*0.75},${ey+sz*0.55}" fill="${el.coneColor||'#ff9500'}" stroke="${el.coneDark||'#cc7000'}" stroke-width="0.6"/>`;
-    });
-
-    // Poles
-    allEls.filter(el=>el.type==='pole').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y);
-      s+=`<rect x="${ex-2}" y="${ey-10}" width="4" height="20" rx="2" fill="#ff6b6b"/>`;
-    });
-
-    // Balls
-    allEls.filter(el=>el.type==='ball').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y),r=6;
-      s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="#f0f0f0" stroke="#333" stroke-width="0.8"/>`;
-      s+=`<circle cx="${ex-r*0.25}" cy="${ey-r*0.25}" r="${r*0.35}" fill="#222"/>`;
-    });
-
-    // Labels
-    allEls.filter(el=>el.type==='label').forEach(el=>{
-      s+=`<text x="${toSVGx(el.x)}" y="${toSVGy(el.y)}" text-anchor="middle" fill="#C8A84B" font-size="11" font-family="sans-serif">${el.text||''}</text>`;
-    });
-
-    // CT (before players so players draw on top)
-    allEls.filter(el=>el.type==='ct').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y),sz=13;
-      s+=`<rect x="${ex-sz}" y="${ey-sz}" width="${sz*2}" height="${sz*2}" rx="3" fill="${el.fill||'#0a1f0a'}" stroke="${el.stroke||'#00B050'}" stroke-width="1.5"/>`;
-      s+=`<text x="${ex}" y="${ey+4}" text-anchor="middle" fill="${el.stroke||'#00B050'}" font-size="${(el.label||'').length>2?7:9}" font-weight="bold" font-family="sans-serif">${el.label||'?'}</text>`;
-    });
-
-    // Players (on top of everything)
-    allEls.filter(el=>el.type==='player').forEach(el=>{
-      const ex=toSVGx(el.x),ey=toSVGy(el.y),r=16;
-      s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="${el.fill||'#1a3060'}" stroke="${el.stroke||'#3366CC'}" stroke-width="2"/>`;
-      s+=`<text x="${ex}" y="${ey+4.5}" text-anchor="middle" fill="#fff" font-size="${(el.num||'').length>2?9:12}" font-weight="bold" font-family="sans-serif">${el.num||'?'}</text>`;
-    });
-
-    return {svg:s, vw:VW, vh:VH};
-  }
-
-  filt.forEach(t=>{
-    const card=document.createElement('div');card.className='lcard';
-    const fp=t.fasePrincipal||'', fs=t.faseSecundaria||'';
-    const cpF=fp?fc(fp):{bg:'#1a1a2e',brd:'#333',tx:'#888',lbl:'—'};
-    const csF=fs?fc(fs):{bg:'#0d1020',brd:'#222',tx:'#555',lbl:'—'};
-    const ML2={'OF-ORG':'Organización Ofensiva','OF-TR':'Transición Ofensiva','DEF-ORG':'Organización Defensiva','DEF-TR':'Transición Defensiva','ABP-OF':'ABP Ofensiva','ABP-DEF':'ABP Defensiva','OF-ORG-SB':'Salida de Balón','OF-ORG-PR':'Progresión','OF-ORG-FI':'Finalización','OF-TR-CA':'Contrataque','OF-TR-IO':'Iniciar Org. Ofensiva','DEF-ORG-SB':'Def. Salida de Balón','DEF-ORG-PR':'Def. Progresión','DEF-ORG-FI':'Def. Finalización','DEF-TR-PR':'Presionar','DEF-TR-PP':'Presionar y Replegar','DEF-TR-RE':'Replegar'};
-    const tipos3=(t.tipos||[]).map(tp=>`<span style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:2px 8px;font-size:10px;font-weight:700;color:var(--text2);">${tp}</span>`).join(' ');
-    const mats=t.materiales||{};
-    const matList=Object.entries({goal:'Portería',mini:'Mini',cone:'Conos',pole:'Picas',ball:'Balones',vest:'Petos'}).filter(([k])=>mats[k]).map(([,v])=>v).join(' · ')||'—';
-    const punts=(t.puntuaciones||[]).filter(Boolean);
-    const roles=t.roles||{}, extraR=t.extraRoles||[];
-    const rolesArr=[roles.e?{l:'E',v:roles.e}:null,roles.e2?{l:'E2',v:roles.e2}:null,roles.pf?{l:'PF',v:roles.pf}:null,roles.ep?{l:'EP',v:roles.ep}:null,...extraR.filter(r=>r.value).map(r=>({l:r.label,v:r.value}))].filter(Boolean);
-    const {svg:fieldSVG,vw:VW,vh:VH}=makeFieldSVG(t);
-    const iph=(t.iP||[]).map(x=>`· ${x}`).join('  ')||'Sin subprincipios';
-    const ish=(t.iS||[]).map(x=>`· ${x}`).join('  ')||'Sin subprincipios';
-    const momentL=ML2[fp]||'', momentLS=ML2[fs]||'';
-    const safeT=JSON.stringify(t).replace(/'/g,"&#39;");
-
-    card.innerHTML=`
-<div style="font-family:'Segoe UI',sans-serif;background:#0d1a24;border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(200,168,75,0.2);max-width:960px;margin:0 auto;">
-
-  <!-- HEADER: name + tipos + socio -->
-  <div style="display:flex;align-items:center;background:#0a1020;border-bottom:1px solid rgba(200,168,75,0.2);padding:12px 16px;gap:12px;">
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:5px;line-height:1.2;">${t.name||'Sin nombre'}</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;">${tipos3||'<span style="font-size:10px;color:var(--text3);">Sin tipo</span>'}</div>
-    </div>
-    <div style="text-align:right;flex-shrink:0;">
-      <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Socioestructura</div>
-      <div style="font-size:20px;font-weight:800;color:var(--gold);line-height:1;">${t.socio||'—'}</div>
-    </div>
-    ${t.espTipo?`<div style="text-align:right;flex-shrink:0;padding-left:14px;border-left:1px solid rgba(255,255,255,0.1);"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Espacio</div><div style="font-size:11px;color:var(--text2);">${t.espTipo}</div>${t.espW&&t.espH?`<div style="font-size:10px;color:var(--text3);">${t.espW}×${t.espH}m</div>`:''}</div>`:''}
-  </div>
-
-  <!-- PHASE BANNER -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">    <div style="background:${cpF.bg};padding:6px 10px;border-bottom:3px solid ${cpF.brd};">
-      <div style="font-size:8px;font-weight:800;color:${cpF.tx};opacity:.75;text-transform:uppercase;letter-spacing:.8px;">FASE PRINCIPAL · ${cpF.lbl}</div>
-      <div style="font-size:12px;font-weight:700;color:${cpF.tx};margin:2px 0;">${momentL||'—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.8);">${iph}</div>
-    </div>
-    <div style="background:${csF.bg};padding:6px 10px;border-bottom:3px solid ${csF.brd};">
-      <div style="font-size:8px;font-weight:800;color:${csF.tx};opacity:.75;text-transform:uppercase;letter-spacing:.8px;">FASE SECUNDARIA · ${csF.lbl}</div>
-      <div style="font-size:12px;font-weight:700;color:${csF.tx};margin:2px 0;">${momentLS||'—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.65);">${ish}</div>
-    </div>
-  </div>
-  <!-- 3-COLUMN LAYOUT: desarrollo+punt | campo | CT+mat+botones -->
-  <div style="display:grid;grid-template-columns:180px 1fr 190px;border-top:2px solid rgba(200,168,75,0.3);">
-    <!-- LEFT COLUMN: desarrollo + puntuación -->
-    <div style="display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.07);min-height:0;">
-
-      <!-- DESARROLLO (amarillo) — flex:1 ocupa todo el espacio disponible -->
-      <div style="flex:2;padding:14px 16px;background:#0c1828;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
-        <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Desarrollo</div>
-        <div style="font-size:10px;color:#b8b0a0;line-height:1.6;">${t.desarrollo||'—'}</div>
-      </div>
-
-      <!-- PUNTUACIÓN (rojo) — flex:1 -->
-      <div style="flex:1;padding:12px 16px;background:#0a1520;overflow-y:auto;">
-        <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Puntuación</div>
-        ${punts.length?punts.map(p=>`<div style="font-size:10px;color:#b8b0a0;margin-bottom:3px;">· ${p}</div>`).join(''):'<span style="font-size:10px;color:var(--text3);">—</span>'}
-      </div>
-
-    </div>
-
-    <!-- CENTRE: campo -->
-    <div style="background:#0d1a0d;overflow:hidden;height:380px;">
-      <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;height:100%;display:block;" preserveAspectRatio="xMidYMid meet">${fieldSVG}</svg>
-    </div>
-
-    <!-- RIGHT COLUMN: CT + materiales + botones -->
-    <div style="display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,0.07);min-height:0;height:380px;">
-
-      <!-- CT (azul) — flex:2 ocupa la mayor parte -->
-      <div style="flex:2;padding:10px 12px;background:#0c1828;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
-        <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cuerpo Técnico</div>
-        ${rolesArr.map(r=>`<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:7px;"><span style="background:#00B050;color:#0a1a08;font-size:8px;font-weight:800;padding:2px 5px;border-radius:3px;flex-shrink:0;margin-top:1px;">${r.l}</span><span style="font-size:10px;color:#b8b0a0;line-height:1.4;">${r.v}</span></div>`).join('')||'<span style="font-size:10px;color:var(--text3);">—</span>'}
-      </div>
-
-      <!-- MATERIALES (naranja) — flex:1 -->
-      <div style="flex:1;padding:8px 12px;background:#0a1520;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
-        <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Materiales</div>
-        <div style="font-size:10px;color:#b8b0a0;line-height:1.6;">${matList}</div>
-      </div>
-
-      <!-- BOTONES (verde) — altura fija, siempre visible -->
-      <div style="padding:8px 12px;background:#0c1828;display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-        <button data-tid="${t.id}" class="btnLoadTask" style="width:100%;padding:11px 14px;background:#C8A84B;color:#0d1530;border:none;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">✏️ Cargar en Editor</button>
-        <button data-tid="${t.id}" class="btnDupTask" style="width:100%;padding:9px 14px;background:transparent;color:#7baaf7;border:1px solid rgba(123,170,247,0.4);border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">⧉ Duplicar tarea</button>
-        <button onclick="deleteTask('${t.id}')" style="width:100%;padding:9px 14px;background:transparent;color:#e05252;border:1px solid rgba(224,82,82,0.4);border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">🗑 Eliminar</button>
-      </div>
-
-    </div>
-
-  </div>
-</div>`;
-    card.style.marginBottom='14px';
-    g.appendChild(card);
-  });
-}
-function sv(v){
-  ['editor','libreria','modelojuego'].forEach(id=>{document.getElementById('view-'+id)?.classList.toggle('active',id===v);});
-  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',['editor','libreria','modelojuego'][i]===v);});
-  // Sync bottom tab nav
-  ['editor','libreria','modelojuego'].forEach(id=>{document.getElementById('btab-'+id)?.classList.toggle('active',id===v);});
-  const isEd=v==='editor';
-  if(window.innerWidth>900){
-    document.getElementById('sidebar').style.display=isEd?'':'none';
-    document.getElementById('right-panel').style.display=isEd?'':'none';
-  } else {
-    // On mobile always keep panels as drawers — don't hide them
-    if(!isEd) closeAllDrawers();
-  }
-  if(v==='libreria')renderLib();if(v==='modelojuego')renderMDJ();
-}
-
-function notify(msg,err){const n=document.getElementById('notif');n.textContent=msg;n.style.borderColor=err?'#e05252':'var(--gold)';n.style.color=err?'#e05252':'var(--gold)';n.classList.add('show');setTimeout(()=>n.classList.remove('show'),2300);}
-
-init();
-
 // ══ SISTEMAS PARA ANÁLISIS ══
 var SISTEMAS_AN = {
   '1-4-3-3':   [[50],[20,35,65,80],[30,50,70],[20,50,80]],
@@ -2738,8 +2246,10 @@ function renderEditor(){
   var oc=localStorage.getItem('oi_team_crest');
   if(oc){ var oi=document.getElementById('esc-nuestro-img'); if(oi){oi.src=oc;oi.style.display='block';var op=document.getElementById('esc-nuestro-ph');if(op)op.style.display='none';} }
   
+  // Bind portada events
+  setTimeout(bindPortadaEvents, 50);
   // Inicializar el canvas del posible 11
-  setTimeout(initCampoXI, 100);
+  setTimeout(initCampoXI, 200);
 }
 
 // ══ SECCIONES ══
@@ -2976,10 +2486,21 @@ function importarCalendario(){
   else {
     window._calParts = partidos.sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
     lista.innerHTML = window._calParts.map(function(p,pi){
-      return '<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;" onclick="crearDesdeCalendario('+pi+')">'
-        +(p.rivalCrest?'<img src="'+p.rivalCrest+'" style="width:28px;height:28px;object-fit:contain;border-radius:3px;">':'<div style="width:28px;height:28px;background:rgba(200,168,75,0.1);border-radius:3px;"></div>')
-        +'<div><div style="font-family:var(--fc);font-size:13px;font-weight:700;color:var(--text);">'+(p.rival||'Partido')+'</div>'
-        +'<div style="font-size:10px;color:var(--text2);font-family:var(--fc);">'+(p.fecha||'')+' · '+(p.competicion||'')+'</div></div></div>';
+      var oc = localStorage.getItem('oi_team_crest');
+      var localImg = (p.nuestroEquipo!==false) 
+        ? (oc?'<img src="'+oc+'" style="width:24px;height:24px;object-fit:contain;border-radius:3px;">':'<span style="font-size:14px;">🛡</span>')
+        : (p.localCrest?'<img src="'+p.localCrest+'" style="width:24px;height:24px;object-fit:contain;border-radius:3px;">':'<span style="font-size:11px;">?</span>');
+      var rivalImg = p.rivalCrest?'<img src="'+p.rivalCrest+'" style="width:24px;height:24px;object-fit:contain;border-radius:3px;">':'<span style="font-size:11px;color:var(--text2);">?</span>';
+      var localName = (p.nuestroEquipo!==false) ? 'Nuestro equipo' : (p.localName||'Local');
+      var rivalName = p.rival||'Visitante';
+      return '<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="crearDesdeCalendario('+pi+')">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+        +localImg+'<span style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--text);">'+localName+'</span>'
+        +'<span style="font-family:var(--fc);font-size:10px;color:var(--gold);font-weight:700;margin:0 4px;">VS</span>'
+        +rivalImg+'<span style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--text);">'+rivalName+'</span>'
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--text2);font-family:var(--fc);">'+(p.fecha||'')+' · '+(p.hora?p.hora+' · ':'')+' '+(p.competicion||'')+' · '+(p.sede||'')+'</div>'
+        +'</div>';
     }).join('');
   }
   document.getElementById('modal-cal-bg').classList.add('open');
@@ -2988,7 +2509,22 @@ function crearDesdeCalendario(pi){
   var p=window._calParts[pi];if(!p)return;
   document.getElementById('modal-cal-bg').classList.remove('open');
   var id='inf_'+Date.now();
-  informes.unshift({id:id,rival:p.rival||'',fecha:p.fecha||'',jornada:'',competicion:p.competicion||'Amistoso',sede:p.sede||'Local',hora:p.hora||'',campo:'',escudoRival:p.rivalCrest||null,momentos:{},notas:{},alineaciones:[]});
+  var inf = {
+    id:id,
+    rival: p.rival||'',
+    localName: p.localName||'',
+    localCrest: p.localCrest||null,
+    escudoRival: p.rivalCrest||null,
+    fecha: p.fecha||'',
+    hora: p.hora||'',
+    jornada: '',
+    competicion: p.competicion||'Amistoso',
+    sede: p.sede||'Local',
+    campo: '',
+    nuestroEquipo: p.nuestroEquipo!==false,
+    momentos:{}, notas:{}, alineaciones:[]
+  };
+  informes.unshift(inf);
   guardarInformes();
   abrirInforme(id);
 }
