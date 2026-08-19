@@ -91,9 +91,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .campo-preview-wrap{position:relative;cursor:pointer;background:#1a5c1a;overflow:hidden;}
 .campo-preview-wrap:hover .campo-preview-overlay{opacity:1;}
 .campo-preview-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;font-family:var(--fc);font-size:12px;font-weight:700;color:white;letter-spacing:1px;text-transform:uppercase;}
-/* XI */
-.campo-preview-wrap{height:420px;}
+/* XI — horizontal, ratio campo 140:100 */
+.campo-preview-wrap{width:100%;aspect-ratio:1.4/1;max-height:380px;overflow:hidden;}
 .campo-preview-wrap svg{width:100%;height:100%;}
+/* Mini alineaciones — vertical, ratio 68:105 */
+.alin-campo-mini{width:100%;aspect-ratio:68/105;height:auto !important;max-height:120px;}
+/* Mini momentos — vertical */
+.mom-campo-preview{width:100%;aspect-ratio:68/105;height:auto !important;max-height:220px;}
 /* Mini para alineaciones y momentos */
 .alin-campo-mini{height:100px;position:relative;cursor:pointer;background:#1a5c1a;border-radius:4px;overflow:hidden;margin-top:4px;}
 .alin-campo-mini:hover .campo-preview-overlay{opacity:1;}
@@ -2301,31 +2305,66 @@ function secNotas(inf){
 // ══ CAMPO PREVIEW (SVG estático) ══
 function renderCampoPreview(campoKey, size){
   var elemsData = _campoModalElems[campoKey] || [];
-  var w = size==='xi' ? 700 : 280, h = size==='xi' ? 500 : 200;
-  var PAD = size==='xi' ? 20 : 8;
-  var fw = w - PAD*2, fh = h - PAD*2;
-  var svgParts = [];
-  svgParts.push('<svg viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">');
-  // Campo imagen como background (usar rect verde si no hay imagen)
-  svgParts.push('<image href="campo.png" x="'+PAD+'" y="'+PAD+'" width="'+fw+'" height="'+fh+'" preserveAspectRatio="none"/>');
-  // Elementos
-  // Usar coordenadas fijas del campo para el preview (no depende del canvas)
-  var fx = PAD, fy = PAD, cfw = fw, cfh = fh;
+  var isXI = size==='xi';
+  // XI → landscape (140x100), mini → portrait (68x105)
+  var VW = isXI ? 140 : 68, VH = isXI ? 100 : 105;
+  var PAD = isXI ? 5 : 3;
+  var fw = VW-PAD*2, fh = VH-PAD*2;
+  var lw = 0.4;
+  var p = [];
+  p.push('<svg viewBox="0 0 '+VW+' '+VH+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">');
+  // Fondo + franjas
+  p.push('<rect width="'+VW+'" height="'+VH+'" fill="#2a7a2a"/>');
+  var ns=8;
+  for(var si=0;si<ns;si++){
+    if(si%2===0)continue;
+    if(isXI) p.push('<rect x="'+(PAD+si*fw/ns).toFixed(1)+'" y="'+PAD+'" width="'+(fw/ns).toFixed(1)+'" height="'+fh+'" fill="#257025" opacity="0.6"/>');
+    else p.push('<rect x="'+PAD+'" y="'+(PAD+si*fh/ns).toFixed(1)+'" width="'+fw+'" height="'+(fh/ns).toFixed(1)+'" fill="#257025" opacity="0.6"/>');
+  }
+  // Borde
+  p.push('<rect x="'+PAD+'" y="'+PAD+'" width="'+fw+'" height="'+fh+'" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="'+lw+'"/>');
+  if(isXI){
+    // Línea central
+    var mx=VW/2, my=VH/2;
+    p.push('<line x1="'+mx+'" y1="'+PAD+'" x2="'+mx+'" y2="'+(VH-PAD)+'" stroke="rgba(255,255,255,0.6)" stroke-width="'+lw+'"/>');
+    p.push('<circle cx="'+mx+'" cy="'+my+'" r="'+(fh*0.14).toFixed(1)+'" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="'+lw+'"/>');
+    // Áreas grande
+    var aH=fh*0.65, aW=fw*0.13;
+    p.push('<rect x="'+PAD+'" y="'+(my-aH/2).toFixed(1)+'" width="'+aW.toFixed(1)+'" height="'+aH.toFixed(1)+'" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="'+lw+'"/>');
+    p.push('<rect x="'+(VW-PAD-aW).toFixed(1)+'" y="'+(my-aH/2).toFixed(1)+'" width="'+aW.toFixed(1)+'" height="'+aH.toFixed(1)+'" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="'+lw+'"/>');
+  } else {
+    var mx=VW/2, my=VH/2;
+    p.push('<line x1="'+PAD+'" y1="'+my+'" x2="'+(VW-PAD)+'" y2="'+my+'" stroke="rgba(255,255,255,0.6)" stroke-width="'+lw+'"/>');
+    p.push('<circle cx="'+mx+'" cy="'+my+'" r="'+(fw*0.15).toFixed(1)+'" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="'+lw+'"/>');
+    var aW2=fw*0.6, aH2=fh*0.13;
+    p.push('<rect x="'+(mx-aW2/2).toFixed(1)+'" y="'+PAD+'" width="'+aW2.toFixed(1)+'" height="'+aH2.toFixed(1)+'" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="'+lw+'"/>');
+    p.push('<rect x="'+(mx-aW2/2).toFixed(1)+'" y="'+(VH-PAD-aH2).toFixed(1)+'" width="'+aW2.toFixed(1)+'" height="'+aH2.toFixed(1)+'" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="'+lw+'"/>');
+  }
+  // Jugadores — mapear coords del canvas (horiz ~800x550, fieldRect ~{x:30,y:30,w:740,h:490})
+  var CFX=30, CFY=30, CFW=740, CFH=490;
   elemsData.forEach(function(el){
-    if(el.type==='player'){
-      // Mapear coordenadas del canvas a SVG
-      var sx = PAD + (el.x - fx) / cfw * fw;
-      var sy = PAD + (el.y - fy) / cfh * fh;
-      var r = size==='xi' ? 14 : 6;
-      svgParts.push('<circle cx="'+sx+'" cy="'+sy+'" r="'+r+'" fill="'+(el.fill||'#1B2A6B')+'" stroke="'+(el.stroke||'#C8A84B')+'" stroke-width="'+(r/4)+'"/>');
-      svgParts.push('<text x="'+sx+'" y="'+(sy+r*0.4)+'" text-anchor="middle" fill="white" font-size="'+(r*0.9)+'" font-weight="bold" font-family="Barlow Condensed,sans-serif">'+(el.num||'')+'</text>');
-      if(el.nombre && size==='xi'){
-        svgParts.push('<text x="'+sx+'" y="'+(sy+r+10)+'" text-anchor="middle" fill="white" font-size="9" font-family="Barlow Condensed,sans-serif" stroke="rgba(0,0,0,0.8)" stroke-width="2" paint-order="stroke">'+(el.nombre||'')+'</text>');
-      }
+    if(el.type!=='player') return;
+    var px,py,r;
+    if(isXI){
+      px = PAD + (el.x-CFX)/CFW*fw;
+      py = PAD + (el.y-CFY)/CFH*fh;
+      r = 4;
+    } else {
+      px = PAD + (el.x-CFX)/CFW*fw;
+      py = PAD + (el.y-CFY)/CFH*fh;
+      r = 2;
+    }
+    if(px<PAD-r||px>VW-PAD+r||py<PAD-r||py>VH-PAD+r) return;
+    var fill=el.fill||'#1B2A6B', stroke=el.stroke||'#C8A84B';
+    p.push('<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(r*0.5)+'"/>');
+    if(el.num) p.push('<text x="'+px.toFixed(1)+'" y="'+(py+r*0.38).toFixed(1)+'" text-anchor="middle" fill="white" font-size="'+(r*1.1)+'" font-weight="bold" font-family="sans-serif">'+(el.num)+'</text>');
+    if(isXI && el.nombre && el.nombre.trim()){
+      var nm = el.nombre.toUpperCase().split(' ')[0];
+      p.push('<text x="'+px.toFixed(1)+'" y="'+(py+r+2.8).toFixed(1)+'" text-anchor="middle" fill="white" font-size="2.8" font-family="sans-serif" paint-order="stroke" stroke="rgba(0,0,0,0.8)" stroke-width="0.8">'+nm+'</text>');
     }
   });
-  svgParts.push('</svg>');
-  return svgParts.join('');
+  p.push('</svg>');
+  return p.join('');
 }
 
 function renderAllPreviews(){
@@ -2340,16 +2379,18 @@ function renderAllPreviews(){
 // ══ MODAL DEL CAMPO ══
 function abrirCampoModal(campoKey, titulo){
   _campoModalKey = campoKey;
-  // Load saved elems for this campo
   var savedElems = _campoModalElems[campoKey] || [];
-  elems = savedElems.map(function(e){ return Object.assign({},e); }); // deep clone
-  render();
-  // Update modal title
+  elems = savedElems.map(function(e){ return Object.assign({},e); });
   var t = document.getElementById('campo-modal-title');
   if(t) t.textContent = titulo || 'Editor de campo';
-  // Show modal
   document.getElementById('campo-modal-bg').classList.add('open');
-  setTimeout(function(){ if(typeof resizeCv==='function')resizeCv(); render(); }, 100);
+  setTimeout(function(){
+    // El campo del modal es siempre horizontal (landscape)
+    if(typeof horiz !== 'undefined') horiz = true;
+    if(typeof ft !== 'undefined') ft = 'full';
+    if(typeof resizeCv==='function') resizeCv();
+    render();
+  }, 150);
 }
 
 function cerrarCampoModal(){
@@ -2390,15 +2431,32 @@ function applySystemModal(sysKey, strokeC, fillC, isRival){
   var {x,y,w,h} = fieldRect();
   var numRows = rows.length;
   var di = 0, startD = isRival ? 11 : 0;
+  // horiz=true: portero a la IZQUIERDA (x pequeña), delanteros a la DERECHA
+  // rows[0]=portero, rows[last]=delanteros
+  var isHoriz = typeof horiz !== 'undefined' ? horiz : true;
   rows.forEach(function(row,ri){
-    var yPct = 0.88 - ri*(0.76/(numRows-1));
-    var fy = y + h*yPct;
-    row.forEach(function(xPct){
-      var fx = x + w*(xPct/100);
-      var dorsal = DORSAL_ORDER[startD+di] || (startD+di+1);
-      elems.push({type:'player',x:fx,y:fy,num:String(dorsal),stroke:strokeC,fill:fillC,label:'',nombre:''});
-      di++;
-    });
+    if(isHoriz){
+      // Distribuir X de portero (8%) a delanteros (92%)
+      var xPct2 = 0.08 + ri*(0.84/(numRows-1));
+      var fx = x + w*xPct2;
+      // Distribuir Y centrada en el campo según nº de jugadores en la fila
+      row.forEach(function(_,ci){
+        var yPct2 = (ci+1)/(row.length+1);
+        var fy = y + h*yPct2;
+        var dorsal = DORSAL_ORDER[startD+di] || (startD+di+1);
+        elems.push({type:'player',x:fx,y:fy,num:String(dorsal),stroke:strokeC,fill:fillC,label:'',nombre:''});
+        di++;
+      });
+    } else {
+      var yPct = 0.88 - ri*(0.76/(numRows-1));
+      var fy = y + h*yPct;
+      row.forEach(function(xPct){
+        var fx = x + w*(xPct/100);
+        var dorsal = DORSAL_ORDER[startD+di] || (startD+di+1);
+        elems.push({type:'player',x:fx,y:fy,num:String(dorsal),stroke:strokeC,fill:fillC,label:'',nombre:''});
+        di++;
+      });
+    }
   });
   render(); saveState();
 }
