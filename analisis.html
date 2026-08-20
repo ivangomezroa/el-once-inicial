@@ -250,7 +250,7 @@ function renderSidebar(filter){
     var titulo=inf.nombre||inf.rival||'Sin nombre';
     var sub=inf.nombre&&inf.rival?inf.rival:'';
     return '<div class="inf-item'+a+'" data-id="'+inf.id+'" onclick="abrirInforme(this.dataset.id)">'
-      +'<div class="inf-nombre" onclick="event.stopPropagation();editarNombre(\''+inf.id+'\')" style="cursor:pointer;">'+esc(titulo)+' ✏️</div>'
+      +'<div class="inf-nombre" data-id="'+inf.id+'" onclick="event.stopPropagation();editarNombre(this.dataset.id)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;">'+esc(titulo)+' ✏️</div>'
       +(sub?'<div class="inf-rival-sub">vs '+esc(sub)+'</div>':'')
       +'<div class="inf-meta">'+(inf.fecha||'Sin fecha')+(inf.hora?' · '+inf.hora:'')+'</div>'
       +'<span class="inf-comp">'+(inf.competicion||'Amistoso')+'</span>'
@@ -344,6 +344,14 @@ function secXI(inf){
     +'<input type="color" class="color-pick" id="xi-cfr" value="#7a1a1a">'
     +'<button class="ctrl-btn ctrl-btn-red" onclick="aplicarSistemaXIRival()">⚽ Rival</button>'
     +'<button class="ctrl-btn ctrl-btn-sec" onclick="delJugador()">🗑 Quitar</button>'
+    +'</div><div class="xi-controls" style="padding-top:4px;border-top:1px solid var(--border);">'
+    +'<label class="ctrl-label">Flecha:</label>'
+    +'<input type="color" class="color-pick" id="arrow-color" value="#ff3333">'
+    +'<button class="ctrl-btn ctrl-btn-sec" id="btn-arrow-solid" onclick="setDrawModeEl(this,1)" title="Continua">&#8212;&#8594;</button>'
+    +'<button class="ctrl-btn ctrl-btn-sec" id="btn-arrow-dashed" onclick="setDrawModeEl(this,2)" title="Discontinua">- -&#8594;</button>'
+    +'<button class="ctrl-btn ctrl-btn-sec" id="btn-arrow-dotted" onclick="setDrawModeEl(this,3)" title="Punteada">&#183;&#183;&#183;&#8594;</button>'
+    +'<button class="ctrl-btn ctrl-btn-sec" onclick="delLastArrow()" title="Borrar última">↩ Flecha</button>'
+    +'<button class="ctrl-btn ctrl-btn-sec" onclick="setDrawModeEl(null,0)" title="Seleccionar">&#9997; Select</button>'
     +'</div>'
     +'<div class="campo-container"><div class="campo-xi" data-campo="'+key+'" data-modo="xi"></div></div>'
     +'</div>'
@@ -450,12 +458,30 @@ function campoSVG(campoKey, modo){
     // Área pequeña DCH
     var sx2=(VW-PAD-parseFloat(sW)).toFixed(2);
     s.push('<rect x="'+sx2+'" y="'+say+'" width="'+sW+'" height="'+sH+'" '+sc+'/>');
-    // Semicírculo área IZQ
-    var penX=(PAD+fw*0.105).toFixed(2);
-    s.push('<path d="M '+penX+' '+(my-fh*0.12).toFixed(2)+' A '+(fh*0.146).toFixed(2)+' '+(fh*0.146).toFixed(2)+' 0 0 1 '+penX+' '+(my+fh*0.12).toFixed(2)+'" '+sc+' clip-path="inset(0 0 0 '+(PAD+parseFloat(aW))+'px)"/>');
-    // Punto penalti
+    // Semicírculo área IZQ (solo la parte que sale fuera del área)
+    var penX=parseFloat((PAD+fw*0.105).toFixed(2));
+    var circR=parseFloat((fh*0.146).toFixed(2));
+    var aWf=parseFloat(aW);
+    // El arco del semicírculo que sobresale del área: desde el punto donde el círculo corta el borde del área
+    var areaEdge=PAD+aWf;
+    // Ángulo donde círculo corta el borde del área: cos(a)=(areaEdge-penX)/circR
+    var cosA=(areaEdge-penX)/circR;
+    if(cosA>=-1&&cosA<=1){
+      var angA=Math.acos(cosA);
+      var y1=(my-Math.sin(angA)*circR).toFixed(2);
+      var y2=(my+Math.sin(angA)*circR).toFixed(2);
+      s.push('<path d="M '+areaEdge.toFixed(2)+' '+y1+' A '+circR+' '+circR+' 0 0 1 '+areaEdge.toFixed(2)+' '+y2+'" '+sc+'/>');
+    }
     s.push('<circle cx="'+penX+'" cy="'+my+'" r="0.6" fill="'+lc+'"/>');
-    var penX2=(VW-PAD-fw*0.105).toFixed(2);
+    var penX2=parseFloat((VW-PAD-fw*0.105).toFixed(2));
+    var areaEdge2=VW-PAD-aWf;
+    var cosA2=(penX2-areaEdge2)/circR;
+    if(cosA2>=-1&&cosA2<=1){
+      var angA2=Math.acos(cosA2);
+      var y3=(my-Math.sin(angA2)*circR).toFixed(2);
+      var y4=(my+Math.sin(angA2)*circR).toFixed(2);
+      s.push('<path d="M '+areaEdge2.toFixed(2)+' '+y3+' A '+circR+' '+circR+' 0 0 0 '+areaEdge2.toFixed(2)+' '+y4+'" '+sc+'/>');
+    }
     s.push('<circle cx="'+penX2+'" cy="'+my+'" r="0.6" fill="'+lc+'"/>');
     // Portería IZQ y DCH
     var gH=(fh*0.147).toFixed(2), gW=(fw*0.024).toFixed(2), gy=(my-fh*0.073).toFixed(2);
@@ -477,11 +503,29 @@ function campoSVG(campoKey, modo){
     var sx2=(mx-fw*0.176).toFixed(2);
     s.push('<rect x="'+sx2+'" y="'+PAD+'" width="'+sW2+'" height="'+sH2+'" '+sc+'/>');
     s.push('<rect x="'+sx2+'" y="'+(VH-PAD-parseFloat(sH2)).toFixed(2)+'" width="'+sW2+'" height="'+sH2+'" '+sc+'/>');
-    // Semicírculo área
-    var penY=(PAD+fh*0.105).toFixed(2);
-    s.push('<circle cx="'+mx+'" cy="'+penY+'" r="'+(fw*0.146).toFixed(2)+'" '+sc+'" clip-path="inset('+(PAD+parseFloat(aH2))+'px 0 0)"/>');
-    var penY2=(VH-PAD-fh*0.105).toFixed(2);
-    s.push('<circle cx="'+mx+'" cy="'+penY2+'" r="'+(fw*0.146).toFixed(2)+'" '+sc+'" clip-path="inset(0 0 '+(PAD+parseFloat(aH2))+'px)"/>');
+    // Semicírculo área (arco que sobresale del área)
+    var penYf=parseFloat((PAD+fh*0.105).toFixed(2));
+    var circR2=parseFloat((fw*0.146).toFixed(2));
+    var aH2f=parseFloat(aH2);
+    var areaTop=PAD+aH2f;
+    var cosB=(areaTop-penYf)/circR2;
+    if(cosB>=-1&&cosB<=1){
+      var angB=Math.acos(cosB);
+      var x1=(mx-Math.sin(angB)*circR2).toFixed(2);
+      var x2=(mx+Math.sin(angB)*circR2).toFixed(2);
+      s.push('<path d="M '+x1+' '+areaTop.toFixed(2)+' A '+circR2+' '+circR2+' 0 0 0 '+x2+' '+areaTop.toFixed(2)+'" '+sc+'/>');
+    }
+    s.push('<circle cx="'+mx+'" cy="'+penYf+'" r="0.6" fill="'+lc+'"/>');
+    var penY2f=parseFloat((VH-PAD-fh*0.105).toFixed(2));
+    var areaBot=VH-PAD-aH2f;
+    var cosB2=(penY2f-areaBot)/circR2;
+    if(cosB2>=-1&&cosB2<=1){
+      var angB2=Math.acos(cosB2);
+      var x3=(mx-Math.sin(angB2)*circR2).toFixed(2);
+      var x4=(mx+Math.sin(angB2)*circR2).toFixed(2);
+      s.push('<path d="M '+x3+' '+areaBot.toFixed(2)+' A '+circR2+' '+circR2+' 0 0 1 '+x4+' '+areaBot.toFixed(2)+'" '+sc+'/>');
+    }
+    s.push('<circle cx="'+mx+'" cy="'+penY2f+'" r="0.6" fill="'+lc+'"/>');
     // Puntos
     s.push('<circle cx="'+mx+'" cy="'+penY+'" r="0.6" fill="'+lc+'"/>');
     s.push('<circle cx="'+mx+'" cy="'+penY2+'" r="0.6" fill="'+lc+'"/>');
@@ -962,6 +1006,92 @@ function svgMove_new(e, campoKey){
     if(texts[2])texts[2].setAttribute('y',jug.y+r+2.5);
   }
 }
+
+// ── DIBUJO DE FLECHAS ──
+var _ARROW_MODES=['','arrow-solid','arrow-dashed','arrow-dotted'];
+function setDrawModeEl(btn,mi){ setDrawMode(btn, _ARROW_MODES[mi]||null); }
+var drawMode = null; // null | 'arrow-solid' | 'arrow-dashed' | 'arrow-dotted'
+var drawStart = null;
+var drawCampoKey = null;
+
+function setDrawMode(btnEl, mode){
+  drawMode = mode;
+  drawStart = null;
+  // Update button styles
+  ['btn-arrow-solid','btn-arrow-dashed','btn-arrow-dotted'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b) b.style.background = '';
+  });
+  if(btnEl && mode){
+    btnEl.style.background = 'rgba(200,168,75,0.3)';
+    btnEl.style.color = 'var(--gold)';
+  }
+}
+
+function delLastArrow(){
+  if(!selJug && !drawCampoKey) return;
+  var ck = drawCampoKey || (selJug ? selJug.campoKey : null);
+  if(!ck) return;
+  var d = ensureCampo(ck);
+  if(d.arrows && d.arrows.length) d.arrows.pop();
+  saveCampos(); renderAllCampos();
+}
+
+// Override svgDown_new to handle drawing mode
+var _origSvgDown = svgDown_new;
+svgDown_new = function(e, campoKey){
+  if(drawMode){
+    e.preventDefault();
+    drawCampoKey = campoKey;
+    var svgEl = document.getElementById('svg_'+campoKey);
+    if(!svgEl) return;
+    drawStart = svgCoords(e, svgEl);
+    return;
+  }
+  _origSvgDown(e, campoKey);
+};
+
+var _origSvgMove = svgMove_new;
+svgMove_new = function(e, campoKey){
+  if(drawMode && drawStart && drawCampoKey===campoKey){
+    e.preventDefault();
+    // Show preview line (optional — skip for now, just finalize on mouseup)
+    return;
+  }
+  _origSvgMove(e, campoKey);
+};
+
+var _origSvgUp = svgUp;
+svgUp = function(e, campoKey){
+  if(drawMode && drawStart && drawCampoKey===campoKey){
+    var svgEl = document.getElementById('svg_'+campoKey);
+    if(svgEl){
+      var end = svgCoords(e, svgEl);
+      var dx = end.x-drawStart.x, dy = end.y-drawStart.y;
+      var dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist > 2){ // minimum length
+        var d = ensureCampo(campoKey);
+        var color = document.getElementById('arrow-color');
+        d.arrows = d.arrows || [];
+        d.arrows.push({
+          x1: parseFloat(drawStart.x.toFixed(2)),
+          y1: parseFloat(drawStart.y.toFixed(2)),
+          x2: parseFloat(end.x.toFixed(2)),
+          y2: parseFloat(end.y.toFixed(2)),
+          type: drawMode.replace('arrow-',''),
+          color: color ? color.value : '#ff3333',
+          sw: 0.9
+        });
+        drawStart = null;
+        saveCampos(); renderAllCampos();
+        return;
+      }
+    }
+    drawStart = null;
+    return;
+  }
+  _origSvgUp(e, campoKey);
+};
 
 init();
 </script>
