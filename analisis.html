@@ -90,7 +90,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* ══ CAMPO EDITOR ══ */
 /* campo-wrapper: el contenedor con fondo = campo.png */
 .campo-wrap{position:relative;overflow:hidden;border-radius:0 0 6px 6px;background:#2a7a2a;cursor:crosshair;width:100%;display:block;}
-.campo-wrap.mini-mode{max-height:260px;}
+.campo-wrap.xi-mode{aspect-ratio:105/68;}
+.campo-wrap.mini-mode{aspect-ratio:68/105;max-height:240px;overflow:hidden;}
 /* SVG fluye naturalmente — viewBox controla proporción */
 .campo-svg{width:100%;height:auto;display:block;touch-action:none;}
 /* image tag dentro del SVG como background */
@@ -246,13 +247,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="modal-box">
     <div class="modal-hdr">
       <div class="modal-title">Partidos del calendario</div>
-      <button class="modal-close" onclick="document.getElementById('modal-cal').classList.remove('open')">&#215;</button>
-    </div>
-    <div id="cal-lista"></div>
-  </div>
-</div>
-
-<script>
+      <button class="modal-close" onclick="document.getElementById('modal-cal').classList.remove('open')">&#215
 
 /* ════════════════════════════════════════════
    DATOS Y CONSTANTES
@@ -710,7 +705,7 @@ function renderCampo(campoKey){
   var o=[];
   o.push('<svg id="svg_'+campoKey+'" viewBox="0 0 '+VW+' '+VH+'"'
     +' xmlns="http://www.w3.org/2000/svg"'
-    +' style="width:100%;height:auto;display:block;touch-action:none;"'
+    +' style="width:100%;display:block;touch-action:none;"'
     +' data-ck="'+campoKey+'">');
 
   /* background = campo.png via image tag */
@@ -1263,6 +1258,10 @@ function onSvgDown(e){
   var ck=svg.dataset.ck;
   if(ck&&_miniDrawMode[ck]!=null){drawMode=_miniDrawMode[ck];}
   else if(ck&&_miniDrawMode[ck]===null){drawMode=null;}
+  _origOnSvgDown.call(this,e);
+}
+
+init();DrawMode[ck]===null){drawMode=null;}
   _origOnSvgDown.call(this,e);
 }
 
