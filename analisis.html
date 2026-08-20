@@ -320,6 +320,7 @@ function secPortada(inf){
   h.push('<div class="meta-f"><label class="meta-l">Sede</label><select class="meta-s pf" data-k="sede">'+sO+'</select></div>');
   h.push('<div class="meta-f"><label class="meta-l">Hora</label><input class="meta-i pf" data-k="hora" type="time" value="'+(inf.hora||'')+'"></div>');
   h.push('<div class="meta-f"><label class="meta-l">Campo</label><input class="meta-i pf" data-k="campo" value="'+(inf.campo||'')+'" placeholder="Estadio..."></div>');
+  h.push('<div class="meta-f"><label class="meta-l">Resultado</label><input class="meta-i pf" data-k="resultado" value="'+(inf.resultado||'')+'" placeholder="0 - 0" style="font-size:16px;font-weight:700;text-align:center;"></div>');
   h.push('</div></div>');
   setTimeout(function(){document.querySelectorAll('.pf').forEach(function(el){el.onchange=el.oninput=function(){autoGuardar(this.dataset.k,this.value);};});},30);
   return h.join('');
@@ -356,8 +357,9 @@ function secXI(inf){
     +'<div class="campo-container"><div class="campo-xi" data-campo="'+key+'" data-modo="xi"></div></div>'
     +'</div>'
     +'<div class="xi-iconos-panel">'
-    +'<div class="ico-panel-title">Características</div>'
-    +'<div class="ico-grid">'+ICONOS.map(function(ico){return '<div class="ico-item" title="'+ico[2]+'"><span class="ico-e">'+ico[1]+'</span><span style="font-size:9px;">'+ico[2]+'</span></div>';}).join('')+'</div>'
+    +'<div class="ico-panel-title" style="display:flex;justify-content:space-between;align-items:center;">Jugadores <button class="ctrl-btn ctrl-btn-sec" style="font-size:9px;padding:2px 6px;" onclick="addJugadorClick(getInf(currentId).id+\'_xi\',\'xi\')">+ Añadir</button></div>'
+    +'<div id="player-list-xi" style="max-height:160px;overflow-y:auto;margin-bottom:8px;"></div>'
+    +'<div class="ico-panel-title" style="margin-top:4px;">Jugador seleccionado</div>'
     +'<div class="jug-edit-panel" id="jug-edit-panel" style="display:none;">'
     +'<div class="jug-edit-title">✏️ Jugador seleccionado</div>'
     +'<input class="jug-inp" id="jug-edit-nombre" placeholder="NOMBRE..." oninput="saveJugEdit()">'
@@ -398,218 +400,295 @@ function renderEditor(){
 
 // ══ CAMPO SVG ══
 // Dibuja un campo SVG con jugadores arrastrables inline
-function campoSVG(campoKey, modo){
-  // modo: 'xi'=horizontal, 'mini'=vertical
-  var isXI = modo==='xi';
+
+function campoSVG(campoKey, modo) {
+  /* modo: 'xi' = horizontal landscape, 'mini' = vertical portrait */
+  var isXI = (modo === 'xi');
+  /* Campo real 105x68. XI→landscape: VW=105,VH=68. Mini→portrait: VW=68,VH=105 */
   var VW = isXI ? 105 : 68;
-  var VH = isXI ? 68 : 105;
-  var PAD = 3;
-  var fw = VW-PAD*2, fh = VH-PAD*2;
-  var data = campos[campoKey] || {jugs:[], arrows:[]};
-  // Soporte legacy (array directo)
-  if(Array.isArray(data)) data = {jugs: data, arrows:[]};
-  var jugs = data.jugs || [];
+  var VH = isXI ? 68  : 105;
+  var P  = 3; /* padding */
+  var fw = VW - P*2, fh = VH - P*2;
+  var data = campos[campoKey] || { jugs: [], arrows: [] };
+  if (Array.isArray(data)) data = { jugs: data, arrows: [] };
+  var jugs   = data.jugs   || [];
   var arrows = data.arrows || [];
 
-  var s = [];
-  s.push('<svg id="svg_'+campoKey+'" class="campo-svg" viewBox="0 0 '+VW+' '+VH+'"'
-    +' xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%;"'
-    +' data-campokey="'+campoKey+'">');
+  var o = []; /* output parts */
+  o.push('<svg id="svg_' + campoKey + '" viewBox="0 0 ' + VW + ' ' + VH + '"'
+    + ' xmlns="http://www.w3.org/2000/svg"'
+    + ' style="display:block;width:100%;height:100%;touch-action:none;"'
+    + ' data-campokey="' + campoKey + '">');
 
-  // ── FONDO ──
-  s.push('<rect width="'+VW+'" height="'+VH+'" fill="#2a7a2a"/>');
-  // Franjas
-  var ns=10;
-  for(var si=0;si<ns;si++){
-    if(si%2===0) continue;
-    if(isXI){
-      var sx=(PAD+si*fw/ns).toFixed(2), sw=(fw/ns).toFixed(2);
-      s.push('<rect x="'+sx+'" y="'+PAD+'" width="'+sw+'" height="'+fh+'" fill="#237023" opacity="0.5"/>');
+  /* ── background ── */
+  o.push('<rect width="' + VW + '" height="' + VH + '" fill="#2a7a2a"/>');
+  /* stripes */
+  var ns = 8;
+  for (var si = 0; si < ns; si++) {
+    if (si % 2 === 0) continue;
+    if (isXI) {
+      var sx = (P + si * fw / ns).toFixed(1), sw = (fw / ns).toFixed(1);
+      o.push('<rect x="' + sx + '" y="' + P + '" width="' + sw + '" height="' + fh + '" fill="#237023" opacity="0.45"/>');
     } else {
-      var sy=(PAD+si*fh/ns).toFixed(2), sh=(fh/ns).toFixed(2);
-      s.push('<rect x="'+PAD+'" y="'+sy+'" width="'+fw+'" height="'+sh+'" fill="#237023" opacity="0.5"/>');
+      var sy = (P + si * fh / ns).toFixed(1), sh = (fh / ns).toFixed(1);
+      o.push('<rect x="' + P + '" y="' + sy + '" width="' + fw + '" height="' + sh + '" fill="#237023" opacity="0.45"/>');
     }
   }
 
-  // ── LÍNEAS DE CAMPO ──
-  var lc='rgba(255,255,255,0.85)', lw=0.4;
-  var sc='stroke="'+lc+'" stroke-width="'+lw+'" fill="none"';
-  // Borde
-  s.push('<rect x="'+PAD+'" y="'+PAD+'" width="'+fw+'" height="'+fh+'" '+sc+'/>');
+  /* ── field lines helper ── */
+  var lc = 'rgba(255,255,255,0.85)';
+  var lw = 0.4;
+  function ln(x1, y1, x2, y2) { return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>'; }
+  function rc(x, y, w, h)     { return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>'; }
+  function ci(cx, cy, r)      { return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>'; }
+  function dot(cx, cy)        { return '<circle cx="'+cx+'" cy="'+cy+'" r="0.55" fill="'+lc+'"/>'; }
 
-  if(isXI){
-    var mx=VW/2, my=VH/2;
-    // Línea central
-    s.push('<line x1="'+mx+'" y1="'+PAD+'" x2="'+mx+'" y2="'+(VH-PAD)+'" '+sc+'/>');
-    // Círculo central
-    s.push('<circle cx="'+mx+'" cy="'+my+'" r="'+(fh*0.146).toFixed(2)+'" '+sc+'/>');
-    s.push('<circle cx="'+mx+'" cy="'+my+'" r="0.7" fill="'+lc+'"/>');
-    // Área grande IZQ
-    var aH=(fh*0.618).toFixed(2), aW=(fw*0.131).toFixed(2);
-    var ay=(my-fh*0.309).toFixed(2);
-    s.push('<rect x="'+PAD+'" y="'+ay+'" width="'+aW+'" height="'+aH+'" '+sc+'/>');
-    // Área grande DCH
-    var ax2=(VW-PAD-parseFloat(aW)).toFixed(2);
-    s.push('<rect x="'+ax2+'" y="'+ay+'" width="'+aW+'" height="'+aH+'" '+sc+'/>');
-    // Área pequeña IZQ
-    var sH=(fh*0.353).toFixed(2), sW=(fw*0.059).toFixed(2);
-    var say=(my-fh*0.176).toFixed(2);
-    s.push('<rect x="'+PAD+'" y="'+say+'" width="'+sW+'" height="'+sH+'" '+sc+'/>');
-    // Área pequeña DCH
-    var sx2=(VW-PAD-parseFloat(sW)).toFixed(2);
-    s.push('<rect x="'+sx2+'" y="'+say+'" width="'+sW+'" height="'+sH+'" '+sc+'/>');
-    // Semicírculo área IZQ (solo la parte que sale fuera del área)
-    var penX=parseFloat((PAD+fw*0.105).toFixed(2));
-    var circR=parseFloat((fh*0.146).toFixed(2));
-    var aWf=parseFloat(aW);
-    // El arco del semicírculo que sobresale del área: desde el punto donde el círculo corta el borde del área
-    var areaEdge=PAD+aWf;
-    // Ángulo donde círculo corta el borde del área: cos(a)=(areaEdge-penX)/circR
-    var cosA=(areaEdge-penX)/circR;
-    if(cosA>=-1&&cosA<=1){
-      var angA=Math.acos(cosA);
-      var y1=(my-Math.sin(angA)*circR).toFixed(2);
-      var y2=(my+Math.sin(angA)*circR).toFixed(2);
-      s.push('<path d="M '+areaEdge.toFixed(2)+' '+y1+' A '+circR+' '+circR+' 0 0 1 '+areaEdge.toFixed(2)+' '+y2+'" '+sc+'/>');
+  /* border */
+  o.push(rc(P, P, fw, fh));
+
+  if (isXI) {
+    /* HORIZONTAL FIELD */
+    var mx = (VW/2).toFixed(1), my = (VH/2).toFixed(1);
+    /* centre line + circle */
+    o.push(ln(mx, P, mx, VH-P));
+    o.push(ci(mx, my, (fh*0.146).toFixed(2)));
+    o.push(dot(mx, my));
+    /* penalty areas */
+    var aH = fh*0.618, aW = fw*0.131;
+    var ay = (VH/2 - aH/2).toFixed(2);
+    o.push(rc(P, ay, aW.toFixed(2), aH.toFixed(2)));
+    o.push(rc((VW-P-aW).toFixed(2), ay, aW.toFixed(2), aH.toFixed(2)));
+    /* small areas */
+    var sH = fh*0.353, sW = fw*0.059;
+    var sy2 = (VH/2 - sH/2).toFixed(2);
+    o.push(rc(P, sy2, sW.toFixed(2), sH.toFixed(2)));
+    o.push(rc((VW-P-sW).toFixed(2), sy2, sW.toFixed(2), sH.toFixed(2)));
+    /* penalty spots */
+    var px1 = P + fw*0.105, px2 = VW-P-fw*0.105;
+    o.push(dot(px1.toFixed(2), my));
+    o.push(dot(px2.toFixed(2), my));
+    /* penalty arcs */
+    var cr = fh*0.146;
+    var ae1 = P + aW; /* right edge of left area */
+    var ca = (ae1 - px1) / cr;
+    if (ca >= -1 && ca <= 1) {
+      var ang = Math.acos(ca);
+      var ay1 = (VH/2 - Math.sin(ang)*cr).toFixed(2);
+      var ay2 = (VH/2 + Math.sin(ang)*cr).toFixed(2);
+      o.push('<path d="M '+ae1.toFixed(2)+' '+ay1+' A '+cr.toFixed(2)+' '+cr.toFixed(2)+' 0 0 1 '+ae1.toFixed(2)+' '+ay2+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>');
     }
-    s.push('<circle cx="'+penX+'" cy="'+my+'" r="0.6" fill="'+lc+'"/>');
-    var penX2=parseFloat((VW-PAD-fw*0.105).toFixed(2));
-    var areaEdge2=VW-PAD-aWf;
-    var cosA2=(penX2-areaEdge2)/circR;
-    if(cosA2>=-1&&cosA2<=1){
-      var angA2=Math.acos(cosA2);
-      var y3=(my-Math.sin(angA2)*circR).toFixed(2);
-      var y4=(my+Math.sin(angA2)*circR).toFixed(2);
-      s.push('<path d="M '+areaEdge2.toFixed(2)+' '+y3+' A '+circR+' '+circR+' 0 0 0 '+areaEdge2.toFixed(2)+' '+y4+'" '+sc+'/>');
+    var ae2 = VW-P-aW;
+    var ca2 = (px2 - ae2) / cr;
+    if (ca2 >= -1 && ca2 <= 1) {
+      var ang2 = Math.acos(ca2);
+      var ay3 = (VH/2 - Math.sin(ang2)*cr).toFixed(2);
+      var ay4 = (VH/2 + Math.sin(ang2)*cr).toFixed(2);
+      o.push('<path d="M '+ae2.toFixed(2)+' '+ay3+' A '+cr.toFixed(2)+' '+cr.toFixed(2)+' 0 0 0 '+ae2.toFixed(2)+' '+ay4+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>');
     }
-    s.push('<circle cx="'+penX2+'" cy="'+my+'" r="0.6" fill="'+lc+'"/>');
-    // Portería IZQ y DCH
-    var gH=(fh*0.147).toFixed(2), gW=(fw*0.024).toFixed(2), gy=(my-fh*0.073).toFixed(2);
-    s.push('<rect x="'+(PAD-parseFloat(gW)).toFixed(2)+'" y="'+gy+'" width="'+gW+'" height="'+gH+'" fill="none" stroke="'+lc+'" stroke-width="'+lw+'"/>');
-    s.push('<rect x="'+(VW-PAD).toFixed(2)+'" y="'+gy+'" width="'+gW+'" height="'+gH+'" fill="none" stroke="'+lc+'" stroke-width="'+lw+'"/>');
+    /* goals */
+    var gH = fh*0.147, gW = fw*0.022, gy = (VH/2 - gH/2).toFixed(2);
+    o.push(rc((P-gW).toFixed(2), gy, gW.toFixed(2), gH.toFixed(2)));
+    o.push(rc((VW-P).toFixed(2), gy, gW.toFixed(2), gH.toFixed(2)));
   } else {
-    // VERTICAL
-    var mx=VW/2, my=VH/2;
-    s.push('<line x1="'+PAD+'" y1="'+my+'" x2="'+(VW-PAD)+'" y2="'+my+'" '+sc+'/>');
-    s.push('<circle cx="'+mx+'" cy="'+my+'" r="'+(fw*0.146).toFixed(2)+'" '+sc+'/>');
-    s.push('<circle cx="'+mx+'" cy="'+my+'" r="0.7" fill="'+lc+'"/>');
-    // Área grande
-    var aW2=(fw*0.618).toFixed(2), aH2=(fh*0.131).toFixed(2);
-    var ax2=(mx-fw*0.309).toFixed(2);
-    s.push('<rect x="'+ax2+'" y="'+PAD+'" width="'+aW2+'" height="'+aH2+'" '+sc+'/>');
-    s.push('<rect x="'+ax2+'" y="'+(VH-PAD-parseFloat(aH2)).toFixed(2)+'" width="'+aW2+'" height="'+aH2+'" '+sc+'/>');
-    // Área pequeña
-    var sW2=(fw*0.353).toFixed(2), sH2=(fh*0.059).toFixed(2);
-    var sx2=(mx-fw*0.176).toFixed(2);
-    s.push('<rect x="'+sx2+'" y="'+PAD+'" width="'+sW2+'" height="'+sH2+'" '+sc+'/>');
-    s.push('<rect x="'+sx2+'" y="'+(VH-PAD-parseFloat(sH2)).toFixed(2)+'" width="'+sW2+'" height="'+sH2+'" '+sc+'/>');
-    // Semicírculo área (arco que sobresale del área)
-    var penYf=parseFloat((PAD+fh*0.105).toFixed(2));
-    var circR2=parseFloat((fw*0.146).toFixed(2));
-    var aH2f=parseFloat(aH2);
-    var areaTop=PAD+aH2f;
-    var cosB=(areaTop-penYf)/circR2;
-    if(cosB>=-1&&cosB<=1){
-      var angB=Math.acos(cosB);
-      var x1=(mx-Math.sin(angB)*circR2).toFixed(2);
-      var x2=(mx+Math.sin(angB)*circR2).toFixed(2);
-      s.push('<path d="M '+x1+' '+areaTop.toFixed(2)+' A '+circR2+' '+circR2+' 0 0 0 '+x2+' '+areaTop.toFixed(2)+'" '+sc+'/>');
+    /* VERTICAL FIELD */
+    var mx = (VW/2).toFixed(1), my = (VH/2).toFixed(1);
+    o.push(ln(P, my, VW-P, my));
+    o.push(ci(mx, my, (fw*0.146).toFixed(2)));
+    o.push(dot(mx, my));
+    var aW2 = fw*0.618, aH2 = fh*0.131;
+    var ax2 = (VW/2 - aW2/2).toFixed(2);
+    o.push(rc(ax2, P, aW2.toFixed(2), aH2.toFixed(2)));
+    o.push(rc(ax2, (VH-P-aH2).toFixed(2), aW2.toFixed(2), aH2.toFixed(2)));
+    var sW2 = fw*0.353, sH2 = fh*0.059;
+    var sx2 = (VW/2 - sW2/2).toFixed(2);
+    o.push(rc(sx2, P, sW2.toFixed(2), sH2.toFixed(2)));
+    o.push(rc(sx2, (VH-P-sH2).toFixed(2), sW2.toFixed(2), sH2.toFixed(2)));
+    var py1 = P + fh*0.105, py2 = VH-P-fh*0.105;
+    o.push(dot(mx, py1.toFixed(2)));
+    o.push(dot(mx, py2.toFixed(2)));
+    /* penalty arcs */
+    var cr2 = fw*0.146;
+    var ate = P + aH2; /* bottom edge of top area */
+    var cb = (ate - py1) / cr2;
+    if (cb >= -1 && cb <= 1) {
+      var angb = Math.acos(cb);
+      var ax3 = (VW/2 - Math.sin(angb)*cr2).toFixed(2);
+      var ax4 = (VW/2 + Math.sin(angb)*cr2).toFixed(2);
+      o.push('<path d="M '+ax3+' '+ate.toFixed(2)+' A '+cr2.toFixed(2)+' '+cr2.toFixed(2)+' 0 0 0 '+ax4+' '+ate.toFixed(2)+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>');
     }
-    s.push('<circle cx="'+mx+'" cy="'+penYf+'" r="0.6" fill="'+lc+'"/>');
-    var penY2f=parseFloat((VH-PAD-fh*0.105).toFixed(2));
-    var areaBot=VH-PAD-aH2f;
-    var cosB2=(penY2f-areaBot)/circR2;
-    if(cosB2>=-1&&cosB2<=1){
-      var angB2=Math.acos(cosB2);
-      var x3=(mx-Math.sin(angB2)*circR2).toFixed(2);
-      var x4=(mx+Math.sin(angB2)*circR2).toFixed(2);
-      s.push('<path d="M '+x3+' '+areaBot.toFixed(2)+' A '+circR2+' '+circR2+' 0 0 1 '+x4+' '+areaBot.toFixed(2)+'" '+sc+'/>');
+    var abe = VH-P-aH2;
+    var cb2 = (py2 - abe) / cr2;
+    if (cb2 >= -1 && cb2 <= 1) {
+      var angb2 = Math.acos(cb2);
+      var ax5 = (VW/2 - Math.sin(angb2)*cr2).toFixed(2);
+      var ax6 = (VW/2 + Math.sin(angb2)*cr2).toFixed(2);
+      o.push('<path d="M '+ax5+' '+abe.toFixed(2)+' A '+cr2.toFixed(2)+' '+cr2.toFixed(2)+' 0 0 1 '+ax6+' '+abe.toFixed(2)+'" stroke="'+lc+'" stroke-width="'+lw+'" fill="none"/>');
     }
-    s.push('<circle cx="'+mx+'" cy="'+penY2f+'" r="0.6" fill="'+lc+'"/>');
-    // Puntos
-    s.push('<circle cx="'+mx+'" cy="'+penY+'" r="0.6" fill="'+lc+'"/>');
-    s.push('<circle cx="'+mx+'" cy="'+penY2+'" r="0.6" fill="'+lc+'"/>');
-    // Porterías
-    var gW2=(fw*0.147).toFixed(2), gH2=(fh*0.024).toFixed(2), gx2=(mx-fw*0.073).toFixed(2);
-    s.push('<rect x="'+gx2+'" y="'+(PAD-parseFloat(gH2)).toFixed(2)+'" width="'+gW2+'" height="'+gH2+'" fill="none" stroke="'+lc+'" stroke-width="'+lw+'"/>');
-    s.push('<rect x="'+gx2+'" y="'+(VH-PAD).toFixed(2)+'" width="'+gW2+'" height="'+gH2+'" fill="none" stroke="'+lc+'" stroke-width="'+lw+'"/>');
+    /* goals */
+    var gW2 = fw*0.147, gH2 = fh*0.022, gx2 = (VW/2 - gW2/2).toFixed(2);
+    o.push(rc(gx2, (P-gH2).toFixed(2), gW2.toFixed(2), gH2.toFixed(2)));
+    o.push(rc(gx2, (VH-P).toFixed(2), gW2.toFixed(2), gH2.toFixed(2)));
   }
 
-  // ── FLECHAS ──
-  arrows.forEach(function(arr){
-    if(!arr.x1&&arr.x1!==0)return;
-    var strokeW = arr.sw || 0.8;
-    var clr = arr.color || '#ff3333';
-    var dash = arr.type==='dashed'?'stroke-dasharray="2,1.5"':arr.type==='dotted'?'stroke-dasharray="0.5,1.5"':'';
-    s.push('<g>');
-    s.push('<line x1="'+arr.x1+'" y1="'+arr.y1+'" x2="'+arr.x2+'" y2="'+arr.y2+'" stroke="'+clr+'" stroke-width="'+strokeW+'" '+dash+'" marker-end="url(#arrowhead_'+clr.replace('#','')+')"/>');
-    s.push('</g>');
+  /* ── arrowhead marker defs ── */
+  var arrowColors = ['ff3333','C8A84B','ffffff','000000','3399ff','ffff00'];
+  o.push('<defs>');
+  arrowColors.forEach(function(c) {
+    o.push('<marker id="ah_' + campoKey + '_' + c + '" markerWidth="3.5" markerHeight="2.5" refX="3" refY="1.25" orient="auto">');
+    o.push('<polygon points="0 0, 3.5 1.25, 0 2.5" fill="#' + c + '"/>');
+    o.push('</marker>');
+  });
+  o.push('</defs>');
+
+  /* ── arrows ── */
+  arrows.forEach(function(arr) {
+    if (arr.x1 == null) return;
+    var clr = (arr.color || '#ff3333').replace('#','');
+    var sw  = arr.sw || 0.7;
+    var dash = arr.type === 'dashed' ? 'stroke-dasharray="2 1.5"'
+             : arr.type === 'dotted' ? 'stroke-dasharray="0.4 1.2"' : '';
+    var mk = 'url(#ah_' + campoKey + '_' + clr + ')';
+    o.push('<line x1="'+arr.x1+'" y1="'+arr.y1+'" x2="'+arr.x2+'" y2="'+arr.y2+'"'
+      + ' stroke="#' + clr + '" stroke-width="' + sw + '" ' + dash
+      + ' marker-end="' + mk + '" stroke-linecap="round"/>');
   });
 
-  // ── DEFS: marcadores de flecha ──
-  var colors=['ff3333','C8A84B','ffffff','000000','3399ff'];
-  s.push('<defs>');
-  colors.forEach(function(c){
-    s.push('<marker id="arrowhead_'+c+'" markerWidth="4" markerHeight="3" refX="3" refY="1.5" orient="auto">');
-    s.push('<polygon points="0 0, 4 1.5, 0 3" fill="#'+c+'"/></marker>');
-  });
-  s.push('</defs>');
+  /* ── players ── */
+  /* Scale factor: player radius as fraction of field height */
+  var rBase = isXI ? fh*0.042 : fh*0.028;
+  jugs.forEach(function(jug, ji) {
+    if (jug.x == null || jug.y == null) return;
+    var sel = selJug && selJug.campoKey === campoKey && selJug.idx === ji;
+    var fill   = jug.fill   || '#1B2A6B';
+    var stroke = jug.stroke || '#C8A84B';
+    var r      = jug.size   ? rBase * (jug.size / 3) : rBase;
+    var textC  = jug.textColor  || '#ffffff';
+    var nameC  = jug.nameColor  || '#ffffff';
+    var fsNum  = (r * 0.95).toFixed(1);
+    var fsName = (r * 0.72).toFixed(1);
+    var fsIco  = (r * 0.65).toFixed(1);
 
-  // ── JUGADORES ──
-  jugs.forEach(function(jug,ji){
-    if(jug.x===undefined||jug.y===undefined)return;
-    var sel = selJug && selJug.campoKey===campoKey && selJug.idx===ji;
-    var fill=jug.fill||'#1B2A6B';
-    var stroke=jug.stroke||'#C8A84B';
-    var r = jug.size || (isXI ? 3 : 2.5);
-    var textC = jug.textColor || '#ffffff';
-    var selGlow = sel ? ' filter="url(#sel_glow)"' : '';
-    s.push('<g class="jug-g" data-ci="'+ji+'" style="cursor:grab;">');
-    if(sel) s.push('<circle cx="'+jug.x+'" cy="'+jug.y+'" r="'+(r+1.5)+'" fill="rgba(255,255,255,0.25)" stroke="none"/>');
-    s.push('<circle cx="'+jug.x+'" cy="'+jug.y+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(r*0.25)+'"/>');
-    // Dorsal
-    if(jug.num){
-      var fs = (r*1.15).toFixed(1);
-      s.push('<text x="'+jug.x+'" y="'+(parseFloat(jug.y)+r*0.38).toFixed(2)+'" text-anchor="middle" fill="'+textC+'" font-size="'+fs+'" font-weight="900" font-family="Barlow Condensed,sans-serif" style="pointer-events:none;">'+jug.num+'</text>');
+    o.push('<g class="jug-g" data-ci="' + ji + '" style="cursor:grab;">');
+    /* selection halo */
+    if (sel) o.push('<circle cx="'+jug.x+'" cy="'+jug.y+'" r="'+(r+1.2).toFixed(1)+'" fill="rgba(255,255,255,0.25)"/>');
+    /* body */
+    o.push('<circle cx="'+jug.x+'" cy="'+jug.y+'" r="'+r.toFixed(1)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(r*0.22).toFixed(1)+'"/>');
+    /* dorsal */
+    if (jug.num) {
+      o.push('<text x="'+jug.x+'" y="'+(parseFloat(jug.y)+r*0.38).toFixed(2)+'"'
+        + ' text-anchor="middle" dominant-baseline="middle"'
+        + ' fill="'+textC+'" font-size="'+fsNum+'" font-weight="900"'
+        + ' font-family="Barlow Condensed,sans-serif" style="pointer-events:none;">'
+        + jug.num + '</text>');
     }
-    // Nombre ENCIMA del círculo
-    if(jug.nombre && jug.nombre.trim()){
-      var nm = jug.nombre.toUpperCase();
-      var nameC = jug.nameColor || '#ffffff';
-      s.push('<text x="'+jug.x+'" y="'+(parseFloat(jug.y)-r-0.8).toFixed(2)+'" text-anchor="middle" fill="'+nameC+'" font-size="'+(isXI?2.4:1.8)+'" font-weight="700" font-family="Barlow Condensed,sans-serif" style="pointer-events:none;" paint-order="stroke" stroke="rgba(0,0,0,0.9)" stroke-width="0.7">'+nm+'</text>');
+    /* name above */
+    if (isXI && jug.nombre && jug.nombre.trim()) {
+      o.push('<text x="'+jug.x+'" y="'+(parseFloat(jug.y)-r-0.6).toFixed(2)+'"'
+        + ' text-anchor="middle"'
+        + ' fill="'+nameC+'" font-size="'+fsName+'" font-weight="700"'
+        + ' font-family="Barlow Condensed,sans-serif" style="pointer-events:none;"'
+        + ' paint-order="stroke" stroke="rgba(0,0,0,0.9)" stroke-width="0.5">'
+        + jug.nombre.toUpperCase() + '</text>');
     }
-    // Iconos DEBAJO del círculo (max 3)
-    if(jug.iconos && jug.iconos.length){
-      var icMap = {'capitan':'C','goleador':'⚽','desequil':'⚡','potente':'>>','aereo':'✈','buen_pie':'👟','box2box':'↔','abp':'🎯','presion':'⚔','movilidad':'🏃','temperamental':'🔥','destac':'⭐'};
-      var icoTxt = jug.iconos.slice(0,4).map(function(k){return icMap[k]||k;}).join('');
-      if(icoTxt) s.push('<text x="'+jug.x+'" y="'+(parseFloat(jug.y)+r+2.5).toFixed(2)+'" text-anchor="middle" fill="'+stroke+'" font-size="2" font-family="sans-serif" style="pointer-events:none;">'+icoTxt+'</text>');
+    /* icons below */
+    if (jug.iconos && jug.iconos.length) {
+      var ICON_MAP = {capitan:'C',goleador:'⚽',desequil:'⚡',potente:'>>',aereo:'↑',buen_pie:'~',box2box:'↔',abp:'🎯',presion:'X',movilidad:'∞',temperamental:'🔥',destac:'★'};
+      var txt = jug.iconos.slice(0,4).map(function(k){return ICON_MAP[k]||k;}).join('');
+      if (txt) {
+        o.push('<text x="'+jug.x+'" y="'+(parseFloat(jug.y)+r+1.2).toFixed(2)+'"'
+          + ' text-anchor="middle" fill="'+stroke+'" font-size="'+fsIco+'"'
+          + ' font-family="sans-serif" style="pointer-events:none;">'
+          + txt + '</text>');
+      }
     }
-    s.push('</g>');
+    o.push('</g>');
   });
 
-  // Glow def para seleccionado
-  s.push('<defs><filter id="sel_glow"><feGaussianBlur stdDeviation="1" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>');
-  s.push('</svg>');
-  return s.join('');
+  o.push('</svg>');
+  return o.join('');
+}
+
+
+
+
+/* ── DRAG + DRAW ── */
+var drawMode=null, drawStart=null, drawCampoKey=null;
+var _ARROW_MODES=['','arrow-solid','arrow-dashed','arrow-dotted'];
+function setDrawModeEl(btn,mi){
+  drawMode=_ARROW_MODES[mi]||null; drawStart=null;
+  document.querySelectorAll('[id^=btn-arrow]').forEach(function(b){b.style.background='';b.style.color='';});
+  if(btn&&drawMode){btn.style.background='rgba(200,168,75,0.3)';btn.style.color='var(--gold)';}
+}
+function delLastArrow(){
+  var ck=drawCampoKey||(selJug?selJug.campoKey:null); if(!ck)return;
+  var d=ensureCampo(ck); if(d.arrows&&d.arrows.length)d.arrows.pop();
+  saveCampos();renderAllCampos();
+}
+function _getSvgEl(ck){ return document.getElementById('svg_'+ck); }
+function handleSvgDown(e,svgEl){
+  var ck=svgEl.dataset.campokey; if(!ck)return;
+  if(drawMode){
+    e.preventDefault();e.stopPropagation();
+    drawCampoKey=ck; drawStart=svgCoords(e,svgEl); return;
+  }
+  e.preventDefault();
+  var g=e.target.closest?e.target.closest('.jug-g'):null;
+  if(g){
+    var ji=parseInt(g.dataset.ci);
+    var jug=getJugs(ck)[ji];
+    selJug={campoKey:ck,idx:ji};
+    var coords=svgCoords(e,svgEl);
+    if(jug)dragState={campoKey:ck,idx:ji,ox:coords.x-jug.x,oy:coords.y-jug.y};
+    renderAllCampos();return;
+  }
+  selJug=null;dragState=null;renderAllCampos();
+}
+function handleSvgMove(e,svgEl){
+  var ck=svgEl.dataset.campokey; if(!ck)return;
+  if(dragState&&dragState.campoKey===ck){
+    e.preventDefault();
+    var coords=svgCoords(e,svgEl);
+    var jug=getJugs(ck)[dragState.idx]; if(!jug)return;
+    jug.x=parseFloat((coords.x-dragState.ox).toFixed(2));
+    jug.y=parseFloat((coords.y-dragState.oy).toFixed(2));
+    renderAllCampos();
+  }
+}
+function handleSvgUp(e,svgEl){
+  var ck=svgEl?svgEl.dataset.campokey:null;
+  if(drawMode&&drawStart&&ck&&drawCampoKey===ck){
+    var end=svgCoords(e,svgEl);
+    var dx=end.x-drawStart.x,dy=end.y-drawStart.y;
+    if(Math.sqrt(dx*dx+dy*dy)>2){
+      var d=ensureCampo(ck);
+      var colorEl=document.getElementById('arrow-color');
+      d.arrows=d.arrows||[];
+      d.arrows.push({x1:parseFloat(drawStart.x.toFixed(2)),y1:parseFloat(drawStart.y.toFixed(2)),
+        x2:parseFloat(end.x.toFixed(2)),y2:parseFloat(end.y.toFixed(2)),
+        type:drawMode.replace('arrow-',''),color:colorEl?colorEl.value:'#ff3333',sw:0.7});
+    }
+    drawStart=null;saveCampos();renderAllCampos();return;
+  }
+  if(dragState)saveCampos();
+  dragState=null;
 }
 
 function renderAllCampos(){
   document.querySelectorAll('[data-campo]').forEach(function(el){
     var key=el.dataset.campo, modo=el.dataset.modo||'mini';
     el.innerHTML=campoSVG(key,modo);
-    // Bind events to SVG
     var svg=el.querySelector('svg[data-campokey]');
     if(svg){
-      var ck=svg.dataset.campokey;
-      svg.addEventListener('mousedown',function(ev){svgDown_new(ev,ck);});
-      svg.addEventListener('mousemove',function(ev){svgMove_new(ev,ck);});
-      svg.addEventListener('mouseup',function(ev){svgUp(ev,ck);});
-      svg.addEventListener('touchstart',function(ev){ev.preventDefault();svgDown(ev,ck);},{passive:false});
-      svg.addEventListener('touchmove',function(ev){ev.preventDefault();svgMove(ev,ck);},{passive:false});
-      svg.addEventListener('touchend',function(ev){svgUp(ev,ck);});
+      svg.addEventListener('mousedown',function(ev){handleSvgDown(ev,svg);});
+      svg.addEventListener('mousemove',function(ev){handleSvgMove(ev,svg);});
+      svg.addEventListener('mouseup',function(ev){handleSvgUp(ev,svg);});
+      svg.addEventListener('touchstart',function(ev){ev.preventDefault();handleSvgDown(ev,svg);},{passive:false});
+      svg.addEventListener('touchmove',function(ev){ev.preventDefault();handleSvgMove(ev,svg);},{passive:false});
+      svg.addEventListener('touchend',function(ev){handleSvgUp(ev,svg);});
     }
   });
   updateJugEditPanel();
+  renderPlayerList();
 }
 
 // ══ DRAG JUGADORES ══
@@ -671,13 +750,7 @@ function svgMove(e, campoKey){
   }
 }
 
-function svgUp(e, campoKey){
-  if(dragState && dragState.campoKey===campoKey){
-    saveCampos();
-    // Sync jug position back to campos structure
-  }
-  dragState = null;
-}
+
 
 
 
@@ -971,41 +1044,8 @@ function addJugadorClick(campoKey, modo){
 }
 
 // ── FIX DRAG con nueva estructura ──
-function svgDown_new(e, campoKey){
-  e.preventDefault();
-  var svgEl=document.getElementById('svg_'+campoKey);if(!svgEl)return;
-  var coords=svgCoords(e,svgEl);
-  var g=e.target.closest('.jug-g');
-  if(g){
-    var ji=parseInt(g.dataset.ci);
-    var jug=getJugs(campoKey)[ji];
-    selJug={campoKey:campoKey,idx:ji};
-    if(jug) dragState={campoKey:campoKey,idx:ji,ox:coords.x-jug.x,oy:coords.y-jug.y};
-    renderAllCampos();return;
-  }
-  selJug=null;dragState=null;renderAllCampos();
-}
-function svgMove_new(e, campoKey){
-  if(!dragState||dragState.campoKey!==campoKey)return;
-  e.preventDefault();
-  var svgEl=document.getElementById('svg_'+campoKey);if(!svgEl)return;
-  var coords=svgCoords(e,svgEl);
-  var jug=getJugs(campoKey)[dragState.idx];if(!jug)return;
-  jug.x=parseFloat((coords.x-dragState.ox).toFixed(2));
-  jug.y=parseFloat((coords.y-dragState.oy).toFixed(2));
-  // Update SVG directly for performance
-  var gEl=svgEl.querySelectorAll('.jug-g')[dragState.idx];
-  if(gEl){
-    var c=gEl.querySelector('circle');
-    var texts=gEl.querySelectorAll('text');
-    if(c){c.setAttribute('cx',jug.x);c.setAttribute('cy',jug.y);}
-    texts.forEach(function(t){t.setAttribute('x',jug.x);});
-    var r=parseFloat(c?c.getAttribute('r'):3);
-    if(texts[0])texts[0].setAttribute('y',jug.y+r*0.38);
-    if(texts[1])texts[1].setAttribute('y',jug.y-r-0.8);
-    if(texts[2])texts[2].setAttribute('y',jug.y+r+2.5);
-  }
-}
+
+
 
 // ── DIBUJO DE FLECHAS ──
 var _ARROW_MODES=['','arrow-solid','arrow-dashed','arrow-dotted'];
@@ -1092,6 +1132,36 @@ svgUp = function(e, campoKey){
   }
   _origSvgUp(e, campoKey);
 };
+
+function renderPlayerList(){
+  var panel = document.getElementById('player-list-xi');
+  if(!panel||!currentId) return;
+  var key = currentId+'_xi';
+  var jugs = getJugs(key);
+  if(!jugs.length){ panel.innerHTML='<div style="font-size:10px;color:var(--text2);font-family:var(--fc);padding:4px;">Sin jugadores. Aplica un sistema o añade uno.</div>'; return; }
+  panel.innerHTML = jugs.map(function(jug,ji){
+    var isSel = selJug && selJug.campoKey===key && selJug.idx===ji;
+    var bg = isSel ? 'background:rgba(200,168,75,0.15);border-color:rgba(200,168,75,0.4);' : '';
+    return '<div style="display:flex;align-items:center;gap:4px;padding:2px 4px;border:1px solid transparent;border-radius:3px;cursor:pointer;margin-bottom:2px;'+bg+'" onclick="selectPlayerFromList('+ji+')">'
+      +'<div style="width:20px;height:20px;border-radius:50%;background:'+(jug.fill||'#1B2A6B')+';border:1.5px solid '+(jug.stroke||'#C8A84B')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:9px;font-weight:900;color:white;flex-shrink:0;">'+(jug.num||'?')+'</div>'
+      +'<input style="flex:1;background:transparent;border:none;outline:none;border-bottom:1px solid rgba(200,168,75,0.2);color:var(--text);font-family:Barlow Condensed,sans-serif;font-size:11px;padding:1px 2px;" value="'+(jug.nombre||'')+'" placeholder="Nombre..." data-ji="'+ji+'" onchange="savePlayerName(this)" onclick="event.stopPropagation()">'
+      +'</div>';
+  }).join('');
+}
+
+function selectPlayerFromList(ji){
+  if(!currentId) return;
+  selJug = {campoKey: currentId+'_xi', idx: ji};
+  renderAllCampos();
+}
+
+function savePlayerName(inp){
+  if(!currentId) return;
+  var ji = parseInt(inp.dataset.ji);
+  var jugs = getJugs(currentId+'_xi');
+  if(jugs[ji]) jugs[ji].nombre = inp.value.trim().toUpperCase();
+  saveCampos(); renderAllCampos();
+}
 
 init();
 </script>
