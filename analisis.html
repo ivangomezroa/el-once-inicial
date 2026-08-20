@@ -89,12 +89,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ══ CAMPO EDITOR ══ */
 /* campo-wrapper: el contenedor con fondo = campo.png */
-.campo-wrap{position:relative;overflow:hidden;border-radius:0 0 6px 6px;background:#2a7a2a;cursor:crosshair;width:100%;}
-.campo-wrap.xi-mode::before{content:'';display:block;padding-top:64.76%;} /* 68/105 */
-.campo-wrap.mini-mode::before{content:'';display:block;padding-top:154.41%;} /* 105/68 */
+.campo-wrap{position:relative;overflow:hidden;border-radius:0 0 6px 6px;background:#2a7a2a;cursor:crosshair;width:100%;display:block;}
 .campo-wrap.mini-mode{max-height:260px;}
-/* SVG ocupa todo el wrap */
-.campo-svg{width:100%;height:100%;display:block;position:absolute;top:0;left:0;touch-action:none;}
+/* SVG fluye naturalmente — viewBox controla proporción */
+.campo-svg{width:100%;height:auto;display:block;touch-action:none;}
 /* image tag dentro del SVG como background */
 
 /* TOOLBAR CAMPO */
@@ -156,7 +154,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .mom-desc:focus{border-color:var(--gold);}
 .mom-desc::placeholder{color:rgba(160,152,144,0.2);}
 /* Mini campos en momentos: proporción real campo portrait */
-.campo-wrap.mini-mode,mini-campo-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--border);background:#2a7a2a;}
+..mini-campo-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--border);background:#2a7a2a;}
 
 .mini-toolbar{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--navy2);border:1px solid var(--border);border-bottom:none;border-radius:4px 4px 0 0;flex-wrap:wrap;}
 /* ALINEACIONES */
@@ -712,7 +710,7 @@ function renderCampo(campoKey){
   var o=[];
   o.push('<svg id="svg_'+campoKey+'" viewBox="0 0 '+VW+' '+VH+'"'
     +' xmlns="http://www.w3.org/2000/svg"'
-    +' class="campo-svg" style="touch-action:none;"'
+    +' style="width:100%;height:auto;display:block;touch-action:none;"'
     +' data-ck="'+campoKey+'">');
 
   /* background = campo.png via image tag */
