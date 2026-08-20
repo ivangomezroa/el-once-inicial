@@ -142,8 +142,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ico-emoji{font-size:11px;width:14px;text-align:center;}
 
 /* MOMENTOS */
-.mom-tabs{display:flex;gap:3px;padding:10px 14px 0;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:nowrap;overflow-x:auto;}
-.mom-tab{padding:6px 12px;border-radius:5px 5px 0 0;cursor:pointer;font-family:var(--fc);font-size:11px;font-weight:700;letter-spacing:0.5px;border:1px solid var(--border);border-bottom:none;color:var(--text2);background:transparent;white-space:nowrap;transition:all 0.12s;flex-shrink:0;}
+.mom-tabs{display:flex;gap:3px;padding:8px 12px 0;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.mom-tab{padding:6px 10px;border-radius:5px 5px 0 0;cursor:pointer;font-family:var(--fc);font-size:10px;font-weight:700;letter-spacing:0px;border:1px solid var(--border);border-bottom:none;color:var(--text2);background:transparent;white-space:nowrap;transition:all 0.12s;flex-shrink:0;overflow:visible;min-width:fit-content;}
 .mom-tab.active{background:var(--gold);color:var(--navy2);border-color:var(--gold);}
 .mom-tab:hover:not(.active){border-color:var(--gold);color:var(--gold);}
 .mom-panel{display:none;padding:12px;}
@@ -157,6 +157,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* Mini campos en momentos: proporción real campo portrait */
 .mini-campo-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--border);background:#2a7a2a;}
 
+.mini-toolbar{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--navy2);border:1px solid var(--border);border-bottom:none;border-radius:4px 4px 0 0;flex-wrap:wrap;}
 /* ALINEACIONES */
 .alins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;}
 .alin-card{background:var(--navy2);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
@@ -243,14 +244,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <div class="modal-bg" id="modal-cal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box">
-    <div class="modal-hdr">
-      <div class="modal-title">Partidos del calendario</div>
-      <button class="modal-close" onclick="document.getElementById('modal-cal').classList.remove('open')">×</button>
-    </div>
-    <div id="cal-lista"></div>
-  </div>
-</div>
-
+    <
 <script>
 /* ════════════════════════════════════════════
    DATOS Y CONSTANTES
@@ -260,7 +254,7 @@ var CAMPO_IMG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAhEAAAK1CAYAAAB2E
 var SISTEMAS = {"1-4-3-3": [[50], [20, 37, 63, 80], [30, 50, 70], [20, 50, 80]], "1-4-4-2": [[50], [20, 37, 63, 80], [20, 40, 60, 80], [33, 67]], "1-4-2-3-1": [[50], [20, 37, 63, 80], [37, 63], [20, 50, 80], [50]], "1-4-1-4-1": [[50], [20, 37, 63, 80], [50], [20, 40, 60, 80], [50]], "1-4-5-1": [[50], [20, 37, 63, 80], [15, 32, 50, 68, 85], [50]], "1-4-2-4": [[50], [20, 37, 63, 80], [37, 63], [15, 38, 62, 85]], "1-3-4-3": [[50], [25, 50, 75], [20, 40, 60, 80], [20, 50, 80]], "1-3-5-2": [[50], [25, 50, 75], [15, 32, 50, 68, 85], [33, 67]], "1-5-3-2": [[50], [15, 30, 50, 70, 85], [25, 50, 75], [33, 67]], "1-5-4-1": [[50], [15, 30, 50, 70, 85], [20, 40, 60, 80], [50]]};
 var SISTEMAS_LISTA = ["1-4-3-3", "1-4-4-2", "1-4-2-3-1", "1-4-1-4-1", "1-4-5-1", "1-4-2-4", "1-3-4-3", "1-3-5-2", "1-5-3-2", "1-5-4-1"];
 var ICONOS = [["capitan", "C", "Capitán"], ["goleador", "⚽", "Goleador"], ["desequil", "⚡", "Desequilibrio"], ["potente", ">>", "Potente"], ["aereo", "↑", "Aéreo"], ["buen_pie", "~", "Buen pie"], ["box2box", "↔", "Box to box"], ["abp", "🎯", "ABP"], ["presion", "X", "Presión"], ["movilidad", "∞", "Movilidad"], ["temperamental", "🔥", "Temperamental"], ["destac", "★", "Destacado"]];
-var MOMENTOS = [("reinicio_cb", "Reinicio C/Balón"), ("progresion", "Progresión"), ("finalizacion", "Finalización"), ("reinicio_sb", "Reinicio S/Balón"), ("transiciones", "Transiciones")];
+var MOMENTOS = [["reinicio_cb","Reinicio C/Balón"],["progresion","Progresión"],["finalizacion","Finalización"],["reinicio_sb","Reinicio S/Balón"],["transiciones","Transiciones"]];
 var DORSAL = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
 
 /* ════════════════════════════════════════════
@@ -573,12 +567,81 @@ function secMomentos(inf){
 
 function momCol(inf,mk,num,mo){
   var key=inf.id+'_mom_'+mk+'_'+num;
-  return '<div class="mom-col">'
-    +'<input class="mom-title-inp" placeholder="SITUACIÓN..." value="'+esc(mo['titulo'+num]||'')+'" data-mk="'+mk+'" data-mf="titulo'+num+'" onchange="saveMom(this)">'
-    /* mini campo portrait */
-    +'<div class="mini-campo-wrap" id="cw_'+key+'" style="aspect-ratio:68/105;"></div>'
-    +'<textarea class="mom-desc" placeholder="Descripción táctica..." data-mk="'+mk+'" data-mf="texto'+num+'" onchange="saveMom(this)">'+esc(mo['texto'+num]||'')+'</textarea>'
-    +'</div>';
+  var h=[];
+  h.push('<div class="mom-col">');
+  h.push('<input class="mom-title-inp" placeholder="SITUACIÓN..." value="'+esc(mo['titulo'+num]||'')+'" data-mk="'+mk+'" data-mf="titulo'+num+'" onchange="saveMom(this)">');
+  /* mini toolbar usando data-ckey */
+  h.push('<div class="mini-toolbar" data-ckey="'+key+'">');
+  h.push('<input type="color" class="ct-pick" value="#C8A84B" data-role="cj" title="Color borde jugador">');
+  h.push('<input type="color" class="ct-pick" value="#1B2A6B" data-role="cf" title="Color fondo jugador">');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="addjug" onclick="miniActionEl(this)">+ Jug</button>');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="sistema" onclick="miniActionEl(this)">Sist.</button>');
+  h.push('<span style="width:1px;height:14px;background:var(--border);flex-shrink:0;"></span>');
+  h.push('<input type="color" class="ct-pick" value="#ff3333" data-role="arrowcol" title="Color flecha">');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="draw-solid" onclick="miniActionEl(this)" data-mode="solid">&#8212;&#8594;</button>');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="draw-dashed" onclick="miniActionEl(this)" data-mode="dashed">-&#8594;</button>');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="draw-off" onclick="miniActionEl(this)">&#9997;</button>');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="delarrow" onclick="miniActionEl(this)">&#8617;</button>');
+  h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="delsel" onclick="miniActionEl(this)">&#128465;</button>');
+  h.push('</div>');
+  h.push('<div class="mini-campo-wrap" id="cw_'+key+'" style="aspect-ratio:68/105;max-height:220px;"></div>');
+  h.push('<textarea class="mom-desc" placeholder="Descripción táctica..." data-mk="'+mk+'" data-mf="texto'+num+'" onchange="saveMom(this)">'+esc(mo['texto'+num]||'')+'</textarea>');
+  h.push('</div>');
+  return h.join('');
+}
+
+function miniActionEl(btn){ miniAction(btn, btn.dataset.action); }
+function miniAction(btn, action){
+  var toolbar=btn.closest('.mini-toolbar');
+  if(!toolbar)return;
+  var ck=toolbar.dataset.ckey;
+  if(!ck)return;
+  var cjEl=toolbar.querySelector('[data-role=cj]');
+  var cfEl=toolbar.querySelector('[data-role=cf]');
+  var acEl=toolbar.querySelector('[data-role=arrowcol]');
+  var cj=cjEl?cjEl.value:'#C8A84B';
+  var cf=cfEl?cfEl.value:'#1B2A6B';
+  var ac=acEl?acEl.value:'#ff3333';
+  if(action==='addjug'){
+    var d=getCampo(ck);
+    var VW=68,VH=105,P=3;
+    d.jugs.push({x:parseFloat((VW/2).toFixed(1)),y:parseFloat((VH/2).toFixed(1)),
+      num:String(d.jugs.length+1),stroke:cj,fill:cf,nombre:'',iconos:[],sizeF:1});
+    clearSel();addSel(ck,d.jugs.length-1);
+    saveCampos();renderCampo(ck);
+  } else if(action==='sistema'){
+    var sys=prompt('Sistema (ej: 1-4-3-3):','1-4-3-3');
+    if(!sys||!SISTEMAS[sys]){return;}
+    var d=getCampo(ck);d.jugs=[];
+    var rows=SISTEMAS[sys],VW=68,VH=105,P=3,fw=VW-P*2,fh=VH-P*2;
+    var di=0;
+    rows.forEach(function(row,ri){
+      var yPct=0.07+ri*(0.86/(rows.length-1));
+      var fy=parseFloat((P+fh*yPct).toFixed(2));
+      row.forEach(function(_,ci){
+        var fx=parseFloat((P+fw*((ci+1)/(row.length+1))).toFixed(2));
+        d.jugs.push({x:fx,y:fy,num:String(DORSAL[di]||di+1),stroke:cj,fill:cf,nombre:'',iconos:[],sizeF:1});
+        di++;
+      });
+    });
+    saveCampos();renderCampo(ck);
+  } else if(action==='delarrow'){
+    delLastArrow(ck);
+  } else if(action==='delsel'){
+    var idxs=selSet.filter(function(ss){return ss.campoKey===ck;}).map(function(ss){return ss.idx;}).sort(function(a,b){return b-a;});
+    var d=getCampo(ck);
+    idxs.forEach(function(idx){d.jugs.splice(idx,1);});
+    clearSel();saveCampos();renderCampo(ck);
+  } else if(action==='draw-solid'||action==='draw-dashed'){
+    var mode=action.replace('draw-','');
+    _miniDrawMode[ck]=mode;
+    /* highlight active button */
+    toolbar.querySelectorAll('.ct-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+  } else if(action==='draw-off'){
+    _miniDrawMode[ck]=null;
+    toolbar.querySelectorAll('.ct-btn').forEach(function(b){b.classList.remove('active');});
+  }
 }
 
 function secNotas(inf){
@@ -613,8 +676,16 @@ function renderCampo(campoKey){
     +' data-ck="'+campoKey+'">');
 
   /* background = campo.png via image tag */
-  o.push('<image href="'+CAMPO_IMG+'" x="0" y="0" width="'+VW+'" height="'+VH+'" preserveAspectRatio="none"'
-    +(isXI?' transform="rotate(90,'+VW/2+','+VH/2+') scale(1) translate(0,0)"':'')+'/>');
+  /* Campo imagen de fondo — para XI rotamos 90° dentro del SVG */
+  if(isXI){
+    /* Rotar imagen portrait→landscape: la imagen se coloca centrada y rotada */
+    var imgSize=Math.max(VW,VH);
+    o.push('<g transform="translate('+VW/2+','+VH/2+') rotate(-90) translate('+(-VH/2)+','+(-VW/2)+')">'
+      +'<image href="'+CAMPO_IMG+'" x="0" y="0" width="'+VH+'" height="'+VW+'" preserveAspectRatio="none"/>'
+      +'</g>');
+  } else {
+    o.push('<image href="'+CAMPO_IMG+'" x="0" y="0" width="'+VW+'" height="'+VH+'" preserveAspectRatio="none"/>');
+  }
 
   /* Si el campo es XI (landscape), la imagen de campo es portrait, hay que rotarla */
   /* Usamos un rect con clipPath o directamente rotamos la imagen */
@@ -1072,6 +1143,72 @@ function selPlRow(el,e){selectPlayer(el.dataset.ck,parseInt(el.dataset.ji),e);}
 function addJugInfXI(){var inf=getInf(currentId);if(inf)addJugador(inf.id+'_xi','xi');}
 function delSelJugsXI(){var inf=getInf(currentId);if(inf)delSelJugs(inf.id+'_xi');}
 function delLastArrowXI(){var inf=getInf(currentId);if(inf)delLastArrow(inf.id+'_xi');}
+
+/* ── MINI CAMPO HELPERS ── */
+var _miniDrawMode = {}; /* {campoKey: mode} */
+
+function addMiniJugador(ck){
+  var d=getCampo(ck);
+  var VW=68,VH=105;
+  d.jugs.push({x:parseFloat((VW/2).toFixed(1)),y:parseFloat((VH/2).toFixed(1)),
+    num:String(d.jugs.length+1),stroke:'#C8A84B',fill:'#1B2A6B',nombre:'',iconos:[],sizeF:1});
+  clearSel();addSel(ck,d.jugs.length-1);
+  saveCampos();renderCampo(ck);
+}
+
+function setMiniSistema(ck){
+  var sys=prompt('Sistema (ej: 1-4-3-3):','1-4-3-3');
+  if(!sys||!SISTEMAS[sys]){alert('Sistema no válido');return;}
+  var d=getCampo(ck);d.jugs=[];
+  var rows=SISTEMAS[sys],VW=68,VH=105,P=3,fw=VW-P*2,fh=VH-P*2;
+  var di=0;
+  rows.forEach(function(row,ri){
+    var yPct=0.07+ri*(0.86/(rows.length-1));
+    var fy=parseFloat((P+fh*yPct).toFixed(2));
+    row.forEach(function(_,ci){
+      var fx=parseFloat((P+fw*((ci+1)/(row.length+1))).toFixed(2));
+      d.jugs.push({x:fx,y:fy,num:String(DORSAL[di]||di+1),stroke:'#C8A84B',fill:'#1B2A6B',nombre:'',iconos:[],sizeF:1});
+      di++;
+    });
+  });
+  saveCampos();renderCampo(ck);
+}
+
+function setMiniDraw(ck,mode){
+  _miniDrawMode[ck]=mode;
+  /* Update draw state if this campo is active */
+  if(drawStart&&drawStart.campoKey===ck)drawStart=null;
+  drawMode=mode;
+}
+
+function delMiniLast(ck){
+  delLastArrow(ck);
+}
+
+/* Override onSvgDown to use per-campo drawMode */
+var _baseOnSvgDown=onSvgDown;
+onSvgDown=function(e){
+  var svg=e.currentTarget;
+  if(!svg)return;
+  var ck=svg.dataset.ck;
+  if(ck&&_miniDrawMode[ck]!==undefined){
+    drawMode=_miniDrawMode[ck];
+  }
+  _baseOnSvgDown(e);
+};
+
+init();
+/* Override onSvgDown to use per-campo drawMode */
+var _baseOnSvgDown=onSvgDown;
+onSvgDown=function(e){
+  var svg=e.currentTarget;
+  if(!svg)return;
+  var ck=svg.dataset.ck;
+  if(ck&&_miniDrawMode[ck]!==undefined){
+    drawMode=_miniDrawMode[ck];
+  }
+  _baseOnSvgDown(e);
+};
 
 init();
 </script>
