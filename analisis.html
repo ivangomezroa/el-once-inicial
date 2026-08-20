@@ -244,8 +244,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 </div>
 
-<div clas
+<div class="modal-bg" id="modal-cal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <div class="modal-title">Partidos del calendario</div>
+      <button class="modal-close" onclick="document.getElementById('modal-cal').classList.remove('open')">&#215;</button>
+    </div>
+    <div id="cal-lista"></div>
+  </div>
+</div>
+
 <script>
+
 /* ════════════════════════════════════════════
    DATOS Y CONSTANTES
 ════════════════════════════════════════════ */
