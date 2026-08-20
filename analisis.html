@@ -247,8 +247,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="modal-box">
     <div class="modal-hdr">
       <div class="modal-title">Partidos del calendario</div>
-      <button class="modal-close" onclick="document.getElementById('modal-cal').classList.remove('open')">&#215
+      <button class="modal-close" onclick="document.getElementById('modal-cal').classList.remove('open')">&#215;</button>
+    </div>
+    <div id="cal-lista"></div>
+  </div>
+</div>
 
+<script>
 /* ════════════════════════════════════════════
    DATOS Y CONSTANTES
 ════════════════════════════════════════════ */
@@ -1257,14 +1262,9 @@ function onSvgDown(e){
   if(!svg)return;
   var ck=svg.dataset.ck;
   if(ck&&_miniDrawMode[ck]!=null){drawMode=_miniDrawMode[ck];}
-  else if(ck&&_miniDrawMode[ck]===null){drawMode=null;}
-  _origOnSvgDown.call(this,e);
 }
 
-init();DrawMode[ck]===null){drawMode=null;}
-  _origOnSvgDown.call(this,e);
-}
-
-init();</script>
+init();
+</script>
 </body>
 </html>
