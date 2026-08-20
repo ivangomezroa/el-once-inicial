@@ -89,9 +89,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ══ CAMPO EDITOR ══ */
 /* campo-wrapper: el contenedor con fondo = campo.png */
-.campo-wrap{position:relative;overflow:hidden;border-radius:0 0 6px 6px;background:#2a7a2a;cursor:crosshair;}
-/* XI: horizontal. La imagen de campo es vertical (portrait), la rotamos via SVG */
-.campo-wrap.xi-mode{width:100%;}
+.campo-wrap{position:relative;overflow:hidden;border-radius:0 0 6px 6px;background:#2a7a2a;cursor:crosshair;width:100%;}
+.campo-wrap.xi-mode::before{content:'';display:block;padding-top:64.76%;} /* 68/105 */
+.campo-wrap.mini-mode::before{content:'';display:block;padding-top:154.41%;} /* 105/68 */
+.campo-wrap.mini-mode{max-height:260px;}
 /* SVG ocupa todo el wrap */
 .campo-svg{width:100%;height:100%;display:block;position:absolute;top:0;left:0;touch-action:none;}
 /* image tag dentro del SVG como background */
@@ -155,7 +156,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .mom-desc:focus{border-color:var(--gold);}
 .mom-desc::placeholder{color:rgba(160,152,144,0.2);}
 /* Mini campos en momentos: proporción real campo portrait */
-.mini-campo-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--border);background:#2a7a2a;}
+.campo-wrap.mini-mode,mini-campo-wrap{position:relative;overflow:hidden;border-radius:4px;border:1px solid var(--border);background:#2a7a2a;}
 
 .mini-toolbar{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--navy2);border:1px solid var(--border);border-bottom:none;border-radius:4px 4px 0 0;flex-wrap:wrap;}
 /* ALINEACIONES */
@@ -197,6 +198,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* MULTI-SELECT */
 .jug-g.multi-sel circle:first-of-type{filter:drop-shadow(0 0 2px white);}
+.sel-rect{fill:rgba(200,168,75,0.1);stroke:#C8A84B;stroke-width:0.5;stroke-dasharray:2 1;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -242,9 +244,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 </div>
 
-<div class="modal-bg" id="modal-cal" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal-box">
-    <
+<div clas
 <script>
 /* ════════════════════════════════════════════
    DATOS Y CONSTANTES
@@ -512,7 +512,7 @@ function secXI(inf){
     +'<button class="ct-btn" onclick="delLastArrowXI()">&#8617;</button>'
     +'</div>'
     /* campo SVG — XI mode: landscape, ratio 105:68 */
-    +'<div class="campo-wrap" id="cw_'+key+'" style="aspect-ratio:105/68;">'
+    +'<div class="campo-wrap xi-mode" id="cw_'+key+'">'
     +'</div>'
     +'</div>'
     /* right panel */
@@ -584,7 +584,7 @@ function momCol(inf,mk,num,mo){
   h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="delarrow" onclick="miniActionEl(this)">&#8617;</button>');
   h.push('<button class="ct-btn" style="font-size:9px;padding:2px 5px;" data-action="delsel" onclick="miniActionEl(this)">&#128465;</button>');
   h.push('</div>');
-  h.push('<div class="mini-campo-wrap" id="cw_'+key+'" style="aspect-ratio:68/105;max-height:220px;"></div>');
+  h.push('<div class="campo-wrap mini-mode" id="cw_'+key+'"></div>');
   h.push('<textarea class="mom-desc" placeholder="Descripción táctica..." data-mk="'+mk+'" data-mf="texto'+num+'" onchange="saveMom(this)">'+esc(mo['texto'+num]||'')+'</textarea>');
   h.push('</div>');
   return h.join('');
@@ -657,6 +657,36 @@ function secNotas(inf){
 /* ════════════════════════════════════════════
    CAMPO SVG — genera SVG dentro de #cw_{key}
 ════════════════════════════════════════════ */
+
+/* ── LASSO SELECTION ── */
+var lassoState = null; /* {campoKey, x0,y0, x1,y1} */
+
+function drawLasso(svgEl, ls){
+  /* Remove old lasso */
+  var old=svgEl.querySelector('.sel-rect'); if(old)old.remove();
+  if(!ls)return;
+  var x=Math.min(ls.x0,ls.x1), y=Math.min(ls.y0,ls.y1);
+  var w=Math.abs(ls.x1-ls.x0), h=Math.abs(ls.y1-ls.y0);
+  if(w<0.5||h<0.5)return;
+  var rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('class','sel-rect');
+  rect.setAttribute('x',x); rect.setAttribute('y',y);
+  rect.setAttribute('width',w); rect.setAttribute('height',h);
+  svgEl.appendChild(rect);
+}
+
+function applyLasso(ck, ls){
+  if(!ls)return;
+  var x0=Math.min(ls.x0,ls.x1), y0=Math.min(ls.y0,ls.y1);
+  var x1=Math.max(ls.x0,ls.x1), y1=Math.max(ls.y0,ls.y1);
+  var jugs=getJugs(ck);
+  jugs.forEach(function(jug,ji){
+    if(jug.x>=x0&&jug.x<=x1&&jug.y>=y0&&jug.y<=y1){
+      addSel(ck,ji);
+    }
+  });
+}
+
 function renderCampo(campoKey){
   var wrap=document.getElementById('cw_'+campoKey);
   if(!wrap)return;
@@ -672,7 +702,7 @@ function renderCampo(campoKey){
   var o=[];
   o.push('<svg id="svg_'+campoKey+'" viewBox="0 0 '+VW+' '+VH+'"'
     +' xmlns="http://www.w3.org/2000/svg"'
-    +' style="position:absolute;top:0;left:0;width:100%;height:100%;touch-action:none;"'
+    +' class="campo-svg" style="touch-action:none;"'
     +' data-ck="'+campoKey+'">');
 
   /* background = campo.png via image tag */
@@ -878,14 +908,14 @@ function onSvgDown(e){
       return {idx:s.idx,x:jugs[s.idx].x,y:jugs[s.idx].y};
     });
     dragState={campoKey:ck,startX:pt.x,startY:pt.y,origPositions:origPositions};
-    /* re-render sidebar edit panel */
     _refreshEditPanel(ck);
     renderCampo(ck);
   } else {
-    /* click en vacío — deselect */
+    /* click en vacío — lasso selection start */
     if(!e.shiftKey&&!e.ctrlKey&&!e.metaKey){clearSel();}
+    /* start lasso */
+    lassoState={campoKey:ck,x0:pt.x,y0:pt.y,x1:pt.x,y1:pt.y};
     dragState=null;
-    _refreshEditPanel(ck);
     renderCampo(ck);
   }
 }
@@ -895,6 +925,13 @@ function onSvgMove(e){
   var svg=e.currentTarget||e.target.closest('svg');if(!svg)return;
   var pt=svgPt(e,svg);
   e.preventDefault();
+
+  /* Lasso */
+  if(lassoState&&lassoState.campoKey===svg.dataset.ck&&!dragState){
+    lassoState.x1=pt.x; lassoState.y1=pt.y;
+    drawLasso(svg, lassoState);
+    return;
+  }
 
   if(dragState&&dragState.campoKey===svg.dataset.ck){
     var dx=pt.x-dragState.startX, dy=pt.y-dragState.startY;
@@ -912,6 +949,18 @@ function onSvgMove(e){
 function onSvgUp(e){
   var svg=e.currentTarget||e.target.closest('svg');
   var ck=svg?svg.dataset.ck:null;
+
+  /* Finalize lasso */
+  if(lassoState&&ck===lassoState.campoKey){
+    var ls=lassoState; lassoState=null;
+    if(Math.abs(ls.x1-ls.x0)>1||Math.abs(ls.y1-ls.y0)>1){
+      applyLasso(ck,ls);
+      if(svg){var old=svg.querySelector('.sel-rect');if(old)old.remove();}
+      renderCampo(ck);
+      return;
+    }
+    lassoState=null;
+  }
 
   if(drawStart&&ck===drawStart.campoKey){
     var src=e.touches&&e.touches[0]?e.touches[0]:(e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:e);
@@ -1197,20 +1246,18 @@ onSvgDown=function(e){
   _baseOnSvgDown(e);
 };
 
-init();
-/* Override onSvgDown to use per-campo drawMode */
-var _baseOnSvgDown=onSvgDown;
-onSvgDown=function(e){
-  var svg=e.currentTarget;
+
+/* Override onSvgDown to handle per-campo draw mode */
+var _origOnSvgDown = onSvgDown;
+function onSvgDown(e){
+  var svg=e.currentTarget||e.target.closest("svg");
   if(!svg)return;
   var ck=svg.dataset.ck;
-  if(ck&&_miniDrawMode[ck]!==undefined){
-    drawMode=_miniDrawMode[ck];
-  }
-  _baseOnSvgDown(e);
-};
+  if(ck&&_miniDrawMode[ck]!=null){drawMode=_miniDrawMode[ck];}
+  else if(ck&&_miniDrawMode[ck]===null){drawMode=null;}
+  _origOnSvgDown.call(this,e);
+}
 
-init();
-</script>
+init();</script>
 </body>
 </html>
