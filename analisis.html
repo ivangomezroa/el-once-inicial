@@ -319,8 +319,8 @@ function renderSidebar(filter){
     var titulo=inf.nombre||inf.rival||'Sin nombre';
     var sub=inf.nombre&&inf.rival?'vs '+esc(inf.rival):'';
     var res=inf.resultado?' · '+inf.resultado:'';
-    return '<div class="inf-item'+active+'" data-id="'+inf.id+'" onclick="abrirInforme(this.dataset.id)">'
-      +'<div class="inf-nombre" data-id="'+inf.id+'" onclick="event.stopPropagation();editarNombre(this.dataset.id)">'+esc(titulo)+' ✏️</div>'
+    return '<div class="inf-item'+active+'" data-id="'+inf.id+'" onclick="abrirInforme(this.dataset.id)" ondblclick="editarNombre(this.dataset.id)">'
+      +'<div class="inf-nombre">'+esc(titulo)+'</div>'
       +(sub?'<div class="inf-sub">'+sub+'</div>':'')
       +'<div class="inf-meta">'+(inf.fecha||'Sin fecha')+res+'</div>'
       +'<span class="inf-badge">'+(inf.competicion||'Amistoso')+'</span>'
