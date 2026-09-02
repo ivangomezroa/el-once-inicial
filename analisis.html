@@ -224,8 +224,9 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .vs-row .img-drop{width:90px;height:90px;border-radius:50%;}
 .vs-row .vs{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:34px;color:var(--navy);font-style:italic;}
 .cover-photo{width:100%;flex:1;min-height:0;}
-.cover-right{display:flex;flex-direction:column;gap:10px;}
-.cover-right .img-drop{flex:1;min-height:180px;}
+.cover-right{display:flex;flex-direction:column;gap:10px;padding-top:44px;}
+.cover-right .img-drop{flex:none;height:190px;}
+.cover-right .tiempo-box{margin-top:auto;}
 .cover-meta{display:flex;gap:10px;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#444;}
 .cover-meta .ed{min-width:60px;display:inline-block;text-align:center;font-weight:700;color:var(--navy);}
 .season-tag{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;color:#b81e1e;letter-spacing:1px;text-align:center;}
@@ -1137,6 +1138,21 @@ const FE = (function(){
     el('path',{d:`M${len},${W-cr} A${cr},${cr} 0 0,0 ${len-cr},${W}`,fill:'none',stroke:lc,'stroke-width':lw},g);
   }
 
+  // Colocación de los distintivos alrededor del jugador.
+  //  1-3  → columna derecha (posición de siempre)
+  //  4-6  → columna izquierda
+  //  7-9  → fila inferior
+  // 10-12 → segunda fila inferior
+  // Arriba nunca, que es donde va el nombre.
+  function badgeSlots(r){
+    const out=[];
+    for(let i=0;i<3;i++) out.push([ r+3, -r+2+i*15]);
+    for(let i=0;i<3;i++) out.push([-(r+3), -r+2+i*15]);
+    for(let i=0;i<3;i++) out.push([(i-1)*17, r+13]);
+    for(let i=0;i<3;i++) out.push([(i-1)*17, r+13+16]);
+    return out;
+  }
+
   function splitName(n){
     n=esc(n).trim(); if(!n) return [];
     if(n.includes('\n')) return n.split('\n').slice(0,3);
@@ -1246,8 +1262,9 @@ const FE = (function(){
         txt(el('text',{x:0,y:fs*0.36,'text-anchor':'middle','font-size':fs,'font-weight':800,fill:e.txt||'#fff'},ig),num);
         const lines=splitName(e.name), ns=e.ns||12;
         lines.forEach((ln,i)=>{ txt(el('text',{x:0,y:-r-5-(lines.length-1-i)*(ns+1),'text-anchor':'middle','font-size':ns,class:'plabel'},ig),ln); });
-        (e.badges||[]).slice(0,4).forEach((b,i)=>{
-          const bx=r+3, by=-r+2+i*15;
+        const slots=badgeSlots(r);
+        (e.badges||[]).slice(0,slots.length).forEach((b,i)=>{
+          const [bx,by]=slots[i];
           if(/^[A-Za-z]$/.test(b)){ el('rect',{x:bx-6,y:by-6,width:13,height:13,rx:2,fill:'#ffe23d',stroke:'#111','stroke-width':1},ig); txt(el('text',{x:bx+0.5,y:by+4,'text-anchor':'middle','font-size':10,'font-weight':800,fill:'#111'},ig),b.toUpperCase()); }
           else { el('circle',{cx:bx,cy:by,r:7.5,fill:'#fff',stroke:'#222','stroke-width':1},ig); txt(el('text',{x:bx,y:by+3.5,'text-anchor':'middle','font-size':9.5},ig),b); }
         });
@@ -1760,7 +1777,7 @@ function buildCover(page,p,r){
   const right=elx('div','cover-right');
   const eq=elx('div','kv-box'); eq.appendChild(elx('div','kv-h','Equipación')); right.appendChild(eq);
   right.appendChild(imgDrop(r,'photoEquip','contain','+ Foto de la equipación',600));
-  const tb=elx('div','kv-box'); tb.appendChild(elx('div','kv-h','Tiempo'));
+  const tb=elx('div','kv-box tiempo-box'); tb.appendChild(elx('div','kv-h','Tiempo'));
   const tv=elx('div','kv-v'); tv.appendChild(ed(r,'tiempo','','☀ Soleado')); tb.appendChild(tv);
   const tv2=elx('div','kv-v'); tv2.style.paddingTop='0'; tv2.appendChild(ed(r,'temp','','20° · 6 km/h')); tb.appendChild(tv2);
   right.appendChild(tb);
