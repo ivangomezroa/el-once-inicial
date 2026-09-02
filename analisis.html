@@ -340,6 +340,18 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .pick-row .pk-s{font-size:10px;color:var(--text2);}
 .pick-row .pk-b{font-size:9.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--navy-dark);background:var(--gold);border-radius:3px;padding:2px 7px;flex-shrink:0;}
 .pick-empty{color:var(--text3);font-size:11px;text-align:center;padding:16px 4px;line-height:1.5;}
+.pick-hint{font-size:10px;color:var(--text3);margin:-2px 0 8px;line-height:1.4;}
+.pick-match{background:var(--surface);border:1.5px solid var(--border2);border-radius:6px;padding:7px 8px;margin-bottom:7px;}
+.pick-match .pm-head{font-size:9.5px;color:var(--text2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+.pick-match .pm-teams{display:flex;align-items:stretch;gap:6px;}
+.pick-match .pm-vs{align-self:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:12px;color:var(--text3);font-style:italic;flex-shrink:0;}
+.pm-team{flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--bg2);border:1.5px solid var(--border);border-radius:5px;padding:6px 8px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s;font-family:inherit;}
+.pm-team:hover{border-color:var(--gold);background:rgba(200,168,75,0.1);}
+.pm-team img{width:26px;height:26px;object-fit:contain;flex-shrink:0;}
+.pm-team .pk-ph{width:26px;height:26px;}
+.pm-team .pm-n{flex:1;min-width:0;font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pm-team .pm-sede{font-size:8.5px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;flex-shrink:0;}
+.pm-team:hover .pm-sede{color:var(--gold);}
 .pick-sec{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin:14px 0 7px;}
 .pick-sec:first-child{margin-top:0;}
 
@@ -1796,7 +1808,13 @@ function buildCover(page,p,r){
   const cen=elx('div','cover-center');
   const vs=elx('div','vs-row');
   vs.appendChild(imgDrop(r,'crestOwn','contain','Escudo propio',400));
-  vs.appendChild(elx('div','vs','VS'));
+  const vsCol=elx('div',''); vsCol.style.cssText='display:flex;flex-direction:column;align-items:center;gap:2px;';
+  vsCol.appendChild(elx('div','vs','VS'));
+  const swap=elx('button','mini-btn no-print','⇄');
+  swap.title='Intercambiar los dos escudos';
+  swap.onclick=()=>{ const t=r.crestOwn; r.crestOwn=r.crestRival; r.crestRival=t; saveReports(); renderReport(); toast('Escudos intercambiados'); };
+  vsCol.appendChild(swap);
+  vs.appendChild(vsCol);
   vs.appendChild(imgDrop(r,'crestRival','contain','Escudo rival',400));
   cen.appendChild(vs);
   const fieldBox=elx('div','kv-box'); fieldBox.appendChild(elx('div','kv-h','Campo de juego'));
@@ -2001,34 +2019,45 @@ function renderCalModal(){
   const ms=getCalMatches(), rs=getRivals();
   let h='<div class="pick-sec">Partidos del calendario ('+ms.length+')</div>';
   if(!ms.length) h+='<div class="pick-empty">No hay partidos en el calendario.<br>Añádelos en Planificación y volverán a aparecer aquí.</div>';
-  else h+=ms.map((m,i)=>{
-    const rival=m.rival||'Rival'; const cr=m.rivalCrest;
-    return '<div class="pick-row" data-m="'+i+'">'+(cr?'<img src="'+cr+'">':'<span class="pk-ph">⚽</span>')+
-      '<span class="pk-t"><span class="pk-n">'+escapeHtml(rival)+'</span><span class="pk-s">'+fmtFecha(m.fecha)+(m.hora?' · '+escapeHtml(m.hora):'')+' · '+escapeHtml(m.competicion||m.titulo||'')+(m.sede?' · '+escapeHtml(m.sede):'')+'</span></span>'+
-      '<span class="pk-b">Crear</span></div>';
+  else h+='<div class="pick-hint">Elige de qué equipo quieres hacer el informe.</div>'+ms.map((m,i)=>{
+    const local=m.localName||'Local', visit=m.rival||'Visitante';
+    const esc=(c,alt)=>c?'<img src="'+c+'" alt="">':'<span class="pk-ph">⚽</span>';
+    const equipo=(w,nom,cr)=>'<button class="pm-team" data-m="'+i+'" data-w="'+w+'" title="Crear el informe sobre '+escapeHtml(nom)+'">'+
+        esc(cr)+'<span class="pm-n">'+escapeHtml(nom)+'</span><span class="pm-sede">'+(w==='local'?'Local':'Visitante')+'</span></button>';
+    return '<div class="pick-match">'+
+      '<div class="pm-head">'+fmtFecha(m.fecha)+(m.hora?' · '+escapeHtml(m.hora):'')+' · '+escapeHtml(m.competicion||m.titulo||'')+'</div>'+
+      '<div class="pm-teams">'+equipo('local',local,m.localCrest)+'<span class="pm-vs">vs</span>'+equipo('rival',visit,m.rivalCrest)+'</div>'+
+    '</div>';
   }).join('');
   h+='<div class="pick-sec">Rivales guardados ('+rs.length+')</div>';
   if(!rs.length) h+='<div class="pick-empty">Todavía no hay rivales guardados.</div>';
   else h+=rs.map((r,i)=>'<div class="pick-row" data-r="'+i+'">'+(r.crest?'<img src="'+r.crest+'">':'<span class="pk-ph">⚽</span>')+
       '<span class="pk-t"><span class="pk-n">'+escapeHtml(r.name||'Rival')+'</span><span class="pk-s">Informe en blanco con su escudo</span></span><span class="pk-b">Crear</span></div>').join('');
   b.innerHTML=h;
-  b.querySelectorAll('[data-m]').forEach(el=>{ el.onclick=()=>{ createReportFromMatch(ms[+el.dataset.m]); closeCalModal(); }; });
+  b.querySelectorAll('[data-m]').forEach(el=>{ el.onclick=()=>{ createReportFromMatch(ms[+el.dataset.m], el.dataset.w); closeCalModal(); }; });
   b.querySelectorAll('[data-r]').forEach(el=>{ el.onclick=()=>{ const r=rs[+el.dataset.r]; createReportFromMatch({rival:r.name,rivalCrest:r.crest,fecha:''}); closeCalModal(); }; });
 }
-function createReportFromMatch(m){
+function createReportFromMatch(m, cual){
+  // cual = 'local' | 'rival'  → de qué equipo va el informe
+  const esLocal = cual==='local';
+  const sujeto      = esLocal ? (m.localName||m.rival||'RIVAL') : (m.rival||m.localName||'RIVAL');
+  const escudoSuyo  = esLocal ? m.localCrest : m.rivalCrest;
+  const escudoOtro  = esLocal ? m.rivalCrest : m.localCrest;
   newReport();
   const r=curRep;
-  r.rival=(m.rival||'RIVAL').toUpperCase();
-  if(m.rivalCrest) r.crestRival=m.rivalCrest;
-  if(m.localCrest) r.crestOwn=m.localCrest; else { const c=localStorage.getItem(CREST_KEY); if(c) r.crestOwn=c; }
+  r.rival=String(sujeto).toUpperCase();
+  if(escudoSuyo) r.crestRival=escudoSuyo;
+  if(escudoOtro) r.crestOwn=escudoOtro; else { const c=localStorage.getItem(CREST_KEY); if(c) r.crestOwn=c; }
   if(m.fecha) r.fecha=fmtFecha(m.fecha);
   if(m.hora) r.hora=m.hora;
   if(m.jornada) r.jornada=m.jornada;
   else if(/jornada|^j\s*\d/i.test(m.titulo||'')) r.jornada=m.titulo;
   if(m.campo) r.campo=m.campo;
-  r.sede=m.sede||''; r.competicion=m.competicion||'';
+  // la sede es la del equipo analizado, no la nuestra
+  r.sede = (m.localName && m.rival) ? (esLocal?'Local':'Visitante') : (m.sede||'');
+  r.competicion=m.competicion||'';
   saveReports(); renderReportList(); renderReport();
-  toast('Informe creado para '+r.rival);
+  toast('Informe creado sobre '+r.rival);
 }
 
 // ── MODAL: nueva ficha de jugador desde Captación ──
