@@ -1517,7 +1517,7 @@ const FE = (function(){
 // DATOS: informes de equipo, jugadores y características
 // ══════════════════════════════════════════════════════════
 const K_REPORTS='oi_informes_v3', K_PLAYERS='oi_jug_informes_v1', K_TRAITS='oi_traits_v1';
-const K_OLD_REPORTS='oi_informes_v2', K_OLD_FIELDS='oi_campos_v2', K_CAL='oi_cal_v2', K_RIVALS='oi_rivals_v1', K_SCOUT='oi_jugadores_v1';
+const K_CAL='oi_cal_v2', K_RIVALS='oi_rivals_v1', K_SCOUT='oi_jugadores_v1';
 
 const DEFAULT_TRAITS=[
   {icon:'C',  label:'Capitán'},
@@ -1922,128 +1922,8 @@ function importReportsJSON(e){
 //   · oi_cal_v2      → partidos del calendario (Planificación)
 //   · oi_rivals_v1   → rivales guardados (nombre + escudo)
 //   · oi_jugadores_v1→ base de datos de Captación
-//   · oi_informes_v2 + oi_campos_v2 → informes antiguos (se migran)
 // ══════════════════════════════════════════════════════════
 
-// ── Conversión de un campo antiguo (metros 105×68) al editor nuevo (dm 1050×680) ──
-const OLD_ARROW_MAP={solid:'pass',dashed:'run',dotted:'dots',dot:'dots',wave:'dribble',wavy:'dribble',curve:'dribble',shot:'shot',press:'pressure',pressure:'pressure',line:'line'};
-function convertOldField(f){
-  const d=FE.blank('h','full');
-  if(!f) return d;
-  (f.jugs||[]).forEach(j=>{
-    const r=Math.round(Math.max(11,Math.min(26,(j.size||3)*10*0.6)));
-    d.els.push({t:'player',id:uid('e'),
-      x:(+j.x||0)*10, y:(+j.y||0)*10,
-      num:String(j.num==null?'':j.num), name:j.nombre||'',
-      fill:j.fill||'#b81e1e', stroke:j.stroke||'#ffffff', txt:'#ffffff',
-      r:r, ns:12, badges:Array.isArray(j.iconos)?j.iconos.slice(0,4):[], team:'custom'});
-  });
-  (f.arrows||[]).forEach(a=>{
-    d.els.push({t:'arrow',id:uid('e'),kind:OLD_ARROW_MAP[a.type]||'pass',
-      x1:(+a.x1||0)*10, y1:(+a.y1||0)*10, x2:(+a.x2||0)*10, y2:(+a.y2||0)*10,
-      curve:0, color:a.color||null, w:a.sw?Math.max(2,Math.round(a.sw*3*10)/10):null});
-  });
-  (f.zonas||f.zones||[]).forEach(z=>{
-    d.els.push({t:'zone',id:uid('e'),x:(+z.x||0)*10,y:(+z.y||0)*10,
-      w:Math.max(20,(+z.w||16)*10), h:Math.max(20,(+z.h||12)*10),
-      shape:z.shape==='ellipse'?'ellipse':'rect', fill:z.fill||'#ffe600',
-      alpha:z.alpha==null?0.35:z.alpha, stroke:z.stroke||'#111111', sw:2, dash:'', rot:z.rot||0, label:z.label||''});
-  });
-  (f.textos||f.texts||[]).forEach(t=>{
-    d.els.push({t:'text',id:uid('e'),x:(+t.x||0)*10,y:(+t.y||0)*10,text:t.text||t.txt||'',size:16,color:t.color||'#ffffff',bold:true,bg:''});
-  });
-  return d;
-}
-
-const MOM_LABEL={R:'REINICIO',P:'PROGRESIÓN',F:'FINALIZACIÓN',T:'TRANSICIONES',
-  reinicio_cb:'REINICIO · CENTRALES',reinicio:'REINICIO',progresion:'PROGRESIÓN',
-  finalizacion:'FINALIZACIÓN',transiciones:'TRANSICIONES',abp:'ABP',
-  cb:'CON BALÓN',sb:'SIN BALÓN'};
-function momLabel(code){ return MOM_LABEL[code]||MOM_LABEL[code.toUpperCase()]||code.replace(/_/g,' ').toUpperCase(); }
-
-// ── Migración de los informes antiguos ──
-function migrateOldReports(){
-  let old=[],fields={};
-  try{ old=JSON.parse(localStorage.getItem(K_OLD_REPORTS)||'[]')||[]; }catch(e){ old=[]; }
-  if(!Array.isArray(old)||!old.length){
-    try{ old=JSON.parse(localStorage.getItem('oi_informes_v1')||'[]')||[]; }catch(e){ old=[]; }
-  }
-  try{ fields=JSON.parse(localStorage.getItem(K_OLD_FIELDS)||'{}')||{}; }catch(e){ fields={}; }
-  if(!Array.isArray(old)||!old.length) return 0;
-
-  let n=0;
-  old.forEach(o=>{
-    const r={ id:uid('r'), rival:(o.rival||o.nombre||'RIVAL').toUpperCase(),
-      jornada:o.jornada||'', fecha:fmtFecha(o.fecha)||todayStr(), hora:o.hora||'',
-      campo:o.campo||'', superficie:'', medidas:'', tiempo:'', temp:o.temperatura||'',
-      temporada:seasonStr(),
-      crestRival:o.escudoRival||'', crestOwn:o.localCrest||'',
-      photoCampo:'', photoEquip:'', pages:[],
-      origen:'migrado', competicion:o.competicion||'', sede:o.sede||'' };
-
-    // portada
-    r.pages.push(newPage('portada'));
-
-    // posible 11
-    const xi=fields[o.id+'_xi'];
-    const p11=newPage('posible11');
-    if(o.formacion) p11.sistema=o.formacion;
-    if(xi) p11.field=convertOldField(xi);
-    else if(Array.isArray(o.jugadoresXI)&&o.jugadoresXI.length){
-      p11.field=FE.blank('h','full');
-      o.jugadoresXI.forEach((j,i)=>{ if(!j) return;
-        p11.field.els.push({t:'player',id:uid('e'),x:120+((i%4)*260),y:110+(Math.floor(i/4)*170),
-          num:String(j.dorsal==null?'':j.dorsal),name:j.nombre||'',fill:'#b81e1e',stroke:'#ffffff',txt:'#ffffff',
-          r:17,ns:12,badges:Array.isArray(j.iconos)?j.iconos.slice(0,4):[],team:'away'}); });
-    }
-    r.pages.push(p11);
-
-    // últimas alineaciones
-    const alinKeys=Object.keys(fields).filter(k=>k.indexOf(o.id+'_alin_')===0)
-      .sort((a,b)=>(+a.split('_').pop())-(+b.split('_').pop()));
-    if(alinKeys.length){
-      const pa=newPage('alineaciones'); pa.blocks=[];
-      alinKeys.forEach((k,i)=>{
-        const meta=(o.alineaciones||[])[i]||{};
-        const b=mkBlock(meta.jornada||('J'+(i+1)),true);
-        b.t2=meta.resultado||''; b.vs.away=meta.rival||o.rival||'';
-        b.field=convertOldField(fields[k]);
-        pa.blocks.push(b);
-      });
-      r.pages.push(pa);
-    }
-
-    // momentos de juego
-    const momKeys=Object.keys(fields).filter(k=>k.indexOf(o.id+'_mom_')===0);
-    const groups={};
-    momKeys.forEach(k=>{
-      const rest=k.slice((o.id+'_mom_').length);
-      const m=rest.match(/^(.*?)_(\d+)$/);
-      const code=m?m[1]:rest, idx=m?parseInt(m[2]):0;
-      (groups[code]=groups[code]||[]).push({k,idx});
-    });
-    Object.keys(groups).forEach(code=>{
-      const list=groups[code].sort((a,b)=>a.idx-b.idx);
-      const pm=newPage('momento'); pm.title=momLabel(code); pm.blocks=[];
-      list.forEach(it=>{ const b=mkBlock(''); b.field=convertOldField(fields[it.k]);
-        const nota=(o.momentos&&(o.momentos[code+'_'+it.idx]||o.momentos[it.k]))||'';
-        if(typeof nota==='string') b.text=nota; else if(nota&&nota.texto) { b.text=nota.texto; b.t2=nota.titulo||''; }
-        pm.blocks.push(b); });
-      r.pages.push(pm);
-    });
-
-    // DAFO a partir de las notas antiguas
-    const nt=o.notas||{};
-    if(nt.strengths||nt.weaknesses||nt.abp||nt.obs_general){
-      const pd=newPage('dafo');
-      pd.f=nt.strengths||''; pd.d=nt.weaknesses||''; pd.o=nt.abp||''; pd.a=nt.obs_general||'';
-      r.pages.push(pd);
-    }
-    REPORTS.push(r); n++;
-  });
-  if(n){ saveReports(); try{ localStorage.setItem('oi_informes_migrado_v3','1'); }catch(e){} }
-  return n;
-}
 function fmtFecha(s){
   if(!s) return '';
   const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -2315,13 +2195,6 @@ function init(){
   renderCatButtons(); renderSubfaseButtons(); renderDraftSubprincipios();
   renderToolButtons(); renderColorButtons(); loadPlayersIntoSelect(); refreshProjectSelect();
   loadData();
-  // Migración única de los informes creados con la versión anterior de esta pantalla
-  try{
-    if(!localStorage.getItem('oi_informes_migrado_v3') && !REPORTS.length){
-      const n=migrateOldReports();
-      if(n) setTimeout(()=>toast('Se han migrado '+n+' informe'+(n>1?'s':'')+' de la versión anterior'),700);
-    }
-  }catch(e){ console.warn('migración',e); }
   curRep=REPORTS[0]||null; curPl=PLAYERS[0]||null;
   crestNavLoad();
   renderReportList(); renderReport(); renderPlayerList(); renderPlayer();
