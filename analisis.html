@@ -277,7 +277,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 
 /* ── PLANTILLA ── */
 .squad{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:0 18px;align-content:start;overflow:hidden;}
-.squad-row{display:grid;grid-template-columns:30px 1fr 52px 34px 34px 1.15fr 18px;gap:5px;align-items:center;border-bottom:1px solid #e3e3e8;padding:2.5px 0;font-size:10.5px;}
+.squad-row{display:grid;grid-template-columns:30px 1fr 52px 34px 34px 1.15fr 20px 18px;gap:5px;align-items:center;border-bottom:1px solid #e3e3e8;padding:2.5px 0;font-size:10.5px;}
 .squad-row.hdr{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:10px;letter-spacing:1px;color:var(--navy);text-transform:uppercase;border-bottom:1.5px solid var(--navy);}
 .squad-row .ed{padding:1px 3px;}
 .squad-row .sq-num{font-weight:800;text-align:center;color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:12px;}
@@ -292,7 +292,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .pl-club{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:16px;color:#b81e1e;text-transform:uppercase;margin-top:4px;}
 .pl-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;}
 .pl-meta .kv-box .kv-v{color:var(--navy);font-size:13px;}
-.pl-tags{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;border:1px solid #ddd;border-radius:4px;padding:6px;overflow:hidden;}
+.pl-tags{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;border:1px solid #ddd;border-radius:4px;padding:6px;overflow:hidden;flex:1;min-height:0;}
 .pl-tag{border:1px solid var(--navy);border-radius:12px;padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--navy);text-transform:uppercase;cursor:pointer;background:#fff;user-select:none;}
 .pl-tag.on{background:var(--navy);color:var(--gold);}
 .pl-body{display:grid;grid-template-columns:230px 1fr 250px;gap:14px;flex:1;min-height:0;}
@@ -310,6 +310,25 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .obs-row.hdr{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:10px;letter-spacing:1px;color:var(--navy);text-transform:uppercase;border-bottom:1.5px solid var(--navy);}
 .obs-row .sq-del{background:none;border:none;color:#bbb;cursor:pointer;font-size:12px;padding:0;}
 .obs-row .sq-del:hover{color:#b81e1e;}
+
+/* ── FORMULARIO DE CAPTACIÓN ── */
+.cap-row{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.cap-row label{width:96px;flex-shrink:0;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);}
+.cap-row input[type=text],.cap-row select,.cap-row textarea{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border2);border-radius:5px;color:var(--text);padding:6px 8px;font-size:11.5px;margin:0;font-family:inherit;}
+.cap-row textarea{resize:vertical;}
+.cap-row input:focus,.cap-row select:focus,.cap-row textarea:focus{outline:none;border-color:var(--gold);}
+.cap-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;}
+.cap-chip{border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:10.5px;color:var(--text2);background:var(--surface);cursor:pointer;user-select:none;}
+.cap-chip:hover{color:var(--text);}
+.cap-chip.on{background:var(--gold);color:var(--navy-dark);border-color:var(--gold);font-weight:700;}
+.cap-warn,.cap-info{font-size:11px;line-height:1.5;border-radius:6px;padding:8px 10px;margin-bottom:12px;}
+.cap-warn{background:rgba(224,82,82,0.12);border:1px solid rgba(224,82,82,0.4);color:#f0b0b0;}
+.cap-info{background:rgba(200,168,75,0.1);border:1px solid var(--border2);color:var(--text2);}
+.cap-more{margin-top:4px;}
+.cap-more summary{font-size:10.5px;color:var(--gold);cursor:pointer;margin-bottom:8px;}
+.cap-btn{background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--gold);font-size:10px;cursor:pointer;padding:0 4px;line-height:1.6;}
+.cap-btn:hover{background:rgba(200,168,75,0.18);}
+.squad-row .cap-btn,.pl-cap-btn{font-family:'Barlow Condensed',sans-serif;font-weight:700;}
 
 /* ── LISTAS DE MODALES (calendario / captación) ── */
 .pick-row{display:flex;align-items:center;gap:9px;background:var(--surface);border:1.5px solid var(--border2);border-radius:6px;padding:7px 9px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;}
@@ -396,6 +415,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .banner,.kv-h,.dq-h,.pn-num,.page-stripe i,.rbadge{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .fe-stage .hnd,.fe-stage .sel-outline{display:none;}
   .pl-tag:not(.on){display:none;}
+  .squad-row{grid-template-columns:30px 1fr 52px 34px 34px 1.15fr 0 0;}
   .dots i{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 }
 </style>
@@ -629,6 +649,14 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   <div class="modal-box">
     <div class="modal-hdr"><span>Nueva ficha desde Captación</span><button class="modal-close" onclick="closeScoutModal()">×</button></div>
     <div class="modal-body" id="scout-modal-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: AÑADIR A CAPTACIÓN -->
+<div id="cap-modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-hdr"><span>Añadir a la base de datos de Captación</span><button class="modal-close" onclick="closeCaptacionModal()">×</button></div>
+    <div class="modal-body" id="cap-modal-body"></div>
   </div>
 </div>
 
@@ -1453,6 +1481,10 @@ const FE = (function(){
       h+=row('Tamaño',range('r',e.r||9,5,20,1));
     }
     h+=`<div class="pp-btns"><button class="nav-btn" data-act="dup">⧉ Duplicar</button><button class="nav-btn" data-act="front">⇈ Al frente</button><button class="nav-btn danger" data-act="del">🗑 Eliminar</button></div>`;
+    if(e.t==='player' && typeof sendPlayerToCaptacion==='function'){
+      const yaEsta = (typeof capFind==='function') && e.name && capFind(e.name);
+      h+=`<div class="pp-btns"><button class="nav-btn${yaEsta?'':' primary'}" data-act="cap" title="Añadir este jugador a la base de datos de Captación">${yaEsta?'✓ Ya en Captación — actualizar':'➕ Añadir a Captación'}</button></div>`;
+    }
     return h;
   }
   function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
@@ -1493,6 +1525,7 @@ const FE = (function(){
       if(a==='del') ed.deleteSel();
       else if(a==='dup'){ ed.snap(); const c=deep(e); c.id=uid('e'); if(c.t==='arrow'){c.x1+=24;c.y1+=24;c.x2+=24;c.y2+=24;} else {c.x+=24;c.y+=24;} ed.data.els.push(c); ed.sel=c; ed.render(); ed.changed(); openProps(ed); }
       else if(a==='front'){ ed.snap(); ed.data.els=ed.data.els.filter(x=>x!==e); ed.data.els.push(e); ed.render(); ed.changed(); }
+      else if(a==='cap'){ sendPlayerToCaptacion(e); }
     }; });
     box.classList.add('show');
   }
@@ -1874,6 +1907,10 @@ function buildSquad(page,p,r){
     d.appendChild(ed(row,'age','','—'));
     d.appendChild(ed(row,'h','','—'));
     d.appendChild(ed(row,'note','','—'));
+    const cap=elx('button','cap-btn no-print', capFind(row.name)?'✓':'➕');
+    cap.title=capFind(row.name)?'Ya está en Captación — actualizar ficha':'Añadir este jugador a Captación';
+    cap.onclick=()=>sendSquadRowToCaptacion(row);
+    d.appendChild(cap);
     const del=elx('button','sq-del no-print','×'); del.onclick=()=>{ p.rows.splice(i,1); saveReports(); renderReport(); }; d.appendChild(del);
     (i<Math.ceil(p.rows.length/2)?c1:c2).appendChild(d);
   });
@@ -2036,6 +2073,173 @@ function createPlayerFromScout(sp){
 </script>
 <script>
 // ══════════════════════════════════════════════════════════
+// PUENTE CON CAPTACIÓN  (base de datos oi_jugadores_v1)
+// Captación guarda directamente en localStorage — aquí escribimos
+// exactamente con su mismo formato para que aparezcan al instante.
+// ══════════════════════════════════════════════════════════
+const CAP_KEY='oi_jugadores_v1';
+const CAP_TRAITS=[
+  {k:'cap', e:'🅒',  t:'Capitán'},
+  {k:'gol', e:'⚽',  t:'Goleador'},
+  {k:'ray', e:'⚡',  t:'Desequilibrio'},
+  {k:'pot', e:'🏃',  t:'Potente'},
+  {k:'abp', e:'🎯',  t:'Lanzador ABP'},
+  {k:'tiro',e:'🔫',  t:'Tiro exterior'},
+  {k:'pun', e:'👊',  t:'Peleón en duelos'},
+  {k:'int', e:'⚔️',  t:'Presión'},
+  {k:'str', e:'⭐',  t:'Destacado'},
+  {k:'aer', e:'✈️',  t:'Juego aéreo'},
+  {k:'mov', e:'🔄',  t:'Movilidad'},
+  {k:'bbx', e:'↔️',  t:'Box to box'},
+  {k:'pie', e:'🦶',  t:'Buen pie'},
+  {k:'puz', e:'🧩',  t:'Polivalente'},
+  {k:'tem', e:'🌡️', t:'Temperamental'},
+];
+const CAP_ESTADOS=['EN PLANTILLA','INTERESA RENOVAR','INTERESA','TANTEADO','INTERESA CESIÓN','CON PROPUESTA',
+  'CON PROPUESTA RENOV.','FIRMADO','RENOVADO','FICHADO POR OTRO','RENOVADO POR SU CLUB','ROTAS NEGOCIA.',
+  'A LA ESPERA','CONSEGUIR INFO','POSIBLE BAJA','NO RENOVAR','NO INTERESA','PARA FILIAL','ACTUALIZADO',
+  'RETIRADO','FUTURIBLES'];
+const CAP_SECCIONES=['PORTEROS','CENTRALES','LATERALES','MC / PIVOTES','INTERIORES','INT. MEDIA PUNTAS','EXTREMOS','DELANTEROS'];
+const CAP_POS=['P1','P2','P3','P4','P5','P6','P8','P10','P7','P11','P9'];
+// Posición → sección por defecto
+const CAP_POS_SEC={P1:'PORTEROS',P2:'LATERALES',P3:'LATERALES',P4:'CENTRALES',P5:'CENTRALES',
+  P6:'MC / PIVOTES',P8:'INTERIORES',P10:'INT. MEDIA PUNTAS',P7:'EXTREMOS',P11:'EXTREMOS',P9:'DELANTEROS'};
+// Palabras clave para adivinar las características de Captación a partir de las nuestras
+const CAP_KEYWORDS={
+  cap:['capitan'], gol:['gol','goleador','definicion'], ray:['desequilibrio','regate','1c1','velocidad','rapido','electrico'],
+  pot:['potente','potencia','fuerza','fisico'], abp:['abp','balon parado','lanzador','estrategia'],
+  tiro:['tiro','disparo','chut','golpeo lejano'], pun:['peleon','duelo','cuerpo','choque','pelea'],
+  int:['presion','intensidad','agresiv','apretada'], str:['destacado','diferencial','determinante'],
+  aer:['aereo','cabeza','remate','alto','salto'], mov:['movilidad','desmarque','moviliza'],
+  bbx:['box to box','ida y vuelta','recorrido','llegada'], pie:['pie','golpeo','pase','zurdo','diestro','calidad'],
+  puz:['polivalente','versatil','varias posiciones'], tem:['temperamental','caracter','tarjeta']
+};
+function capNorm(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
+function capLoad(){ try{ const a=JSON.parse(localStorage.getItem(CAP_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function capSave(arr){ try{ localStorage.setItem(CAP_KEY,JSON.stringify(arr)); return true; }catch(e){ alert('No se pudo guardar en Captación: almacenamiento lleno.'); return false; } }
+function capNextId(arr){ return arr.reduce((m,x)=>Math.max(m,+x.id||0),0)+1; }
+function capFind(nombre){
+  const n=capNorm(nombre); if(!n) return null;
+  return capLoad().find(x=>capNorm(x.n)===n)||null;
+}
+// De los iconos de nuestras características a los códigos de Captación
+function capGuessTraits(badgeIcons){
+  const labels=(badgeIcons||[]).map(ic=>{ const t=TRAITS.find(x=>x.icon===ic); return capNorm(t?t.label:ic); }).filter(Boolean);
+  const out=[];
+  labels.forEach(l=>{
+    let best=null;
+    for(const k in CAP_KEYWORDS){ if(CAP_KEYWORDS[k].some(w=>l.includes(w))){ best=k; break; } }
+    if(best && !out.includes(best)) out.push(best);
+  });
+  return out;
+}
+
+// ── MODAL ──
+let capCtx=null;
+function openCaptacionModal(pre){
+  capCtx=Object.assign({n:'',eq:'',pos:'',s:'',cat:'',est:'INTERESA',ico:[],perfil:'',notas:'',repre:'',contacto:'',tel:'',tm:'',bs:''},pre||{});
+  const ex=capFind(capCtx.n);
+  capCtx._exist=ex;
+  if(ex){ // completar con lo que ya hay para no perder datos
+    ['eq','pos','s','cat','est','perfil','notas','repre','contacto','tel','tm','bs'].forEach(k=>{ if(!capCtx[k] && ex[k]) capCtx[k]=ex[k]; });
+    capCtx.ico=[...new Set([...(ex.ico||[]),...capCtx.ico])];
+  }
+  if(!capCtx.s && capCtx.pos) capCtx.s=CAP_POS_SEC[String(capCtx.pos).split(',')[0]]||'';
+  renderCaptacionModal();
+  document.getElementById('cap-modal-overlay').style.display='flex';
+  setTimeout(()=>{ const f=document.getElementById('cap-n'); if(f){ f.focus(); f.select(); } },60);
+}
+function closeCaptacionModal(){ document.getElementById('cap-modal-overlay').style.display='none'; capCtx=null; }
+function renderCaptacionModal(){
+  const c=capCtx, ex=c._exist;
+  const box=document.getElementById('cap-modal-body');
+  const opts=(arr,val)=>arr.map(o=>`<option value="${escapeHtml(o)}"${o===val?' selected':''}>${escapeHtml(o)}</option>`).join('');
+  box.innerHTML=
+    (ex?`<div class="cap-warn">Ya existe <b>${escapeHtml(ex.n)}</b> en Captación (${escapeHtml(ex.eq||'sin equipo')}). Se <b>actualizará</b> su ficha, no se creará otra.</div>`
+       :`<div class="cap-info">Se añadirá como jugador nuevo a la base de datos de Captación.</div>`)+
+    `<div class="cap-row"><label>Nombre</label><input type="text" id="cap-n" value="${escapeHtml(c.n)}"></div>
+     <div class="cap-row"><label>Equipo</label><input type="text" id="cap-eq" value="${escapeHtml(c.eq)}"></div>
+     <div class="cap-row"><label>Categoría</label><input type="text" id="cap-cat" value="${escapeHtml(c.cat)}" placeholder="Ej: 3ª Federación"></div>
+     <div class="cap-row"><label>Posición</label>
+       <select id="cap-pos"><option value="">—</option>${opts(CAP_POS,String(c.pos||'').split(',')[0])}</select>
+       <select id="cap-s"><option value="">— Sección —</option>${opts(CAP_SECCIONES,c.s)}</select></div>
+     <div class="cap-row"><label>Estado</label><select id="cap-est">${opts(CAP_ESTADOS,c.est)}</select></div>
+     <div class="cap-row"><label>Características</label></div>
+     <div class="cap-chips" id="cap-ico">${CAP_TRAITS.map(t=>`<span class="cap-chip${c.ico.includes(t.k)?' on':''}" data-k="${t.k}">${t.e} ${escapeHtml(t.t)}</span>`).join('')}</div>
+     <div class="cap-row"><label>Perfil</label><input type="text" id="cap-perfil" value="${escapeHtml(c.perfil)}" placeholder="Ej: EXTREMO RÁPIDO, BUEN 1c1"></div>
+     <div class="cap-row"><label>Notas</label><textarea id="cap-notas" rows="2">${escapeHtml(c.notas)}</textarea></div>
+     <details class="cap-more"><summary>Contacto y enlaces</summary>
+       <div class="cap-row"><label>Representante</label><input type="text" id="cap-repre" value="${escapeHtml(c.repre)}"></div>
+       <div class="cap-row"><label>Contacto</label><input type="text" id="cap-contacto" value="${escapeHtml(c.contacto)}"></div>
+       <div class="cap-row"><label>Teléfono</label><input type="text" id="cap-tel" value="${escapeHtml(c.tel)}"></div>
+       <div class="cap-row"><label>Transfermarkt</label><input type="text" id="cap-tm" value="${escapeHtml(c.tm)}"></div>
+       <div class="cap-row"><label>BeSoccer</label><input type="text" id="cap-bs" value="${escapeHtml(c.bs)}"></div>
+     </details>
+     <button class="nav-btn primary" style="width:100%;justify-content:center;margin-top:12px;" onclick="saveToCaptacion()">${ex?'Actualizar ficha en Captación':'Añadir a Captación'}</button>`;
+  box.querySelectorAll('.cap-chip').forEach(ch=>{ ch.onclick=()=>{ const k=ch.dataset.k; const i=c.ico.indexOf(k); if(i>=0) c.ico.splice(i,1); else c.ico.push(k); ch.classList.toggle('on',i<0); }; });
+  const posSel=document.getElementById('cap-pos'), secSel=document.getElementById('cap-s');
+  posSel.addEventListener('change',()=>{ const s=CAP_POS_SEC[posSel.value]; if(s) secSel.value=s; });
+  const nInp=document.getElementById('cap-n');
+  nInp.addEventListener('change',()=>{ const nuevo=capFind(nInp.value); if((nuevo&&nuevo.id)!==(c._exist&&c._exist.id)){ const v=readCaptacionForm(); openCaptacionModal(Object.assign(v,{n:nInp.value})); } });
+}
+function readCaptacionForm(){
+  const g=id=>{ const el=document.getElementById(id); return el?el.value.trim():''; };
+  return { n:g('cap-n'), eq:g('cap-eq'), cat:g('cap-cat'), pos:g('cap-pos'), s:g('cap-s'), est:g('cap-est'),
+    perfil:g('cap-perfil'), notas:g('cap-notas'), repre:g('cap-repre'), contacto:g('cap-contacto'),
+    tel:g('cap-tel'), tm:g('cap-tm'), bs:g('cap-bs'), ico:[...capCtx.ico] };
+}
+function saveToCaptacion(){
+  const v=readCaptacionForm();
+  if(!v.n){ alert('El jugador necesita un nombre.'); return; }
+  const arr=capLoad();
+  const ex=capCtx._exist ? arr.find(x=>x.id===capCtx._exist.id) : arr.find(x=>capNorm(x.n)===capNorm(v.n));
+  const now=new Date().toISOString();
+  if(ex){
+    Object.assign(ex,{ n:v.n, eq:v.eq, cat:v.cat, pos:v.pos, s:v.s, est:v.est, perfil:v.perfil, notas:v.notas,
+      repre:v.repre, contacto:v.contacto, tel:v.tel, tm:v.tm, bs:v.bs, ico:v.ico, updated_at:now });
+    if(!capSave(arr)) return;
+    toast('✓ Ficha actualizada en Captación: '+v.n);
+  } else {
+    arr.push({ id:capNextId(arr), s:v.s, pos:v.pos, n:v.n, eq:v.eq, cat:v.cat, perfil:v.perfil,
+      repre:v.repre, contacto:v.contacto, notas:v.notas, est:v.est, ico:v.ico, updated_at:now,
+      tel:v.tel, tm:v.tm, bs:v.bs, obs:'', pos_campo:'' });
+    if(!capSave(arr)) return;
+    toast('✓ '+v.n+' añadido a Captación ('+arr.length+' jugadores)');
+  }
+  closeCaptacionModal();
+  if(curRep) renderReport(); if(curPl) renderPlayer();
+}
+
+// ── PUNTOS DE ENTRADA ──
+// 1) Jugador de un campo (panel de propiedades del editor)
+function sendPlayerToCaptacion(e){
+  const rival = curRep ? (curRep.rival||'') : '';
+  openCaptacionModal({
+    n: (e.name||'').replace(/\n/g,' ').trim(),
+    eq: e.team==='home' ? '' : rival,
+    ico: capGuessTraits(e.badges||[]),
+    notas: e.num ? ('Dorsal '+e.num+(curRep?(' · visto en el informe de '+(curRep.rival||'')):'')) : ''
+  });
+}
+// 2) Fila de la página Plantilla
+function sendSquadRowToCaptacion(row){
+  if(!row.name){ toast('Escribe primero el nombre del jugador'); return; }
+  const rival = curRep ? (curRep.rival||'') : '';
+  const notas=[row.num?('Dorsal '+row.num):'', row.age?('Año '+row.age):'', row.h?('Altura '+row.h):'', row.note||''].filter(Boolean).join(' · ');
+  openCaptacionModal({ n:row.name, eq:rival, pos:/^P\d+$/i.test(row.pos||'')?row.pos.toUpperCase():'', perfil:row.note||'', notas:notas });
+}
+// 3) Ficha de jugador completa
+function sendPlayerReportToCaptacion(p){
+  const perfil=(p.strengths||'').split('\n').map(x=>x.replace(/^[-·•\s]+/,'').trim()).filter(Boolean).join(' · ');
+  const notas=[p.conclusion?('Conclusión: '+p.conclusion.split('\n')[0]):'', p.weaknesses?('A mejorar: '+p.weaknesses.replace(/\n/g,' · ')):''].filter(Boolean).join('\n');
+  openCaptacionModal({ n:(p.name||'').trim(), eq:p.club||'', pos:/^P\d+$/i.test(p.pos||'')?p.pos.toUpperCase():'',
+    ico:capGuessTraits(p.badges||[]), perfil:perfil, notas:notas });
+}
+// Indicador: ¿este nombre ya está en Captación?
+function capBadgeFor(nombre){ return capFind(nombre) ? '✓ En Captación' : '➕ Captación'; }
+</script>
+<script>
+// ══════════════════════════════════════════════════════════
 // INFORMES DE JUGADOR
 // ══════════════════════════════════════════════════════════
 const RATING_ITEMS=[
@@ -2107,7 +2311,14 @@ function buildPlayerPage(p){
   const renderTags=()=>{ tags.innerHTML=''; TRAITS.forEach(t=>{ const on=(p.badges||[]).includes(t.icon); const s=elx('span','pl-tag'+(on?' on':''), t.icon+' '+escapeHtml(t.label));
     s.onclick=()=>{ p.badges=p.badges||[]; const i=p.badges.indexOf(t.icon); if(i>=0) p.badges.splice(i,1); else p.badges.push(t.icon); savePlayers(); renderTags(); }; tags.appendChild(s); }); };
   renderTags();
-  head.appendChild(tags);
+  const capWrap=elx('div','no-print'); capWrap.style.cssText='margin-top:6px;';
+  const capB=elx('button','nav-btn pl-cap-btn'); capB.style.cssText='width:100%;justify-content:center;';
+  const pintaCap=()=>{ const ya=capFind(p.name); capB.textContent=ya?'✓ Ya en Captación — actualizar ficha':'➕ Añadir a la base de datos de Captación'; capB.classList.toggle('primary',!ya); };
+  pintaCap(); capB.onclick=()=>sendPlayerReportToCaptacion(p);
+  capWrap.appendChild(capB);
+  const tagsCol=elx('div',''); tagsCol.style.cssText='display:flex;flex-direction:column;min-width:0;';
+  tagsCol.appendChild(tags); tagsCol.appendChild(capWrap);
+  head.appendChild(tagsCol);
   page.appendChild(head);
 
   // ── cuerpo: valoración | campo | textos ──
