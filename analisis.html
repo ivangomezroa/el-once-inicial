@@ -292,6 +292,9 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .pl-club{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:16px;color:#b81e1e;text-transform:uppercase;margin-top:4px;}
 .pl-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;}
 .pl-meta .kv-box .kv-v{color:var(--navy);font-size:13px;}
+.kv-v.kv-sede{display:flex;align-items:center;justify-content:center;gap:6px;}
+.kv-sede-b{border:1px solid var(--gold);background:#fff;color:var(--navy);border-radius:4px;cursor:pointer;font-size:11px;line-height:1;padding:2px 5px;}
+.kv-sede-b:hover{background:var(--gold);color:#fff;}
 .pl-tags{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;border:1px solid #ddd;border-radius:4px;padding:6px;overflow:hidden;flex:1;min-height:0;}
 .pl-tag{border:1px solid var(--navy);border-radius:12px;padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--navy);text-transform:uppercase;cursor:pointer;background:#fff;user-select:none;}
 .pl-tag.on{background:var(--navy);color:var(--gold);}
@@ -1736,6 +1739,17 @@ function imgDrop(obj,key,cls,ph,max,jpeg){
 }
 function elx(tag,cls,html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
 function kv(head,obj,key,ph){ const b=elx('div','kv-box'); b.appendChild(elx('div','kv-h',head)); const v=elx('div','kv-v'); v.appendChild(ed(obj,key,'',ph||'—')); b.appendChild(v); return b; }
+function kvSede(r){
+  const b=elx('div','kv-box'); b.appendChild(elx('div','kv-h','Sede'));
+  const v=elx('div','kv-v kv-sede');
+  const txt=elx('span','kv-sede-t', r.sede||'—');
+  const cyc=elx('button','kv-sede-b no-print','⇄');
+  cyc.title='Cambiar entre Local y Visitante';
+  const orden=['Local','Visitante',''];
+  cyc.onclick=()=>{ const i=orden.indexOf(r.sede||''); r.sede=orden[(i+1)%orden.length]; txt.textContent=r.sede||'—'; saveAll(); };
+  v.appendChild(txt); v.appendChild(cyc); b.appendChild(v);
+  return b;
+}
 function pageShell(p,repOrPl){
   const w=elx('div','page-wrap'); w.id='pw-'+p.id;
   const lbl=elx('div','page-label no-print', PAGE_LABEL[p.type]||p.type); w.appendChild(lbl);
@@ -1802,6 +1816,7 @@ function buildCover(page,p,r){
   meta.appendChild(kv('Hora',r,'hora','--:--'));
   meta.appendChild(kv('Jornada',r,'jornada','J—'));
   meta.appendChild(kv('Competición',r,'competicion','—'));
+  meta.appendChild(kvSede(r));
   left.appendChild(meta);
   grid.appendChild(left);
 
