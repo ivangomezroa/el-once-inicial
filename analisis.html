@@ -474,9 +474,12 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .page-wrap .page-label{top:-14px;font-size:10px;}
 
   /* ── Panel de propiedades: hoja inferior ── */
-  #fe-props{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:52vh;
+  #fe-props{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:42vh;
     border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
-  #fe-props .pp-h{cursor:default;}
+  #fe-props .pp-h{cursor:pointer;}
+  #fe-props .pp-h::after{content:'▾';margin-left:auto;margin-right:8px;opacity:.6;font-size:11px;}
+  body.props-min #fe-props .pp-b{display:none;}
+  body.props-min #fe-props .pp-h::after{content:'▴';}
 
   /* ── Vista de vídeo: paneles apilados ── */
   #app{flex-direction:column;height:auto;min-height:calc(100vh - var(--header-h));overflow-y:auto;}
@@ -1624,6 +1627,16 @@ const FE = (function(){
       else if(a==='cap'){ sendPlayerToCaptacion(e); }
     }; });
     box.classList.add('show');
+    // En móvil la hoja de propiedades tapa la parte baja de la pantalla:
+    // subimos el campo para que se siga viendo mientras se edita.
+    // En escritorio (>900px) esta rama no se ejecuta nunca.
+    if(window.matchMedia('(max-width:900px)').matches && ed.stage){
+      document.body.classList.remove('props-min');
+      const limite=window.innerHeight-box.getBoundingClientRect().height-14;
+      const r=ed.stage.getBoundingClientRect();
+      const cont=ed.stage.closest('.rep-main');
+      if(cont && r.bottom>limite) cont.scrollTop+=(r.bottom-limite)+10;
+    }
   }
   function refreshProps(){ if(!active||!propsEl||active.sel!==propsEl) return; const body=document.getElementById('fe-props-body'); body.querySelectorAll('input[type=range]').forEach(inp=>{ const k=inp.dataset.k; let v=propsEl[k]; if(v==null) return; if(k==='alpha'||k==='bgAlpha') v=Math.round(v*100); inp.value=v; const s=inp.nextElementSibling; if(s) s.textContent=(k==='alpha'||k==='bgAlpha')?v+'%':(k==='rot'?v+'°':v); }); }
   function closeProps(){ propsEl=null; document.getElementById('fe-props').classList.remove('show'); }
@@ -1631,7 +1644,10 @@ const FE = (function(){
 
   // panel arrastrable
   (function(){ const box=document.getElementById('fe-props'), h=document.getElementById('fe-props-h'); let d=null;
-    h.addEventListener('pointerdown',e=>{ if(e.target.tagName==='BUTTON') return; d={x:e.clientX-box.offsetLeft,y:e.clientY-box.offsetTop}; h.setPointerCapture(e.pointerId); });
+    const esMovil=()=>window.matchMedia('(max-width:900px)').matches;
+    // En móvil el panel es una hoja fija abajo: no se arrastra, se pliega tocando la cabecera.
+    h.addEventListener('click',e=>{ if(e.target.tagName==='BUTTON') return; if(esMovil()) document.body.classList.toggle('props-min'); });
+    h.addEventListener('pointerdown',e=>{ if(e.target.tagName==='BUTTON'||esMovil()) return; d={x:e.clientX-box.offsetLeft,y:e.clientY-box.offsetTop}; h.setPointerCapture(e.pointerId); });
     h.addEventListener('pointermove',e=>{ if(!d) return; box.style.left=(e.clientX-d.x)+'px'; box.style.top=(e.clientY-d.y)+'px'; box.style.right='auto'; });
     h.addEventListener('pointerup',()=>d=null);
   })();
