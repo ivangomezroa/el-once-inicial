@@ -1388,7 +1388,8 @@ const FE = (function(){
         const num=esc(e.num); const fs=num.length>2?r*0.75:r*0.95;
         txt(el('text',{x:0,y:fs*0.36,'text-anchor':'middle','font-size':fs,'font-weight':800,fill:e.txt||'#fff'},ig),num);
         const lines=splitName(e.name), ns=e.ns||12;
-        lines.forEach((ln,i)=>{ txt(el('text',{x:0,y:-r-5-(lines.length-1-i)*(ns+1),'text-anchor':'middle','font-size':ns,class:'plabel'},ig),ln); });
+        const nc=e.nc||'#ffffff', nsc=e.nsc||'#0d1a0d';
+        lines.forEach((ln,i)=>{ txt(el('text',{x:0,y:-r-5-(lines.length-1-i)*(ns+1),'text-anchor':'middle','font-size':ns,class:'plabel',style:`fill:${nc};stroke:${nsc}`},ig),ln); });
         const slots=badgeSlots(r);
         (e.badges||[]).slice(0,slots.length).forEach((b,i)=>{
           const [bx,by]=slots[i];
@@ -1537,7 +1538,7 @@ const FE = (function(){
   // ── PANEL DE PROPIEDADES ──
   function propsHTML(ed,e){
     const row=(l,inner)=>`<div class="pp-row"><label>${l}</label>${inner}</div>`;
-    const color=(k,v)=>`<input type="color" data-k="${k}" value="${toHex(v)}">`;
+    const color=(k,v,t)=>`<input type="color" data-k="${k}" value="${toHex(v)}"${t?` title="${escA(t)}"`:''}>`;
     const sw=(k)=>`<div class="pp-sw">${SWATCHES.map(c=>`<i style="background:${c}" data-sw="${k}" data-c="${c}" title="${c}"></i>`).join('')}</div>`;
     const range=(k,v,min,max,step,fmt)=>`<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step||1}" value="${v}"><span class="pp-val">${fmt?fmt(v):v}</span>`;
     let h='';
@@ -1545,9 +1546,12 @@ const FE = (function(){
       h+=row('Dorsal',`<input type="text" data-k="num" value="${escA(e.num)}" data-focus maxlength="3">`);
       h+=row('Nombre',`<input type="text" data-k="name" value="${escA(e.name)}" placeholder="Nombre (↵ = salto)">`);
       h+=row('Equipo',`<select data-k="team"><option value="away"${e.team==='away'?' selected':''}>Rival</option><option value="home"${e.team==='home'?' selected':''}>Propio</option><option value="gk"${e.team==='gk'?' selected':''}>Portero</option><option value="custom"${e.team==='custom'?' selected':''}>Personalizado</option></select>`);
-      h+=row('Relleno',color('fill',e.fill)+color('stroke',e.stroke)+color('txt',e.txt||'#fff'));
+      h+=row('Relleno',color('fill',e.fill,'Color del círculo'))+sw('fill');
+      h+=row('Borde',color('stroke',e.stroke,'Color del borde del círculo'))+sw('stroke');
+      h+=row('Color dorsal',color('txt',e.txt||'#fff','Color del número'));
       h+=row('Tamaño',range('r',e.r||17,10,34,1));
       h+=row('Letra nombre',range('ns',e.ns||12,8,22,1));
+      h+=row('Color nombre',color('nc',e.nc||'#ffffff','Color del nombre')+color('nsc',e.nsc||'#0d1a0d','Contorno del nombre'));
       h+=`<div class="pp-row"><label>Características</label></div><div class="pp-chips" id="pp-badges">${getTraits().map(t=>`<span class="pp-chip${(e.badges||[]).includes(t.icon)?' on':''}" data-badge="${escA(t.icon)}" title="${escA(t.label)}">${t.icon} ${escA(t.label)}</span>`).join('')}</div>`;
     } else if(e.t==='zone'){
       h+=row('Forma',`<select data-k="shape"><option value="rect"${e.shape!=='ellipse'?' selected':''}>Rectángulo</option><option value="ellipse"${e.shape==='ellipse'?' selected':''}>Elipse</option></select>`);
