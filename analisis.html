@@ -434,6 +434,29 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .dots i{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 }
 
+/* La barra superior ya se quedaba corta por debajo de ~1300px y recortaba
+   el último botón. Con esto se desliza en lugar de cortarse. Por encima de
+   ese ancho no desborda, así que no cambia nada. */
+#topnav{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+#topnav::-webkit-scrollbar{height:0;}
+#topnav > *{flex-shrink:0;}
+.header-sep{flex:1 1 auto;min-width:0;}
+
+/* ── ESPACIO / COPIA DE SEGURIDAD ── */
+.nav-btn.warn{background:rgba(224,82,82,.18);border-color:#e05252;color:#ff9b9b;}
+.esp-bar{height:12px;border-radius:6px;background:var(--surface);border:1px solid var(--border);overflow:hidden;margin-bottom:8px;}
+.esp-bar i{display:block;height:100%;background:#7ddc8a;transition:width .3s;}
+.esp-res{font-size:12px;color:var(--text);margin-bottom:10px;}
+.esp-res span{color:var(--text3);font-size:11px;}
+.esp-alerta{background:rgba(224,82,82,.12);border:1px solid #e05252;border-radius:6px;padding:8px 10px;font-size:11.5px;line-height:1.5;color:#ffc9c9;margin:10px 0;}
+.esp-tabla{display:flex;flex-direction:column;gap:2px;margin-bottom:4px;}
+.esp-fila{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;padding:4px 8px;background:var(--surface);border-radius:4px;}
+.esp-fila span{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.esp-fila b{color:var(--gold);flex-shrink:0;}
+.esp-nota{font-size:11px;line-height:1.55;color:var(--text3);margin:10px 0;}
+.esp-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.esp-btns .nav-btn{flex:1;justify-content:center;padding:9px 10px;font-size:11px;min-width:140px;}
+
 /* ══════════════════════════════════════════════════════════
    MÓVIL Y TABLET
    Todo lo de aquí abajo vive dentro de @media. En escritorio
@@ -534,6 +557,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
     <button class="nav-btn" onclick="openTraitsModal()">⚙ Características</button>
     <button class="nav-btn" onclick="exportReportsJSON()">⬇ Exportar</button>
     <button class="nav-btn" onclick="document.getElementById('import-json-input').click()">⬆ Importar</button>
+    <button class="nav-btn" id="btn-espacio" onclick="openEspacioModal()" title="Espacio del navegador y copia de seguridad">💾</button>
     <button class="nav-btn primary" onclick="printCurrent()">🖨 Imprimir / PDF</button>
   </div>
   <div class="nav-group" id="nav-jugadores" hidden>
@@ -555,6 +579,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   <input type="file" id="video-file-input" accept="video/*" style="display:none;" onchange="videoFileChosen(event)"/>
   <input type="file" id="import-json-input" accept="application/json,.json" style="display:none;" onchange="importReportsJSON(event)"/>
   <input type="file" id="img-file-input" accept="image/*" style="display:none;"/>
+  <input type="file" id="esp-restore-input" accept="application/json,.json" style="display:none;" onchange="restaurarCopia(event)"/>
 </div>
 
 <!-- ═══════════════ VISTA VÍDEO ═══════════════ -->
@@ -749,6 +774,14 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   <div class="modal-box">
     <div class="modal-hdr"><span>Añadir a la base de datos de Captación</span><button class="modal-close" onclick="closeCaptacionModal()">×</button></div>
     <div class="modal-body" id="cap-modal-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: ESPACIO Y COPIA DE SEGURIDAD -->
+<div id="esp-modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-hdr"><span>Espacio del navegador y copia de seguridad</span><button class="modal-close" onclick="closeEspacioModal()">×</button></div>
+    <div class="modal-body" id="esp-modal-body"></div>
   </div>
 </div>
 
@@ -2385,6 +2418,285 @@ function capBadgeFor(nombre){ return capFind(nombre) ? '✓ En Captación' : '�
 </script>
 <script>
 // ══════════════════════════════════════════════════════════
+// ESPACIO Y COPIA DE SEGURIDAD
+//   El navegador da ~5 MB por web. Las imágenes en base64
+//   (escudos, fotos) se los comen enteros si no se comprimen.
+//   Aquí: medir, copia de seguridad, recomprimir y restaurar.
+//   No cambia la forma de los datos: los mismos campos, las
+//   mismas claves, solo imágenes más pequeñas. Así ninguna
+//   otra pantalla de la app se ve afectada.
+// ══════════════════════════════════════════════════════════
+
+// Perfiles por tipo de imagen. `umbral` = si ya pesa menos, no se toca
+// (así se puede ejecutar mil veces sin degradar la calidad).
+const IMG_PERFIL={
+  escudo:{max:160,  jpeg:false, umbral:14*1024,  nombre:'escudo'},
+  foto:  {max:1000, jpeg:true,  q:0.82, umbral:90*1024, nombre:'foto'},
+  otro:  {max:600,  jpeg:false, umbral:40*1024, nombre:'imagen'}
+};
+function imgClase(campo){
+  const c=String(campo||'').toLowerCase();
+  if(/crest|escudo/.test(c)) return 'escudo';
+  if(/photo|foto|imagen|image|img/.test(c)) return 'foto';
+  return 'otro';
+}
+function esDataImg(v){ return typeof v==='string' && v.slice(0,11)==='data:image/'; }
+
+function kb(n){ return Math.round(n/1024); }
+function fmtKB(n){ const k=n/1024; return k>=1024 ? (k/1024).toFixed(1)+' MB' : Math.round(k)+' KB'; }
+
+// ── Medir ──
+function usoTotal(){
+  let t=0;
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    t+=k.length+(localStorage.getItem(k)||'').length;
+  }
+  return t*2; // UTF-16: 2 bytes por carácter
+}
+function espacioLibre(){
+  const K='__oi_probe__'; let libre=0;
+  const trozo='x'.repeat(10*1024); let buf='';
+  try{
+    for(let i=0;i<600;i++){
+      try{ localStorage.setItem(K,buf+trozo); buf+=trozo; libre+=10*1024; }
+      catch(e){ break; }
+    }
+  }catch(e){}
+  try{ localStorage.removeItem(K); }catch(e){}
+  return libre*2;
+}
+function inventarioImagenes(){
+  const copias=[], unicas=new Set();
+  const ver=(v,campo)=>{
+    if(esDataImg(v)){ copias.push({len:v.length,campo}); unicas.add(v); return; }
+    if(Array.isArray(v)){ v.forEach(x=>ver(x,campo)); return; }
+    if(v&&typeof v==='object'){ for(const k in v) ver(v[k],k); }
+  };
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i), raw=localStorage.getItem(k)||'';
+    if(raw.indexOf('data:image/')<0) continue;
+    let d; try{ d=JSON.parse(raw); }catch(e){ d=raw; }
+    ver(d,k);
+  }
+  let pesoCopias=0; copias.forEach(c=>pesoCopias+=c.len*2);
+  let pesoUnicas=0; unicas.forEach(u=>pesoUnicas+=u.length*2);
+  // cuánto pesarían tras comprimir (estimación por perfil)
+  let estimado=0;
+  copias.forEach(c=>{
+    const p=IMG_PERFIL[imgClase(c.campo)];
+    estimado += Math.min(c.len*2, p.umbral*2);
+  });
+  return {copias:copias.length, unicas:unicas.size, pesoCopias, pesoUnicas, estimado};
+}
+function desgloseClaves(){
+  const out=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    out.push({k, bytes:(k.length+(localStorage.getItem(k)||'').length)*2});
+  }
+  return out.sort((a,b)=>b.bytes-a.bytes);
+}
+
+// ── Copia de seguridad ──
+let copiaHecha=false;
+function descargarCopia(){
+  const dump={_app:'el-once-inicial',_version:1,_fecha:new Date().toISOString(),datos:{}};
+  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); dump.datos[k]=localStorage.getItem(k); }
+  const blob=new Blob([JSON.stringify(dump)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='el-once-inicial-copia-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),8000);
+  copiaHecha=true;
+  toast('Copia descargada');
+  renderEspacioModal();
+}
+function restaurarCopia(ev){
+  const f=ev.target.files&&ev.target.files[0]; ev.target.value='';
+  if(!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    let d; try{ d=JSON.parse(fr.result); }catch(e){ alert('Ese archivo no es una copia válida.'); return; }
+    const datos=d&&d.datos;
+    if(!datos||typeof datos!=='object'){ alert('Ese archivo no es una copia de El Once Inicial.'); return; }
+    const n=Object.keys(datos).length;
+    if(!confirm('La copia contiene '+n+' bloques de datos del '+String(d._fecha||'').slice(0,10)+'.\n\nSe SOBRESCRIBIRÁ con ellos lo que tengas ahora en este navegador (informes, calendario, jugadores, escudos). Lo que no esté en la copia se queda como está.\n\n¿Continuar?')) return;
+    const fallos=[];
+    Object.keys(datos).forEach(k=>{
+      try{ localStorage.setItem(k,datos[k]); }catch(e){ fallos.push(k); }
+    });
+    if(fallos.length) alert('No cupieron '+fallos.length+' bloques. Libera espacio y vuelve a intentarlo.');
+    location.reload();
+  };
+  fr.readAsText(f);
+}
+
+// ── Recomprimir ──
+function recomprime(dataUrl,max,jpeg,q){
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{
+      try{
+        let w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
+        if(!w||!h){ res(dataUrl); return; }
+        const m=Math.max(w,h);
+        if(m>max){ const k=max/m; w=Math.max(1,Math.round(w*k)); h=Math.max(1,Math.round(h*k)); }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        const ctx=c.getContext('2d');
+        if(jpeg){ ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,w,h); }
+        ctx.drawImage(im,0,0,w,h);
+        const out=jpeg?c.toDataURL('image/jpeg',q||0.82):c.toDataURL('image/png');
+        // nunca dejarlo peor de lo que estaba
+        res(out && out.length<dataUrl.length ? out : dataUrl);
+      }catch(e){ res(dataUrl); }
+    };
+    im.onerror=()=>res(dataUrl);
+    im.src=dataUrl;
+  });
+}
+async function transforma(v,campo,cache,st){
+  if(esDataImg(v)){
+    st.vistas++;
+    if(cache.has(v)){ st.repetidas++; return cache.get(v); }
+    const p=IMG_PERFIL[imgClase(campo)];
+    if(v.length<p.umbral){ cache.set(v,v); st.yaPequenas++; return v; }
+    const nuevo=await recomprime(v,p.max,p.jpeg,p.q);
+    cache.set(v,nuevo);
+    if(nuevo!==v) st.comprimidas++; else st.sinMejora++;
+    return nuevo;
+  }
+  if(Array.isArray(v)){ for(let i=0;i<v.length;i++) v[i]=await transforma(v[i],campo,cache,st); return v; }
+  if(v&&typeof v==='object'){ for(const k in v) v[k]=await transforma(v[k],k,cache,st); return v; }
+  return v;
+}
+
+let limpiando=false;
+async function limpiarEspacio(){
+  if(limpiando) return;
+  if(!copiaHecha && !confirm('No has descargado la copia de seguridad todavía.\n\nEs muy recomendable hacerlo antes. ¿Seguir de todas formas?')) return;
+  limpiando=true;
+  const btn=document.getElementById('esp-limpiar');
+  if(btn){ btn.disabled=true; btn.textContent='Comprimiendo...'; }
+
+  const antes=usoTotal();
+  const cache=new Map();
+  const st={vistas:0,repetidas:0,comprimidas:0,yaPequenas:0,sinMejora:0};
+  const nuevos={};
+
+  const claves=[];
+  for(let i=0;i<localStorage.length;i++) claves.push(localStorage.key(i));
+
+  for(const k of claves){
+    const raw=localStorage.getItem(k);
+    if(!raw || raw.indexOf('data:image/')<0) continue;
+    let dato, esJson=true;
+    try{ dato=JSON.parse(raw); }catch(e){ esJson=false; dato=raw; }
+    const out=await transforma(dato,k,cache,st);
+    const serial=esJson?JSON.stringify(out):out;
+    if(serial!==raw) nuevos[k]=serial;
+  }
+
+  // Escribir. Se borra antes de escribir para liberar sitio, y si algo
+  // falla se devuelve el valor original tal cual estaba.
+  const fallos=[];
+  for(const k in nuevos){
+    const original=localStorage.getItem(k);
+    try{
+      localStorage.removeItem(k);
+      localStorage.setItem(k,nuevos[k]);
+    }catch(e){
+      try{ localStorage.setItem(k,original); }catch(_){ fallos.push(k+' (¡sin restaurar!)'); continue; }
+      fallos.push(k);
+    }
+  }
+
+  const despues=usoTotal();
+  limpiando=false;
+  ultimoResultado={
+    antes, despues, liberado:Math.max(0,antes-despues),
+    claves:Object.keys(nuevos).length,
+    st, fallos
+  };
+  renderEspacioModal();
+}
+
+// ── Modal ──
+let ultimoResultado=null;
+function openEspacioModal(){
+  ultimoResultado=null;
+  renderEspacioModal();
+  document.getElementById('esp-modal-overlay').style.display='flex';
+}
+function closeEspacioModal(){ document.getElementById('esp-modal-overlay').style.display='none'; }
+
+function renderEspacioModal(){
+  const b=document.getElementById('esp-modal-body'); if(!b) return;
+  const usado=usoTotal(), libre=espacioLibre();
+  const total=usado+libre;
+  const pct=total?Math.round(usado*100/total):0;
+  const inv=inventarioImagenes();
+  const claves=desgloseClaves().slice(0,7);
+
+  let h='';
+  h+='<div class="esp-bar"><i style="width:'+Math.min(100,pct)+'%'+(pct>85?';background:#e05252':(pct>70?';background:#ff9500':''))+'"></i></div>';
+  h+='<div class="esp-res"><b>'+fmtKB(usado)+'</b> usados · <b>'+fmtKB(libre)+'</b> libres <span>('+pct+'% del espacio que da el navegador)</span></div>';
+
+  if(libre<300*1024){
+    h+='<div class="esp-alerta">⚠ Casi sin espacio. Cuando se llena, la app deja de guardar <b>sin avisar</b>: perderías el trabajo de esa sesión.</div>';
+  }
+
+  h+='<div class="pick-sec">Qué ocupa</div><div class="esp-tabla">';
+  claves.forEach(c=>{ h+='<div class="esp-fila"><span>'+escapeHtml(c.k)+'</span><b>'+fmtKB(c.bytes)+'</b></div>'; });
+  h+='</div>';
+
+  h+='<div class="pick-sec">Imágenes</div>';
+  h+='<div class="esp-tabla">'+
+     '<div class="esp-fila"><span>Copias guardadas</span><b>'+inv.copias+'</b></div>'+
+     '<div class="esp-fila"><span>Imágenes distintas</span><b>'+inv.unicas+'</b></div>'+
+     '<div class="esp-fila"><span>Lo que ocupan ahora</span><b>'+fmtKB(inv.pesoCopias)+'</b></div>'+
+     '<div class="esp-fila"><span>Tras comprimir (aprox.)</span><b style="color:#7ddc8a">'+fmtKB(inv.estimado)+'</b></div>'+
+     '</div>';
+
+  h+='<div class="esp-nota">Los escudos se reducen a 160 px y las fotos a 1000 px. Es de sobra para pantalla e impresión: en el informe un escudo se ve a unos 13 mm. No se cambia ningún dato ni se borra nada; solo pesan menos. Las imágenes que ya sean pequeñas no se tocan, así que puedes repetirlo sin perder calidad.</div>';
+
+  if(ultimoResultado){
+    const r=ultimoResultado;
+    h+='<div class="pick-sec">Resultado</div><div class="esp-tabla">'+
+       '<div class="esp-fila"><span>Antes</span><b>'+fmtKB(r.antes)+'</b></div>'+
+       '<div class="esp-fila"><span>Ahora</span><b>'+fmtKB(r.despues)+'</b></div>'+
+       '<div class="esp-fila"><span>Liberado</span><b style="color:#7ddc8a">'+fmtKB(r.liberado)+'</b></div>'+
+       '<div class="esp-fila"><span>Imágenes comprimidas</span><b>'+r.st.comprimidas+'</b></div>'+
+       '<div class="esp-fila"><span>Copias reaprovechadas</span><b>'+r.st.repetidas+'</b></div>'+
+       '<div class="esp-fila"><span>Ya estaban bien</span><b>'+r.st.yaPequenas+'</b></div>'+
+       '</div>';
+    if(r.fallos.length) h+='<div class="esp-alerta">No se pudieron reescribir: '+escapeHtml(r.fallos.join(', '))+'</div>';
+    h+='<div class="esp-nota">Recarga la página para que la app trabaje ya con las imágenes nuevas.</div>';
+    h+='<div class="esp-btns"><button class="nav-btn primary" onclick="location.reload()">↻ Recargar ahora</button></div>';
+  } else {
+    h+='<div class="esp-btns">'+
+       '<button class="nav-btn'+(copiaHecha?'':' primary')+'" onclick="descargarCopia()">'+(copiaHecha?'✓ Copia descargada':'1. ⬇ Descargar copia de seguridad')+'</button>'+
+       '<button class="nav-btn'+(copiaHecha?' primary':'')+'" id="esp-limpiar" onclick="limpiarEspacio()">2. 🧹 Comprimir imágenes</button>'+
+       '</div>';
+    h+='<div class="esp-btns"><button class="nav-btn" onclick="document.getElementById(\'esp-restore-input\').click()">⬆ Restaurar desde una copia</button></div>';
+  }
+  b.innerHTML=h;
+}
+
+// Aviso automático al arrancar si queda poco sitio.
+function avisaEspacio(){
+  let libre=0;
+  try{ libre=espacioLibre(); }catch(e){ return; }
+  const btn=document.getElementById('btn-espacio');
+  if(libre<600*1024){
+    if(btn) btn.classList.add('warn');
+    toast('Queda poco espacio en el navegador — revisa 💾 Espacio');
+  }
+}
+</script>
+<script>
+// ══════════════════════════════════════════════════════════
 // INFORMES DE JUGADOR
 // ══════════════════════════════════════════════════════════
 const RATING_ITEMS=[
@@ -2581,6 +2893,7 @@ function init(){
     if(!it) return;
   });
   setTimeout(fitPages,120);
+  setTimeout(()=>{ try{ avisaEspacio(); }catch(e){} },900);
 
   // Reajustar el escalado de las páginas al cambiar el tamaño / girar el móvil.
   let rzT=null;
