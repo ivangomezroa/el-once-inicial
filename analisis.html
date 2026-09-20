@@ -442,6 +442,14 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 #topnav > *{flex-shrink:0;}
 .header-sep{flex:1 1 auto;min-width:0;}
 
+/* ── NUBE ── */
+.nav-btn.on{background:rgba(125,220,138,.16);border-color:#7ddc8a;color:#bdf0c6;}
+.nube-aviso{border-radius:6px;padding:8px 10px;font-size:11.5px;line-height:1.5;margin-bottom:10px;
+  background:rgba(200,168,75,.1);border:1px solid var(--border2);color:var(--text);}
+.nube-aviso.bien{background:rgba(125,220,138,.12);border-color:#7ddc8a;color:#cdf3d4;}
+.nube-aviso.mal{background:rgba(224,82,82,.12);border-color:#e05252;color:#ffc9c9;}
+#nube-enlace .fi{font-size:10.5px;}
+
 /* ── ESPACIO / COPIA DE SEGURIDAD ── */
 .nav-btn.warn{background:rgba(224,82,82,.18);border-color:#e05252;color:#ff9b9b;}
 .esp-bar{height:12px;border-radius:6px;background:var(--surface);border:1px solid var(--border);overflow:hidden;margin-bottom:8px;}
@@ -558,6 +566,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
     <button class="nav-btn" onclick="exportReportsJSON()">⬇ Exportar</button>
     <button class="nav-btn" onclick="document.getElementById('import-json-input').click()">⬆ Importar</button>
     <button class="nav-btn" id="btn-espacio" onclick="openEspacioModal()" title="Espacio del navegador y copia de seguridad">💾</button>
+    <button class="nav-btn" id="btn-nube" onclick="openNubeModal()" title="Nube: copia de seguridad y acceso desde el móvil">☁</button>
     <button class="nav-btn primary" onclick="printCurrent()">🖨 Imprimir / PDF</button>
   </div>
   <div class="nav-group" id="nav-jugadores" hidden>
@@ -777,6 +786,14 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   </div>
 </div>
 
+<!-- MODAL: NUBE -->
+<div id="nube-modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-hdr"><span>Nube — copia de seguridad y equipo</span><button class="modal-close" onclick="closeNubeModal()">×</button></div>
+    <div class="modal-body" id="nube-modal-body"></div>
+  </div>
+</div>
+
 <!-- MODAL: ESPACIO Y COPIA DE SEGURIDAD -->
 <div id="esp-modal-overlay" class="modal-overlay">
   <div class="modal-box">
@@ -793,6 +810,470 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   </div>
 </div>
 
+<script>
+// ══════════════════════════════════════════════════════════
+// NUBE (Supabase) — copia de seguridad y acceso multidispositivo
+//
+// Principios:
+//   · localStorage sigue siendo la verdad. Esta capa solo COPIA
+//     hacia arriba. Nunca borra nada del navegador.
+//   · Sin librerías externas: solo fetch. Así la app sigue
+//     funcionando en un campo sin cobertura.
+//   · Si la nube falla, la app funciona exactamente igual que antes.
+// ══════════════════════════════════════════════════════════
+
+const NUBE_URL = 'https://npaddnmffepnuidekynb.supabase.co';
+const NUBE_KEY = 'sb_publishable_YfvyI8taXsUNCcun0kYUnw_BlxCbPR9';
+
+const NK_SES     = 'oi_nube_ses';
+const NK_ESPACIO = 'oi_nube_espacio';
+const NK_ULTIMA  = 'oi_nube_ultima';
+
+let nSes = null;      // { access_token, refresh_token, expira, email }
+let nEspacio = null;  // { id, nombre, rol }
+
+function nubeGuardaSesion(s){
+  nSes = s;
+  try{ s ? localStorage.setItem(NK_SES, JSON.stringify(s)) : localStorage.removeItem(NK_SES); }catch(e){}
+}
+function nubeCargaSesion(){
+  try{ nSes = JSON.parse(localStorage.getItem(NK_SES)||'null'); }catch(e){ nSes=null; }
+  try{ nEspacio = JSON.parse(localStorage.getItem(NK_ESPACIO)||'null'); }catch(e){ nEspacio=null; }
+}
+function nubeGuardaEspacio(e){
+  nEspacio = e;
+  try{ e ? localStorage.setItem(NK_ESPACIO, JSON.stringify(e)) : localStorage.removeItem(NK_ESPACIO); }catch(x){}
+}
+
+// ── Petición base ──
+async function nubeFetch(ruta, opts, conSesion){
+  opts = opts || {};
+  const h = Object.assign({
+    'apikey': NUBE_KEY,
+    'Content-Type': 'application/json'
+  }, opts.headers || {});
+  if(conSesion !== false){
+    const t = await nubeToken();
+    h['Authorization'] = 'Bearer ' + (t || NUBE_KEY);
+  } else {
+    h['Authorization'] = 'Bearer ' + NUBE_KEY;
+  }
+  const r = await fetch(NUBE_URL + ruta, Object.assign({}, opts, {headers:h}));
+  const txt = await r.text();
+  let cuerpo = null;
+  if(txt){ try{ cuerpo = JSON.parse(txt); }catch(e){ cuerpo = txt; } }
+  if(!r.ok){
+    const msg = (cuerpo && (cuerpo.msg || cuerpo.message || cuerpo.error_description || cuerpo.error || cuerpo.hint)) || ('HTTP '+r.status);
+    const err = new Error(msg); err.estado = r.status; err.cuerpo = cuerpo;
+    throw err;
+  }
+  return cuerpo;
+}
+
+// ── Sesión: renueva el testigo si está por caducar ──
+async function nubeToken(){
+  if(!nSes) return null;
+  const ahora = Math.floor(Date.now()/1000);
+  if(nSes.expira && nSes.expira - ahora > 60) return nSes.access_token;
+  if(!nSes.refresh_token){ return nSes.access_token; }
+  try{
+    const d = await nubeFetch('/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', body: JSON.stringify({refresh_token: nSes.refresh_token})
+    }, false);
+    nubeGuardaSesion({
+      access_token: d.access_token, refresh_token: d.refresh_token,
+      expira: Math.floor(Date.now()/1000) + (d.expires_in||3600),
+      email: (d.user && d.user.email) || nSes.email
+    });
+    return nSes.access_token;
+  }catch(e){
+    // el refresco ha caducado: hay que volver a entrar
+    nubeGuardaSesion(null);
+    return null;
+  }
+}
+
+async function nubeRegistro(email, pass){
+  const d = await nubeFetch('/auth/v1/signup', {
+    method:'POST', body: JSON.stringify({email, password: pass})
+  }, false);
+  if(d.access_token){
+    nubeGuardaSesion({access_token:d.access_token, refresh_token:d.refresh_token,
+      expira: Math.floor(Date.now()/1000)+(d.expires_in||3600), email:(d.user&&d.user.email)||email});
+    return {entrado:true};
+  }
+  return {entrado:false, confirmar:true}; // hace falta confirmar el correo
+}
+
+async function nubeEntrada(email, pass){
+  const d = await nubeFetch('/auth/v1/token?grant_type=password', {
+    method:'POST', body: JSON.stringify({email, password: pass})
+  }, false);
+  nubeGuardaSesion({access_token:d.access_token, refresh_token:d.refresh_token,
+    expira: Math.floor(Date.now()/1000)+(d.expires_in||3600), email:(d.user&&d.user.email)||email});
+  return true;
+}
+
+async function nubeSalida(){
+  try{ await nubeFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
+  nubeGuardaSesion(null);
+  nubeGuardaEspacio(null);
+}
+
+// ── Espacios ──
+function nubeRpc(nombre, args){
+  return nubeFetch('/rest/v1/rpc/'+nombre, {method:'POST', body: JSON.stringify(args||{})});
+}
+async function nubeEspacios(){ return await nubeRpc('mis_espacios') || []; }
+async function nubeCrearEspacio(nombre){ return await nubeRpc('crear_espacio', {p_nombre:nombre}); }
+async function nubeInvitar(email, rol){
+  const tok = await nubeRpc('invitar', {p_espacio:nEspacio.id, p_email:email, p_rol:rol||'entrenador'});
+  return location.origin + location.pathname + '?invitacion=' + tok;
+}
+async function nubeResumen(){
+  if(!nEspacio) return null;
+  const r = await nubeRpc('resumen_espacio', {p_espacio:nEspacio.id});
+  return Array.isArray(r) ? r[0] : r;
+}
+
+// ── Qué se sube: se lee de localStorage y se traduce ──
+function nubeLee(clave, pordefecto){
+  try{ const v = JSON.parse(localStorage.getItem(clave) || 'null'); return v==null ? pordefecto : v; }
+  catch(e){ return pordefecto; }
+}
+function nubeSlug(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,'-').slice(0,60); }
+
+function nubeRecopila(){
+  const esp = nEspacio.id;
+  const informes = [];
+  (nubeLee('oi_informes_v3', []) || []).forEach(r=>{
+    if(!r || !r.id) return;
+    informes.push({espacio_id:esp, id_local:String(r.id), tipo:'equipo',
+      nombre:String(r.rival||''), fecha:String(r.fecha||''), datos:r});
+  });
+  (nubeLee('oi_jug_informes_v1', []) || []).forEach(p=>{
+    if(!p || !p.id) return;
+    informes.push({espacio_id:esp, id_local:String(p.id), tipo:'jugador',
+      nombre:String(p.name||''), fecha:String(p.date||''), datos:p});
+  });
+
+  const jugadores = (nubeLee('oi_jugadores_v1', []) || []).filter(j=>j).map(j=>({
+    espacio_id:esp, id_local:'jug:'+String(j.id!=null?j.id:nubeSlug(j.n)),
+    nombre:String(j.n||''), equipo:String(j.eq||''), posicion:String(j.pos||''),
+    estado:String(j.est||''), datos:j
+  }));
+
+  const rivales = (nubeLee('oi_rivals_v1', []) || []).filter(r=>r).map(r=>({
+    espacio_id:esp, id_local:'riv:'+nubeSlug(r.name), nombre:String(r.name||''),
+    escudo_url:null, datos:undefined
+  }));
+  // el escudo del rival va dentro de datos para no perderlo
+  const rivalesFull = (nubeLee('oi_rivals_v1', []) || []).filter(r=>r).map(r=>({
+    espacio_id:esp, id_local:'riv:'+nubeSlug(r.name), nombre:String(r.name||''), escudo_url:r.crest||null
+  }));
+
+  const cal = nubeLee('oi_cal_v2', {}) || {};
+  const eventos = [];
+  Object.keys(cal).forEach(fecha=>{
+    (cal[fecha]||[]).forEach((ev,i)=>{
+      if(!ev) return;
+      eventos.push({espacio_id:esp, id_local:fecha+'#'+i, fecha:fecha,
+        tipo:String(ev.type||'partido-liga'), datos:ev});
+    });
+  });
+
+  return {informes, jugadores, rivales:rivalesFull, eventos};
+}
+
+// Sube por trozos para no mandar peticiones gigantes.
+async function nubeSubeTabla(tabla, filas, aviso){
+  if(!filas.length) return 0;
+  const LIMITE = 1200*1024; // ~1,2 MB por petición
+  let i=0, hechas=0;
+  while(i < filas.length){
+    const lote=[]; let bytes=0;
+    while(i < filas.length){
+      const s = JSON.stringify(filas[i]).length;
+      if(lote.length && bytes + s > LIMITE) break;
+      lote.push(filas[i]); bytes += s; i++;
+    }
+    await nubeFetch('/rest/v1/'+tabla+'?on_conflict=espacio_id,id_local', {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify(lote)
+    });
+    hechas += lote.length;
+    if(aviso) aviso(tabla, hechas, filas.length);
+  }
+  return hechas;
+}
+
+async function nubeSubirTodo(aviso){
+  if(!nSes) throw new Error('Hay que iniciar sesión');
+  if(!nEspacio) throw new Error('Elige primero un espacio');
+  const d = nubeRecopila();
+  const res = {};
+  res.informes  = await nubeSubeTabla('informes',  d.informes,  aviso);
+  res.jugadores = await nubeSubeTabla('jugadores', d.jugadores, aviso);
+  res.rivales   = await nubeSubeTabla('rivales',   d.rivales,   aviso);
+  res.eventos   = await nubeSubeTabla('eventos',   d.eventos,   aviso);
+  try{ localStorage.setItem(NK_ULTIMA, new Date().toISOString()); }catch(e){}
+  return res;
+}
+
+// ── Bajar: escribe en localStorage lo que hay en la nube ──
+async function nubeBajarTodo(){
+  if(!nEspacio) throw new Error('Elige primero un espacio');
+  const esp = nEspacio.id;
+  const sel = (t,q)=>nubeFetch('/rest/v1/'+t+'?espacio_id=eq.'+esp+(q||''));
+
+  const infs = await sel('informes','&select=tipo,datos');
+  const jugs = await sel('jugadores','&select=datos');
+  const rivs = await sel('rivales','&select=nombre,escudo_url');
+  const evs  = await sel('eventos','&select=fecha,datos');
+
+  const repsEquipo = infs.filter(x=>x.tipo==='equipo').map(x=>x.datos).filter(Boolean);
+  const repsJug    = infs.filter(x=>x.tipo==='jugador').map(x=>x.datos).filter(Boolean);
+  const captacion  = jugs.map(x=>x.datos).filter(Boolean);
+  const rivales    = rivs.map(r=>({name:r.nombre, crest:r.escudo_url||''}));
+  const cal = {};
+  evs.forEach(e=>{ if(!e.datos) return; (cal[e.fecha] = cal[e.fecha]||[]).push(e.datos); });
+
+  const guarda=(k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } };
+  const fallos=[];
+  if(repsEquipo.length && !guarda('oi_informes_v3', repsEquipo)) fallos.push('informes de equipo');
+  if(repsJug.length   && !guarda('oi_jug_informes_v1', repsJug)) fallos.push('informes de jugador');
+  if(captacion.length && !guarda('oi_jugadores_v1', captacion))  fallos.push('jugadores');
+  if(rivales.length   && !guarda('oi_rivals_v1', rivales))       fallos.push('rivales');
+  if(Object.keys(cal).length && !guarda('oi_cal_v2', cal))       fallos.push('calendario');
+
+  return {informes:repsEquipo.length, fichas:repsJug.length, jugadores:captacion.length,
+          rivales:rivales.length, partidos:evs.length, fallos};
+}
+
+// ── Invitación por enlace ──
+async function nubeAceptaInvitacionDeURL(){
+  const tok = new URLSearchParams(location.search).get('invitacion');
+  if(!tok) return null;
+  if(!nSes){ return {pendiente:true}; }
+  try{
+    const esp = await nubeRpc('aceptar_invitacion', {p_token:tok});
+    history.replaceState({}, '', location.pathname);
+    return {ok:true, espacio:esp};
+  }catch(e){ return {error:e.message}; }
+}
+
+// ══════════════════════════════════════════════════════════
+// VENTANA DE LA NUBE
+// ══════════════════════════════════════════════════════════
+let nEsperando = false;
+function openNubeModal(){ renderNubeModal(); document.getElementById('nube-modal-overlay').style.display='flex'; }
+function closeNubeModal(){ document.getElementById('nube-modal-overlay').style.display='none'; }
+
+function nubeMsg(t, clase){
+  const b=document.getElementById('nube-aviso');
+  if(b){ b.className='nube-aviso '+(clase||''); b.textContent=t||''; b.style.display=t?'block':'none'; }
+}
+
+async function renderNubeModal(){
+  const b=document.getElementById('nube-modal-body'); if(!b) return;
+  let h='';
+
+  if(!nSes){
+    h+='<div class="nube-aviso" id="nube-aviso" style="display:none"></div>';
+    h+='<div class="esp-nota">Tus informes viven hoy solo en este navegador. Al entrar con tu correo se copian a la nube y podrás verlos desde el móvil.</div>';
+    h+='<div class="pick-sec">Entrar</div>';
+    h+='<div class="cap-row"><label>Correo</label><input type="email" class="fi" id="nube-email" placeholder="tu@correo.com" autocomplete="username"></div>';
+    h+='<div class="cap-row"><label>Contraseña</label><input type="password" class="fi" id="nube-pass" placeholder="Mínimo 8 caracteres" autocomplete="current-password"></div>';
+    h+='<div class="esp-btns">'+
+       '<button class="nav-btn primary" onclick="nubeAccion(\'entrar\')">Entrar</button>'+
+       '<button class="nav-btn" onclick="nubeAccion(\'registrar\')">Crear mi cuenta</button>'+
+       '</div>';
+    h+='<div class="esp-nota">La contraseña no la ve nadie más que tú: viaja cifrada y se guarda troceada en Supabase, no en la app.</div>';
+    b.innerHTML=h;
+    const p=document.getElementById('nube-pass');
+    p.addEventListener('keydown',e=>{ if(e.key==='Enter') nubeAccion('entrar'); });
+    return;
+  }
+
+  h+='<div class="nube-aviso" id="nube-aviso" style="display:none"></div>';
+  h+='<div class="esp-tabla"><div class="esp-fila"><span>Sesión</span><b>'+escapeHtml(nSes.email||'')+'</b></div>';
+  if(nEspacio) h+='<div class="esp-fila"><span>Espacio</span><b>'+escapeHtml(nEspacio.nombre)+' · '+escapeHtml(nEspacio.rol||'')+'</b></div>';
+  const ult=localStorage.getItem(NK_ULTIMA);
+  if(ult) h+='<div class="esp-fila"><span>Última subida</span><b>'+new Date(ult).toLocaleString('es-ES')+'</b></div>';
+  h+='</div>';
+
+  if(!nEspacio){
+    h+='<div class="pick-sec">Elige un espacio de trabajo</div>';
+    h+='<div id="nube-espacios"><div class="pick-empty">Cargando...</div></div>';
+    h+='<div class="cap-row" style="margin-top:8px;"><label>Crear nuevo</label><input type="text" class="fi" id="nube-nuevo-esp" placeholder="Ej: Cuerpo técnico 2026-27"></div>';
+    h+='<div class="esp-btns"><button class="nav-btn primary" onclick="nubeAccion(\'crearEspacio\')">+ Crear espacio</button></div>';
+    h+='<div class="esp-btns"><button class="nav-btn" onclick="nubeAccion(\'salir\')">Cerrar sesión</button></div>';
+    b.innerHTML=h;
+    nubePintaEspacios();
+    return;
+  }
+
+  h+='<div class="pick-sec">En la nube</div><div id="nube-resumen"><div class="pick-empty">Consultando...</div></div>';
+
+  const local=nubeRecopila();
+  h+='<div class="pick-sec">En este navegador</div><div class="esp-tabla">'+
+     '<div class="esp-fila"><span>Informes</span><b>'+local.informes.length+'</b></div>'+
+     '<div class="esp-fila"><span>Jugadores (Captación)</span><b>'+local.jugadores.length+'</b></div>'+
+     '<div class="esp-fila"><span>Rivales</span><b>'+local.rivales.length+'</b></div>'+
+     '<div class="esp-fila"><span>Partidos</span><b>'+local.eventos.length+'</b></div>'+
+     '</div>';
+
+  h+='<div class="esp-btns">'+
+     '<button class="nav-btn primary" onclick="nubeAccion(\'subir\')">⬆ Subir a la nube</button>'+
+     '<button class="nav-btn" onclick="nubeAccion(\'bajar\')">⬇ Traer de la nube</button>'+
+     '</div>';
+  h+='<div class="esp-nota">Subir no borra nada de este navegador. Traer sí sobrescribe lo de este navegador con lo que haya en la nube: úsalo en el móvil o en un equipo nuevo.</div>';
+
+  if(nEspacio.rol==='propietario'){
+    h+='<div class="pick-sec">Invitar a tu cuerpo técnico</div>';
+    h+='<div class="cap-row"><label>Correo</label><input type="email" class="fi" id="nube-inv-mail" placeholder="companero@correo.com"></div>';
+    h+='<div class="cap-row"><label>Rol</label><select class="fi" id="nube-inv-rol">'+
+       '<option value="entrenador">Entrenador — crear y editar</option>'+
+       '<option value="analista">Analista — crear y editar</option>'+
+       '<option value="invitado">Invitado — solo ver</option>'+
+       '</select></div>';
+    h+='<div class="esp-btns"><button class="nav-btn" onclick="nubeAccion(\'invitar\')">Generar enlace de invitación</button></div>';
+    h+='<div id="nube-enlace"></div>';
+  }
+
+  h+='<div class="esp-btns" style="margin-top:12px;">'+
+     '<button class="nav-btn" onclick="nubeAccion(\'cambiarEspacio\')">Cambiar de espacio</button>'+
+     '<button class="nav-btn" onclick="nubeAccion(\'salir\')">Cerrar sesión</button>'+
+     '</div>';
+  b.innerHTML=h;
+  nubePintaResumen();
+}
+
+async function nubePintaEspacios(){
+  const c=document.getElementById('nube-espacios'); if(!c) return;
+  try{
+    const lista=await nubeEspacios();
+    if(!lista.length){ c.innerHTML='<div class="pick-empty">Todavía no tienes ningún espacio. Crea el primero abajo.</div>'; return; }
+    c.innerHTML=lista.map((e,i)=>'<div class="pick-row" data-e="'+i+'"><span class="pk-ph">🏟</span>'+
+      '<span class="pk-t"><span class="pk-n">'+escapeHtml(e.nombre)+'</span><span class="pk-s">'+escapeHtml(e.rol)+' · '+e.miembros+' miembro(s)</span></span>'+
+      '<span class="pk-b">Entrar</span></div>').join('');
+    c.querySelectorAll('[data-e]').forEach(el=>{ el.onclick=()=>{
+      const e=lista[+el.dataset.e];
+      nubeGuardaEspacio({id:e.id, nombre:e.nombre, rol:e.rol});
+      renderNubeModal();
+    }; });
+  }catch(e){ c.innerHTML='<div class="esp-alerta">No se pudo consultar: '+escapeHtml(e.message)+'</div>'; }
+}
+
+async function nubePintaResumen(){
+  const c=document.getElementById('nube-resumen'); if(!c) return;
+  try{
+    const r=await nubeResumen();
+    if(!r){ c.innerHTML='<div class="pick-empty">Sin datos todavía.</div>'; return; }
+    c.innerHTML='<div class="esp-tabla">'+
+      '<div class="esp-fila"><span>Informes</span><b>'+r.informes+'</b></div>'+
+      '<div class="esp-fila"><span>Jugadores</span><b>'+r.jugadores+'</b></div>'+
+      '<div class="esp-fila"><span>Rivales</span><b>'+r.rivales+'</b></div>'+
+      '<div class="esp-fila"><span>Partidos</span><b>'+r.eventos+'</b></div>'+
+      '</div>';
+  }catch(e){ c.innerHTML='<div class="esp-alerta">'+escapeHtml(e.message)+'</div>'; }
+}
+
+async function nubeAccion(que){
+  if(nEsperando) return;
+  nEsperando = true;
+  try{
+    if(que==='entrar' || que==='registrar'){
+      const em=(document.getElementById('nube-email').value||'').trim();
+      const pw=document.getElementById('nube-pass').value||'';
+      if(!em || !pw){ nubeMsg('Pon el correo y la contraseña.','mal'); return; }
+      if(que==='registrar' && pw.length<8){ nubeMsg('La contraseña necesita al menos 8 caracteres.','mal'); return; }
+      nubeMsg(que==='entrar'?'Entrando...':'Creando la cuenta...');
+      if(que==='entrar') await nubeEntrada(em,pw);
+      else{
+        const r=await nubeRegistro(em,pw);
+        if(!r.entrado){ nubeMsg('Cuenta creada. Revisa tu correo para confirmarla y luego entra.','bien'); return; }
+      }
+      toast('Sesión iniciada');
+      await renderNubeModal();
+      const inv=await nubeAceptaInvitacionDeURL();
+      if(inv && inv.ok){ toast('Invitación aceptada'); nubeGuardaEspacio(null); await renderNubeModal(); }
+      return;
+    }
+
+    if(que==='salir'){ await nubeSalida(); await renderNubeModal(); toast('Sesión cerrada'); return; }
+    if(que==='cambiarEspacio'){ nubeGuardaEspacio(null); await renderNubeModal(); return; }
+
+    if(que==='crearEspacio'){
+      const n=(document.getElementById('nube-nuevo-esp').value||'').trim();
+      if(!n){ nubeMsg('Ponle un nombre al espacio.','mal'); return; }
+      nubeMsg('Creando...');
+      const id=await nubeCrearEspacio(n);
+      nubeGuardaEspacio({id:id, nombre:n, rol:'propietario'});
+      toast('Espacio creado');
+      await renderNubeModal();
+      return;
+    }
+
+    if(que==='subir'){
+      nubeMsg('Subiendo... no cierres la ventana.');
+      const r=await nubeSubirTodo((t,hechas,total)=>nubeMsg('Subiendo '+t+': '+hechas+'/'+total));
+      nubeMsg('Subido: '+r.informes+' informes, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.eventos+' partidos.','bien');
+      await nubePintaResumen();
+      return;
+    }
+
+    if(que==='bajar'){
+      if(!confirm('Traer de la nube SOBRESCRIBE los informes, jugadores, rivales y calendario de ESTE navegador con lo que haya en la nube.\n\nSi en este equipo tienes trabajo sin subir, súbelo primero.\n\n¿Continuar?')) return;
+      nubeMsg('Descargando...');
+      const r=await nubeBajarTodo();
+      let m='Traído: '+r.informes+' informes, '+r.fichas+' fichas, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.partidos+' partidos.';
+      if(r.fallos.length) m+=' NO CUPO en el navegador: '+r.fallos.join(', ')+'. Libera espacio con 💾.';
+      nubeMsg(m, r.fallos.length?'mal':'bien');
+      if(!r.fallos.length) setTimeout(()=>location.reload(), 1800);
+      return;
+    }
+
+    if(que==='invitar'){
+      const em=(document.getElementById('nube-inv-mail').value||'').trim();
+      const rol=document.getElementById('nube-inv-rol').value;
+      if(!em){ nubeMsg('Pon el correo de la persona.','mal'); return; }
+      nubeMsg('Generando...');
+      const enlace=await nubeInvitar(em, rol);
+      nubeMsg('');
+      document.getElementById('nube-enlace').innerHTML=
+        '<div class="esp-nota">Mándale este enlace a '+escapeHtml(em)+'. Solo funciona con ese correo y caduca en 14 días.</div>'+
+        '<input type="text" class="fi" readonly value="'+escapeHtml(enlace)+'" onclick="this.select()">';
+      return;
+    }
+  }catch(e){
+    nubeMsg('Error: '+e.message, 'mal');
+  }finally{
+    nEsperando = false;
+  }
+}
+
+// ── Arranque ──
+function nubeInit(){
+  nubeCargaSesion();
+  const btn=document.getElementById('btn-nube');
+  if(btn){
+    btn.classList.toggle('on', !!nSes);
+    btn.title = nSes ? ('Nube — '+(nSes.email||'')+(nEspacio?(' · '+nEspacio.nombre):'')) : 'Nube — sin sesión';
+  }
+  // ¿han abierto un enlace de invitación?
+  if(new URLSearchParams(location.search).get('invitacion')){
+    setTimeout(async ()=>{
+      openNubeModal();
+      const r=await nubeAceptaInvitacionDeURL();
+      if(r && r.pendiente) nubeMsg('Entra o crea tu cuenta para aceptar la invitación.');
+      else if(r && r.ok){ toast('Invitación aceptada'); nubeGuardaEspacio(null); renderNubeModal(); }
+      else if(r && r.error) nubeMsg('La invitación no es válida: '+r.error,'mal');
+    }, 700);
+  }
+}
+</script>
 <script>
 // ══════════════════════════════════════════════════════════
 // NAVEGACIÓN ENTRE VISTAS
@@ -2782,6 +3263,12 @@ function buildPlayerPage(p){
   const body=elx('div','pl-body');
   const colL=elx('div','pl-col');
   colL.appendChild(elx('div','lbl-mini','Valoración (1–5)'));
+  // Una ficha traída de la nube (o de un JSON antiguo) puede no traer
+  // valoraciones. Sin esto, la página entera reventaba.
+  if(!p.ratings || typeof p.ratings!=='object') p.ratings={};
+  if(!Array.isArray(p.obs)) p.obs=[{date:'',match:'',min:'',note:''}];
+  if(!Array.isArray(p.badges)) p.badges=[];
+  if(!p.field) p.field=FE.blank('h','full');
   const rl=elx('div','rating-list');
   RATING_ITEMS.forEach(k=>{
     const row=elx('div','rating-row'); row.appendChild(elx('span','rl',k));
@@ -2894,6 +3381,7 @@ function init(){
   });
   setTimeout(fitPages,120);
   setTimeout(()=>{ try{ avisaEspacio(); }catch(e){} },900);
+  try{ nubeInit(); }catch(e){ console.warn('nube no disponible',e); }
 
   // Reajustar el escalado de las páginas al cambiar el tamaño / girar el móvil.
   let rzT=null;
