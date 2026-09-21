@@ -1391,6 +1391,15 @@ function imgHuellasEnUso(){
     if(o && typeof o==='object') Object.values(o).forEach(rec);
   };
   rec(REPORTS); rec(PLAYERS);
+  // OJO: también hay que mirar el calendario y los rivales. Si no, sus
+  // escudos se ven como "no usados" y el botón de limpiar los borraría,
+  // dejando el calendario de Planificación sin escudos.
+  ['oi_cal_v2','oi_rivals_v1'].forEach(k=>{
+    const raw=localStorage.getItem(k);
+    if(!raw) return;
+    const m=raw.match(/img:[0-9a-z]+-[0-9a-z]+-[0-9a-z]+/g);
+    if(m) m.forEach(x=>usadas.add(x.slice(4)));
+  });
   return usadas;
 }
 function imgHuellasGuardadas(){
