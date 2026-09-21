@@ -889,6 +889,7 @@ body{font-family:'Barlow',sans-serif;cursor:default;}
 }
 
 </style>
+<script src="/oi-sesion.js"></script>
 </head>
 <body>
 <div id="scene">
@@ -1211,30 +1212,9 @@ body{font-family:'Barlow',sans-serif;cursor:default;}
 </div>
 
 <script>
-// ── CALENDAR ──
-(function(){
-  const now=new Date(),y=now.getFullYear(),m=now.getMonth();
-  const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  document.getElementById('cal-month-lbl').textContent=months[m]+' '+y;
-  const g=document.getElementById('cal-grid');
-  ['L','M','X','J','V','S','D'].forEach(d=>{
-    const el=document.createElement('div');el.className='cal-dh';el.textContent=d;g.appendChild(el);
-  });
-  const first=new Date(y,m,1).getDay();
-  const total=new Date(y,m+1,0).getDate();
-  const off=(first===0)?6:first-1;
-  const ses=[2,4,6,9,11,13,16,18,20,23,25,27];
-  const mat=[7,14,21];
-  for(let i=0;i<off;i++){const e=document.createElement('div');e.className='cal-dc empty';e.textContent='·';g.appendChild(e);}
-  for(let d=1;d<=total;d++){
-    const e=document.createElement('div');
-    let c='cal-dc';
-    if(d===now.getDate())c+=' today';
-    else if(mat.includes(d))c+=' match';
-    else if(ses.includes(d))c+=' ses';
-    e.className=c;e.textContent=d;g.appendChild(e);
-  }
-})();
+/* El calendario de esta pantalla se quitó hace tiempo, pero su código
+   seguía aquí buscando un elemento que ya no existe: fallaba y se
+   llevaba por delante todo lo que venía detrás (escudo incluido). */
 
 // ── PARTICLES ──
 setInterval(()=>{
