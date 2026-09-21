@@ -1434,6 +1434,51 @@ function imgMigra(){
   return {convertidas:c.n, antes, despues, liberado:Math.max(0,antes-despues), estado:imgEstado()};
 }
 
+// ── Claves compartidas con Planificación ──
+// `oi_cal_v2` y `oi_rivals_v1` los lee también planificacion.html, que
+// desde ahora trae una capa de compatibilidad: traduce las referencias
+// al leer y aparta las imágenes al guardar. Por eso ya se pueden
+// deduplicar sin romperle nada.
+//
+// Aquí se hace la conversión de una vez. Análisis las lee tal cual
+// (con referencias) y las resuelve con imgSrc(), así que no necesita
+// la capa de compatibilidad.
+const IMG_COMPARTIDAS=['oi_cal_v2','oi_rivals_v1'];
+
+function imgCuentaSueltasCompartidas(){
+  let n=0, bytes=0;
+  IMG_COMPARTIDAS.forEach(k=>{
+    const raw=localStorage.getItem(k);
+    if(!raw) return;
+    const m=raw.match(/"data:image\/[^"]+"/g);
+    if(m){ n+=m.length; m.forEach(x=>bytes+=x.length*2); }
+  });
+  return {n, bytes};
+}
+
+function imgMigraCompartidas(){
+  const antes=usoTotal();
+  let convertidas=0; const fallos=[];
+  IMG_COMPARTIDAS.forEach(k=>{
+    const raw=localStorage.getItem(k);
+    if(!raw || raw.indexOf('data:image/')<0) return;
+    let dato; try{ dato=JSON.parse(raw); }catch(e){ fallos.push(k+': no es JSON'); return; }
+    const c=imgNormaliza(dato);
+    convertidas+=c.n;
+    // Se borra antes de escribir para liberar sitio; si algo falla,
+    // se devuelve el original intacto.
+    try{
+      localStorage.removeItem(k);
+      localStorage.setItem(k, JSON.stringify(dato));
+    }catch(e){
+      try{ localStorage.setItem(k, raw); }catch(_){ fallos.push(k+' (¡SIN RESTAURAR!)'); return; }
+      fallos.push(k+': no cupo');
+    }
+  });
+  const despues=usoTotal();
+  return {convertidas, antes, despues, liberado:Math.max(0,antes-despues), fallos, estado:imgEstado()};
+}
+
 // ══════════════════════════════════════════════════════════
 // IMÁGENES EN LA NUBE
 // Los bytes viven en el cubo `imagenes`, en una carpeta por
@@ -3415,6 +3460,12 @@ function renderEspacioModal(){
       h+='<div class="esp-nota">Hay '+sueltas+' imagen(es) metidas todavía dentro de los informes. Pasarlas al almacén hace que un mismo escudo se guarde una sola vez, por muchos informes que lo usen.</div>';
       h+='<div class="esp-btns"><button class="nav-btn primary" onclick="accionMigraImagenes()">↔ Pasar imágenes al almacén</button></div>';
     }
+    const comp = (typeof imgCuentaSueltasCompartidas==='function') ? imgCuentaSueltasCompartidas() : {n:0,bytes:0};
+    if(comp.n){
+      h+='<div class="esp-nota"><b>Calendario y rivales:</b> '+comp.n+' escudos guardados a pelo, '+fmtKB(comp.bytes)+
+         '. Aquí están casi todos los duplicados: el mismo escudo repetido en cada partido. Planificación ya sabe leerlos del almacén, así que se pueden juntar.</div>';
+      h+='<div class="esp-btns"><button class="nav-btn primary" onclick="accionMigraCompartidas()">↔ Juntar los escudos del calendario</button></div>';
+    }
     if(ei.huerfanas.length){
       h+='<div class="esp-btns"><button class="nav-btn" onclick="accionLimpiaHuerfanas()">🧹 Borrar las '+ei.huerfanas.length+' que ya no se usan</button></div>';
     }
@@ -3459,6 +3510,15 @@ function accionMigraImagenes(){
     imagenes:r.estado };
   renderEspacioModal();
   toast(r.convertidas+' imágenes al almacén');
+}
+function accionMigraCompartidas(){
+  if(!confirm('Se van a juntar los escudos repetidos del calendario y de la lista de rivales.\n\nPlanificación los seguirá viendo igual (ya trae la capa que los traduce).\n\n¿Descargaste la copia de seguridad? Si no, cancela y hazlo primero.')) return;
+  const r=imgMigraCompartidas();
+  ultimoResultado={ antes:r.antes, despues:r.despues, liberado:r.liberado, claves:2,
+    st:{comprimidas:r.convertidas, repetidas:0, yaPequenas:0}, fallos:r.fallos, migracion:true,
+    imagenes:r.estado };
+  renderEspacioModal();
+  toast(r.convertidas+' escudos juntados · '+fmtKB(r.liberado)+' libres');
 }
 function accionLimpiaHuerfanas(){
   const r=imgLimpiaHuerfanas();
