@@ -1176,6 +1176,7 @@ async function nubePintaResumen(){
       '<div class="esp-fila"><span>Jugadores</span><b>'+r.jugadores+'</b></div>'+
       '<div class="esp-fila"><span>Rivales</span><b>'+r.rivales+'</b></div>'+
       '<div class="esp-fila"><span>Partidos</span><b>'+r.eventos+'</b></div>'+
+      '<div class="esp-fila"><span>Imágenes</span><b>'+r.imagenes+'</b></div>'+
       '</div>';
   }catch(e){ c.innerHTML='<div class="esp-alerta">'+escapeHtml(e.message)+'</div>'; }
 }
@@ -1218,8 +1219,16 @@ async function nubeAccion(que){
 
     if(que==='subir'){
       nubeMsg('Subiendo... no cierres la ventana.');
+      // Las imágenes primero: van al almacén de archivos, no dentro del
+      // informe, así lo que se sube después es diminuto.
+      let ri=null;
+      try{ ri=await nubeSubirImagenes((h,t)=>nubeMsg('Subiendo imágenes: '+h+'/'+t)); }
+      catch(e){ ri={fallos:['imágenes: '+e.message], subidas:0, pendientes:0}; }
       const r=await nubeSubirTodo((t,hechas,total)=>nubeMsg('Subiendo '+t+': '+hechas+'/'+total));
-      nubeMsg('Subido: '+r.informes+' informes, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.eventos+' partidos.','bien');
+      let m='Subido: '+r.informes+' informes, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.eventos+' partidos';
+      if(ri) m+= ri.subidas ? ', '+ri.subidas+' imágenes nuevas.' : (ri.pendientes?'.':' (las imágenes ya estaban).');
+      if(ri && ri.fallos.length) m+=' Fallaron '+ri.fallos.length+' imágenes.';
+      nubeMsg(m, (ri&&ri.fallos.length)?'mal':'bien');
       await nubePintaResumen();
       return;
     }
@@ -1228,10 +1237,16 @@ async function nubeAccion(que){
       if(!confirm('Traer de la nube SOBRESCRIBE los informes, jugadores, rivales y calendario de ESTE navegador con lo que haya en la nube.\n\nSi en este equipo tienes trabajo sin subir, súbelo primero.\n\n¿Continuar?')) return;
       nubeMsg('Descargando...');
       const r=await nubeBajarTodo();
-      let m='Traído: '+r.informes+' informes, '+r.fichas+' fichas, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.partidos+' partidos.';
+      let ri=null;
+      try{ ri=await nubeBajarImagenes((h,t)=>nubeMsg('Trayendo imágenes: '+h+'/'+t)); }
+      catch(e){ ri={fallos:['imágenes: '+e.message], bajadas:0}; }
+      let m='Traído: '+r.informes+' informes, '+r.fichas+' fichas, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.partidos+' partidos';
+      if(ri) m+=', '+ri.bajadas+' imágenes.'; else m+='.';
+      if(ri && ri.fallos.length) m+=' Fallaron '+ri.fallos.length+' imágenes.';
       if(r.fallos.length) m+=' NO CUPO en el navegador: '+r.fallos.join(', ')+'. Libera espacio con 💾.';
-      nubeMsg(m, r.fallos.length?'mal':'bien');
-      if(!r.fallos.length) setTimeout(()=>location.reload(), 1800);
+      const malo = r.fallos.length || (ri && ri.fallos.length);
+      nubeMsg(m, malo?'mal':'bien');
+      if(!malo) setTimeout(()=>location.reload(), 2200);
       return;
     }
 
@@ -1272,6 +1287,224 @@ function nubeInit(){
       else if(r && r.error) nubeMsg('La invitación no es válida: '+r.error,'mal');
     }, 700);
   }
+}
+</script>
+<script>
+// ══════════════════════════════════════════════════════════
+// ALMACÉN DE IMÁGENES CON HUELLA
+//
+// El problema: la misma imagen se guardaba tantas veces como
+// sitios la usaban. 51 copias de 22 imágenes distintas.
+//
+// La solución: cada imagen se guarda UNA vez, en su propia
+// entrada `oi_img_<huella>`, y los informes guardan solo
+// `img:<huella>`. Un escudo usado en nueve sitios pasa de
+// nueve copias a una copia y nueve referencias de 20 letras.
+//
+// La huella se calcula del contenido: la misma imagen da
+// siempre la misma huella, así que la deduplicación es
+// automática y no hace falta llevar ninguna lista.
+//
+// Alcance: SOLO los informes (`oi_informes_v3`) y las fichas
+// de jugador (`oi_jug_informes_v1`), que son las únicas
+// claves que lee esta pantalla en exclusiva. El escudo del
+// equipo y el calendario los leen otras pantallas y se dejan
+// tal cual para no romperlas.
+// ══════════════════════════════════════════════════════════
+
+const IMG_PREFIJO = 'oi_img_';
+const IMG_REF     = 'img:';
+const IMG_SUBIDAS = 'oi_img_subidas';
+const IMG_VACIA   = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+// Huella síncrona del contenido. Dos funciones de dispersión
+// independientes más la longitud: para unos miles de imágenes
+// la probabilidad de que dos distintas coincidan es nula, y al
+// ser síncrona se puede usar dentro de guardar() sin liarla.
+function imgHuella(s){
+  let h1=0x811c9dc5, h2=0;
+  for(let i=0;i<s.length;i++){
+    const c=s.charCodeAt(i);
+    h1=((h1^c)*0x01000193)>>>0;
+    h2=(c + (h2<<6) + (h2<<16) - h2)>>>0;
+  }
+  return s.length.toString(36)+'-'+h1.toString(36)+'-'+h2.toString(36);
+}
+
+function esRefImg(v){ return typeof v==='string' && v.slice(0,4)===IMG_REF; }
+function esDatosImg(v){ return typeof v==='string' && v.slice(0,11)==='data:image/'; }
+
+// Guarda la imagen si no estaba y devuelve su referencia.
+function imgGuarda(dataUrl){
+  const h=imgHuella(dataUrl);
+  const k=IMG_PREFIJO+h;
+  try{
+    if(localStorage.getItem(k)===null) localStorage.setItem(k,dataUrl);
+  }catch(e){
+    // No cabe: mejor dejar la imagen dentro del informe que perderla.
+    return dataUrl;
+  }
+  return IMG_REF+h;
+}
+
+function imgLee(ref){
+  if(!esRefImg(ref)) return null;
+  try{ return localStorage.getItem(IMG_PREFIJO+ref.slice(4)); }catch(e){ return null; }
+}
+
+// Lo que se le pasa a un <img src>. Acepta referencias, datos
+// directos y vacíos, así que se puede usar en todas partes.
+function imgSrc(v){
+  if(!v) return '';
+  if(!esRefImg(v)) return v;
+  const d=imgLee(v);
+  return d || IMG_VACIA;   // si falta, un pixel transparente en lugar de un icono roto
+}
+function imgHay(v){ return !!v && (!esRefImg(v) || !!imgLee(v)); }
+
+// Convierte a referencias todas las imágenes de un objeto.
+// Devuelve cuántas ha convertido.
+function imgNormaliza(obj, cont){
+  cont = cont || {n:0, bytes:0};
+  const rec=(o)=>{
+    if(Array.isArray(o)){ for(let i=0;i<o.length;i++){ if(esDatosImg(o[i])){ cont.bytes+=o[i].length; o[i]=imgGuarda(o[i]); cont.n++; } else rec(o[i]); } return; }
+    if(o && typeof o==='object'){
+      for(const k in o){
+        const v=o[k];
+        if(esDatosImg(v)){ cont.bytes+=v.length; o[k]=imgGuarda(v); cont.n++; }
+        else rec(v);
+      }
+    }
+  };
+  rec(obj);
+  return cont;
+}
+
+// ── Huellas realmente en uso, para no guardar basura ──
+function imgHuellasEnUso(){
+  const usadas=new Set();
+  const rec=(o)=>{
+    if(esRefImg(o)){ usadas.add(o.slice(4)); return; }
+    if(Array.isArray(o)){ o.forEach(rec); return; }
+    if(o && typeof o==='object') Object.values(o).forEach(rec);
+  };
+  rec(REPORTS); rec(PLAYERS);
+  return usadas;
+}
+function imgHuellasGuardadas(){
+  const out=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k && k.slice(0,IMG_PREFIJO.length)===IMG_PREFIJO) out.push(k.slice(IMG_PREFIJO.length));
+  }
+  return out;
+}
+function imgEstado(){
+  const enUso=imgHuellasEnUso(), guardadas=imgHuellasGuardadas();
+  let bytes=0; guardadas.forEach(h=>{ bytes+=(localStorage.getItem(IMG_PREFIJO+h)||'').length*2; });
+  const huerfanas=guardadas.filter(h=>!enUso.has(h));
+  const faltan=[...enUso].filter(h=>localStorage.getItem(IMG_PREFIJO+h)===null);
+  return {enUso:enUso.size, guardadas:guardadas.length, bytes, huerfanas, faltan};
+}
+// Borra imágenes que ya no usa ningún informe.
+function imgLimpiaHuerfanas(){
+  const e=imgEstado(); let n=0, bytes=0;
+  e.huerfanas.forEach(h=>{
+    const v=localStorage.getItem(IMG_PREFIJO+h);
+    bytes+=(v||'').length*2;
+    try{ localStorage.removeItem(IMG_PREFIJO+h); n++; }catch(x){}
+  });
+  return {borradas:n, liberadoBytes:bytes};
+}
+
+// ── Migración: pasar lo que ya hay a referencias ──
+function imgMigra(){
+  const antes = usoTotal();
+  const c = {n:0, bytes:0};
+  imgNormaliza(REPORTS, c);
+  imgNormaliza(PLAYERS, c);
+  saveReports(); savePlayers();
+  const despues = usoTotal();
+  return {convertidas:c.n, antes, despues, liberado:Math.max(0,antes-despues), estado:imgEstado()};
+}
+
+// ══════════════════════════════════════════════════════════
+// IMÁGENES EN LA NUBE
+// Los bytes viven en el cubo `imagenes`, en una carpeta por
+// espacio. Los informes que se suben ya llevan solo la
+// referencia, así que la subida es diminuta.
+// ══════════════════════════════════════════════════════════
+function imgSubidas(){ try{ return new Set(JSON.parse(localStorage.getItem(IMG_SUBIDAS)||'[]')); }catch(e){ return new Set(); } }
+function imgMarcaSubidas(set){ try{ localStorage.setItem(IMG_SUBIDAS, JSON.stringify([...set])); }catch(e){} }
+
+function dataUrlABlob(d){
+  const coma=d.indexOf(',');
+  const cab=d.slice(0,coma), b64=d.slice(coma+1);
+  const tipo=(cab.match(/data:([^;]+)/)||[])[1] || 'image/png';
+  if(!/;base64/.test(cab)) return new Blob([decodeURIComponent(b64)],{type:tipo});
+  const bin=atob(b64), u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  return new Blob([u],{type:tipo});
+}
+function blobADataUrl(b){
+  return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(b); });
+}
+function extDe(dataUrl){
+  const t=(dataUrl.match(/data:image\/([a-z+]+)/)||[])[1]||'png';
+  return t==='jpeg'?'jpg':(t==='svg+xml'?'svg':t);
+}
+
+async function nubeSubirImagenes(aviso){
+  if(!nSes) throw new Error('Hay que iniciar sesión');
+  if(!nEspacio) throw new Error('Elige primero un espacio');
+  const esp=nEspacio.id;
+  const ya=imgSubidas();
+  const enUso=[...imgHuellasEnUso()];
+  const pendientes=enUso.filter(h=>!ya.has(h) && localStorage.getItem(IMG_PREFIJO+h)!==null);
+  let subidas=0, bytes=0, fallos=[];
+  for(let i=0;i<pendientes.length;i++){
+    const h=pendientes[i];
+    const d=localStorage.getItem(IMG_PREFIJO+h);
+    if(!d) continue;
+    const ruta=esp+'/'+h+'.'+extDe(d);
+    try{
+      const blob=dataUrlABlob(d);
+      const tok=await nubeToken();
+      const r=await fetch(NUBE_URL+'/storage/v1/object/imagenes/'+ruta,{
+        method:'POST',
+        headers:{'apikey':NUBE_KEY,'Authorization':'Bearer '+tok,'x-upsert':'true','Content-Type':blob.type},
+        body:blob
+      });
+      if(!r.ok && r.status!==409){ throw new Error('HTTP '+r.status+' '+(await r.text()).slice(0,80)); }
+      await nubeRpc('registrar_imagen',{p_espacio:esp, p_huella:h, p_url:ruta, p_ruta:ruta, p_bytes:blob.size});
+      ya.add(h); subidas++; bytes+=blob.size;
+      if(aviso) aviso(subidas, pendientes.length);
+    }catch(e){ fallos.push(h+': '+e.message); }
+  }
+  imgMarcaSubidas(ya);
+  return {subidas, pendientes:pendientes.length, bytes, fallos, yaEstaban:enUso.length-pendientes.length};
+}
+
+async function nubeBajarImagenes(aviso){
+  if(!nEspacio) throw new Error('Elige primero un espacio');
+  const esp=nEspacio.id;
+  const filas=await nubeFetch('/rest/v1/imagenes?espacio_id=eq.'+esp+'&select=huella,ruta');
+  const faltan=filas.filter(f=>localStorage.getItem(IMG_PREFIJO+f.huella)===null);
+  let bajadas=0, fallos=[];
+  for(const f of faltan){
+    try{
+      const tok=await nubeToken();
+      const r=await fetch(NUBE_URL+'/storage/v1/object/imagenes/'+f.ruta,{
+        headers:{'apikey':NUBE_KEY,'Authorization':'Bearer '+tok}
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await blobADataUrl(await r.blob());
+      localStorage.setItem(IMG_PREFIJO+f.huella, d);
+      bajadas++;
+      if(aviso) aviso(bajadas, faltan.length);
+    }catch(e){ fallos.push(f.huella+': '+e.message); }
+  }
+  return {bajadas, faltaban:faltan.length, enLaNube:filas.length, fallos};
 }
 </script>
 <script>
@@ -1669,8 +1902,8 @@ const CREST_KEY = 'oi_team_crest';
 function crestNavLoad(){
   const data = localStorage.getItem(CREST_KEY); const img = document.getElementById('crest-nav-img'); const addIcon = document.getElementById('crest-add-sm-icon');
   if(!img||!addIcon) return;
-  if(data){ img.src=data; img.style.display='block'; addIcon.style.display='none'; } else { img.style.display='none'; addIcon.style.display='flex'; }
-  document.querySelectorAll('.print-crest,.own-crest').forEach(el=>{ if(data){ el.src=data; el.style.display=''; } else { el.style.display='none'; } });
+  if(data){ img.src=imgSrc(data); img.style.display='block'; addIcon.style.display='none'; } else { img.style.display='none'; addIcon.style.display='flex'; }
+  document.querySelectorAll('.print-crest,.own-crest').forEach(el=>{ if(data){ el.src=imgSrc(data); el.style.display=''; } else { el.style.display='none'; } });
 }
 function crestNavClick(){ document.getElementById('crest-nav-file-input').click(); }
 function crestNavFileChosen(e){
@@ -2224,8 +2457,11 @@ function loadData(){
   REPORTS=lsGet(K_REPORTS,[])||[];
   PLAYERS=lsGet(K_PLAYERS,[])||[];
 }
-function saveReports(){ lsSet(K_REPORTS,REPORTS); }
-function savePlayers(){ lsSet(K_PLAYERS,PLAYERS); }
+// Antes de escribir, cualquier imagen suelta pasa al almacén y deja
+// solo su referencia. Al hacerlo aquí, da igual de dónde venga la
+// imagen (arrastrada, del calendario, importada): nunca se duplica.
+function saveReports(){ try{ imgNormaliza(REPORTS); }catch(e){} lsSet(K_REPORTS,REPORTS); }
+function savePlayers(){ try{ imgNormaliza(PLAYERS); }catch(e){} lsSet(K_PLAYERS,PLAYERS); }
 function saveTraits(){ lsSet(K_TRAITS,TRAITS); }
 
 // ── modal características ──
@@ -2295,7 +2531,7 @@ function renderReportList(){
     box.innerHTML='';
     REPORTS.forEach(r=>{
       const d=document.createElement('div'); d.className='rep-item'+(curRep&&curRep.id===r.id?' active':'');
-      d.innerHTML=(r.crestRival?`<img src="${r.crestRival}" alt="">`:'<span class="ri-crest-ph">⚽</span>')+
+      d.innerHTML=(imgHay(r.crestRival)?`<img src="${imgSrc(r.crestRival)}" alt="">`:'<span class="ri-crest-ph">⚽</span>')+
         `<span class="ri-t"><span class="ri-n">${escapeHtml(r.rival||'Sin nombre')}</span><span class="ri-s">${escapeHtml(r.jornada||'')}${r.jornada&&r.fecha?' · ':''}${escapeHtml(r.fecha||'')} · ${r.pages.length} pág.</span></span>`;
       d.onclick=()=>selectReport(r.id); box.appendChild(d);
     });
@@ -2343,7 +2579,7 @@ function saveAll(){ saveReports(); savePlayers(); }
 
 function imgDrop(obj,key,cls,ph,max,jpeg){
   const d=document.createElement('div'); d.className='img-drop '+(cls||'')+(obj[key]?' has':'');
-  const setImg=()=>{ d.innerHTML=''; if(obj[key]){ const im=document.createElement('img'); im.src=obj[key]; d.appendChild(im); const x=document.createElement('div'); x.className='img-x no-print'; x.textContent='×'; x.onclick=e=>{ e.stopPropagation(); obj[key]=''; d.classList.remove('has'); setImg(); saveAll(); }; d.appendChild(x); d.classList.add('has'); }
+  const setImg=()=>{ d.innerHTML=''; if(obj[key]){ const im=document.createElement('img'); im.src=imgSrc(obj[key]); d.appendChild(im); const x=document.createElement('div'); x.className='img-x no-print'; x.textContent='×'; x.onclick=e=>{ e.stopPropagation(); obj[key]=''; d.classList.remove('has'); setImg(); saveAll(); }; d.appendChild(x); d.classList.add('has'); }
     else { d.innerHTML='<span>'+(ph||'+ Imagen')+'</span>'; d.classList.remove('has'); } };
   setImg();
   d.onclick=()=>pickImage(max||600, url=>{ obj[key]=url; setImg(); saveAll(); }, jpeg);
@@ -2369,14 +2605,14 @@ function pageShell(p,repOrPl){
   const w=elx('div','page-wrap'); w.id='pw-'+p.id;
   const lbl=elx('div','page-label no-print', PAGE_LABEL[p.type]||p.type); w.appendChild(lbl);
   const pg=elx('div','page'); w.appendChild(pg);
-  const cr=document.createElement('img'); cr.className='print-crest'; const cd=localStorage.getItem(CREST_KEY); if(cd) cr.src=cd; else cr.style.display='none'; pg.appendChild(cr);
+  const cr=document.createElement('img'); cr.className='print-crest'; const cd=localStorage.getItem(CREST_KEY); if(cd) cr.src=imgSrc(cd); else cr.style.display='none'; pg.appendChild(cr);
   const st=elx('div','page-stripe','<i></i><i></i><i></i><i></i><i></i>'); pg.appendChild(st);
   const ft=elx('div','page-foot', escapeHtml((repOrPl&&(repOrPl.rival||repOrPl.name))||'')); pg.appendChild(ft);
   return {wrap:w,page:pg};
 }
 function pageHead(p,title,rightNode,crestSrc){
   const h=elx('div','pg-head');
-  const cb=elx('div','crest-box'); if(crestSrc){ const i=document.createElement('img'); i.src=crestSrc; cb.appendChild(i); } h.appendChild(cb);
+  const cb=elx('div','crest-box'); if(imgHay(crestSrc)){ const i=document.createElement('img'); i.src=imgSrc(crestSrc); cb.appendChild(i); } h.appendChild(cb);
   const b=ed(p,'title','banner','TÍTULO'); h.appendChild(b);
   const side=elx('div','head-side'); if(rightNode) side.appendChild(rightNode); h.appendChild(side);
   return h;
@@ -2651,7 +2887,7 @@ function renderCalModal(){
   if(!ms.length) h+='<div class="pick-empty">No hay partidos en el calendario.<br>Añádelos en Planificación y volverán a aparecer aquí.</div>';
   else h+='<div class="pick-hint">Elige de qué equipo quieres hacer el informe.</div>'+ms.map((m,i)=>{
     const local=m.localName||'Local', visit=m.rival||'Visitante';
-    const esc=(c,alt)=>c?'<img src="'+c+'" alt="">':'<span class="pk-ph">⚽</span>';
+    const esc=(c,alt)=>imgHay(c)?'<img src="'+imgSrc(c)+'" alt="">':'<span class="pk-ph">⚽</span>';
     const equipo=(w,nom,cr)=>'<button class="pm-team" data-m="'+i+'" data-w="'+w+'" title="Crear el informe sobre '+escapeHtml(nom)+'">'+
         esc(cr)+'<span class="pm-n">'+escapeHtml(nom)+'</span><span class="pm-sede">'+(w==='local'?'Local':'Visitante')+'</span></button>';
     return '<div class="pick-match">'+
@@ -2661,7 +2897,7 @@ function renderCalModal(){
   }).join('');
   h+='<div class="pick-sec">Rivales guardados ('+rs.length+')</div>';
   if(!rs.length) h+='<div class="pick-empty">Todavía no hay rivales guardados.</div>';
-  else h+=rs.map((r,i)=>'<div class="pick-row" data-r="'+i+'">'+(r.crest?'<img src="'+r.crest+'">':'<span class="pk-ph">⚽</span>')+
+  else h+=rs.map((r,i)=>'<div class="pick-row" data-r="'+i+'">'+(imgHay(r.crest)?'<img src="'+imgSrc(r.crest)+'">':'<span class="pk-ph">⚽</span>')+
       '<span class="pk-t"><span class="pk-n">'+escapeHtml(r.name||'Rival')+'</span><span class="pk-s">Informe en blanco con su escudo</span></span><span class="pk-b">Crear</span></div>').join('');
   b.innerHTML=h;
   b.querySelectorAll('[data-m]').forEach(el=>{ el.onclick=()=>{ createReportFromMatch(ms[+el.dataset.m], el.dataset.w); closeCalModal(); }; });
@@ -3093,6 +3329,15 @@ async function limpiarEspacio(){
     }
   }
 
+  // Si se han recomprimido imágenes del almacén, sus bytes ya no son los
+  // que hay en la nube: se marcan para volver a subirse.
+  try{
+    if(Object.keys(nuevos).some(k=>k.slice(0,IMG_PREFIJO.length)===IMG_PREFIJO)){
+      const quedan=imgSubidas();
+      Object.keys(nuevos).forEach(k=>{ if(k.slice(0,IMG_PREFIJO.length)===IMG_PREFIJO) quedan.delete(k.slice(IMG_PREFIJO.length)); });
+      imgMarcaSubidas(quedan);
+    }
+  }catch(e){}
   const despues=usoTotal();
   limpiando=false;
   ultimoResultado={
@@ -3140,6 +3385,26 @@ function renderEspacioModal(){
      '<div class="esp-fila"><span>Tras comprimir (aprox.)</span><b style="color:#7ddc8a">'+fmtKB(inv.estimado)+'</b></div>'+
      '</div>';
 
+  // ── almacén de imágenes con huella ──
+  let ei=null; try{ ei=imgEstado(); }catch(e){}
+  if(ei){
+    h+='<div class="pick-sec">Almacén de imágenes</div><div class="esp-tabla">'+
+       '<div class="esp-fila"><span>Distintas, guardadas una vez</span><b>'+ei.guardadas+'</b></div>'+
+       '<div class="esp-fila"><span>Usadas por los informes</span><b>'+ei.enUso+'</b></div>'+
+       '<div class="esp-fila"><span>Lo que ocupan</span><b>'+fmtKB(ei.bytes)+'</b></div>'+
+       (ei.huerfanas.length?'<div class="esp-fila"><span>Ya no las usa nadie</span><b style="color:#ff9500">'+ei.huerfanas.length+'</b></div>':'')+
+       (ei.faltan.length?'<div class="esp-fila"><span>Referencias sin imagen</span><b style="color:#e05252">'+ei.faltan.length+'</b></div>':'')+
+       '</div>';
+    const sueltas = contarSueltasEnInformes();
+    if(sueltas){
+      h+='<div class="esp-nota">Hay '+sueltas+' imagen(es) metidas todavía dentro de los informes. Pasarlas al almacén hace que un mismo escudo se guarde una sola vez, por muchos informes que lo usen.</div>';
+      h+='<div class="esp-btns"><button class="nav-btn primary" onclick="accionMigraImagenes()">↔ Pasar imágenes al almacén</button></div>';
+    }
+    if(ei.huerfanas.length){
+      h+='<div class="esp-btns"><button class="nav-btn" onclick="accionLimpiaHuerfanas()">🧹 Borrar las '+ei.huerfanas.length+' que ya no se usan</button></div>';
+    }
+  }
+
   h+='<div class="esp-nota">Los escudos se reducen a 160 px y las fotos a 1000 px. Es de sobra para pantalla e impresión: en el informe un escudo se ve a unos 13 mm. No se cambia ningún dato ni se borra nada; solo pesan menos. Las imágenes que ya sean pequeñas no se tocan, así que puedes repetirlo sin perder calidad.</div>';
 
   if(ultimoResultado){
@@ -3149,8 +3414,9 @@ function renderEspacioModal(){
        '<div class="esp-fila"><span>Ahora</span><b>'+fmtKB(r.despues)+'</b></div>'+
        '<div class="esp-fila"><span>Liberado</span><b style="color:#7ddc8a">'+fmtKB(r.liberado)+'</b></div>'+
        '<div class="esp-fila"><span>Imágenes comprimidas</span><b>'+r.st.comprimidas+'</b></div>'+
-       '<div class="esp-fila"><span>Copias reaprovechadas</span><b>'+r.st.repetidas+'</b></div>'+
-       '<div class="esp-fila"><span>Ya estaban bien</span><b>'+r.st.yaPequenas+'</b></div>'+
+       (r.migracion?'<div class="esp-fila"><span>Imágenes distintas en el almacén</span><b>'+r.imagenes.guardadas+'</b></div>'
+                   :'<div class="esp-fila"><span>Copias reaprovechadas</span><b>'+r.st.repetidas+'</b></div>'+
+                    '<div class="esp-fila"><span>Ya estaban bien</span><b>'+r.st.yaPequenas+'</b></div>')+
        '</div>';
     if(r.fallos.length) h+='<div class="esp-alerta">No se pudieron reescribir: '+escapeHtml(r.fallos.join(', '))+'</div>';
     h+='<div class="esp-nota">Recarga la página para que la app trabaje ya con las imágenes nuevas.</div>';
@@ -3163,6 +3429,26 @@ function renderEspacioModal(){
     h+='<div class="esp-btns"><button class="nav-btn" onclick="document.getElementById(\'esp-restore-input\').click()">⬆ Restaurar desde una copia</button></div>';
   }
   b.innerHTML=h;
+}
+
+function contarSueltasEnInformes(){
+  let n=0;
+  const ver=o=>{ if(esDataImg(o)){ n++; return; } if(Array.isArray(o)){ o.forEach(ver); return; } if(o&&typeof o==='object') Object.values(o).forEach(ver); };
+  try{ ver(REPORTS); ver(PLAYERS); }catch(e){}
+  return n;
+}
+function accionMigraImagenes(){
+  const r=imgMigra();
+  ultimoResultado={ antes:r.antes, despues:r.despues, liberado:r.liberado, claves:2,
+    st:{comprimidas:r.convertidas, repetidas:0, yaPequenas:0}, fallos:[], migracion:true,
+    imagenes:r.estado };
+  renderEspacioModal();
+  toast(r.convertidas+' imágenes al almacén');
+}
+function accionLimpiaHuerfanas(){
+  const r=imgLimpiaHuerfanas();
+  toast('Borradas '+r.borradas+' · '+fmtKB(r.liberadoBytes)+' libres');
+  renderEspacioModal();
 }
 
 // Aviso automático al arrancar si queda poco sitio.
@@ -3207,7 +3493,7 @@ function renderPlayerList(){
     box.innerHTML='';
     list.forEach(p=>{
       const d=document.createElement('div'); d.className='rep-item'+(curPl&&curPl.id===p.id?' active':'');
-      d.innerHTML=(p.photo?`<img src="${p.photo}" style="border-radius:4px;object-fit:cover;">`:'<span class="ri-crest-ph">👤</span>')+
+      d.innerHTML=(imgHay(p.photo)?`<img src="${imgSrc(p.photo)}" style="border-radius:4px;object-fit:cover;">`:'<span class="ri-crest-ph">👤</span>')+
         `<span class="ri-t"><span class="ri-n">${escapeHtml(p.name||'Sin nombre')}</span><span class="ri-s">${escapeHtml(p.club||'')}${p.club&&p.pos?' · ':''}${escapeHtml(p.pos||'')}</span></span>`;
       d.onclick=()=>selectPlayer(p.id); box.appendChild(d);
     });
