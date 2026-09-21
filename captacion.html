@@ -285,7 +285,6 @@ function crestNavFileChosen(e){
 }
 crestNavLoad();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 <script>
 function capTab(tab, el) {
@@ -347,6 +346,46 @@ window.addEventListener('load', function() {
   setTimeout(function(){ setCapTab('campo'); }, 500);
 });
 
+</script>
+<script>
+/* Si este dispositivo no tiene todavía la base de jugadores (típico en el
+   móvil la primera vez), en lugar de una pantalla vacía sin explicación se
+   ofrece traerla del espacio de trabajo. */
+(function(){
+  function cuantos(){
+    try{ return (JSON.parse(localStorage.getItem('oi_jugadores_v1')||'[]')||[]).length; }
+    catch(e){ return 0; }
+  }
+  function pinta(){
+    if(cuantos() || document.getElementById('cap-vacio')) return;
+    var w=document.getElementById('app-wrap'); if(!w) return;
+    var d=document.createElement('div');
+    d.id='cap-vacio';
+    d.style.cssText='margin:10px;padding:14px 16px;border:1px solid rgba(200,168,75,.45);'
+      +'border-radius:8px;background:rgba(200,168,75,.09);color:#ddd8cc;'
+      +'font-family:"Segoe UI",system-ui,sans-serif;font-size:13px;line-height:1.5;';
+    d.innerHTML='<b style="color:#C8A84B;">En este dispositivo no hay jugadores todavía.</b><br>'
+      +'La base de captación está guardada en tu espacio de trabajo. Tráela y se queda aquí.'
+      +'<div style="margin-top:10px;"><button id="cap-vacio-b" style="padding:8px 14px;'
+      +'border-radius:5px;border:1px solid #C8A84B;background:#C8A84B;color:#1B2A6B;'
+      +'font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">⬇ Traer de la nube</button>'
+      +' <span id="cap-vacio-m" style="color:#8a93a5;font-size:12px;"></span></div>';
+    w.insertBefore(d, w.firstChild);
+    document.getElementById('cap-vacio-b').addEventListener('click', function(){
+      var b=this, m=document.getElementById('cap-vacio-m');
+      if(!window.OISesion){ m.textContent='No hay sesión.'; return; }
+      b.disabled=true; b.textContent='Trayendo…'; m.textContent='';
+      window.OISesion.traeJugadores().then(function(n){
+        m.textContent=n+' jugadores. Recargando…';
+        setTimeout(function(){ location.reload(); }, 700);
+      }).catch(function(e){
+        b.disabled=false; b.textContent='⬇ Traer de la nube';
+        m.textContent=e.message||'No se ha podido.';
+      });
+    });
+  }
+  window.addEventListener('load', function(){ setTimeout(pinta, 1200); });
+})();
 </script>
 </body>
 </html>

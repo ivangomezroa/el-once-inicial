@@ -1,33 +1,8 @@
 
-// ── MIGRACIÓN SUPABASE → localStorage (una sola vez) ──────────────
-async function migrateFromSupabase() {
-  const existing = localStorage.getItem('oi_jugadores_v1');
-  if(existing && JSON.parse(existing).length > 0) return; // ya migrado
-  
-  const SB_URL = 'https://dhvekklfuoamaedcuahp.supabase.co';
-  const SB_KEY = 'sb_publishable_r85OsmPFHbKGzm3I9JVkHw_E2PITg4X';
-  
-  try {
-    const resp = await fetch(SB_URL + '/rest/v1/jugadores?select=*&order=id', {
-      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
-    });
-    if(!resp.ok) return; // Supabase no disponible — no migrar
-    const data = await resp.json();
-    if(data && data.length > 0) {
-      // Marcar plantilla
-      const pResp = await fetch(SB_URL + '/rest/v1/plantilla?select=jugador_id', {
-        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
-      });
-      const plantilla = pResp.ok ? await pResp.json() : [];
-      const plantIds = new Set(plantilla.map(function(x){ return x.jugador_id; }));
-      data.forEach(function(j){ j._enPlantilla = plantIds.has(j.id); });
-      localStorage.setItem('oi_jugadores_v1', JSON.stringify(data));
-      console.log('✅ Migrados ' + data.length + ' jugadores de Supabase a localStorage');
-    }
-  } catch(e) {
-    console.log('Supabase no disponible, usando localStorage existente');
-  }
-}
+/* La base de jugadores vive en localStorage (`oi_jugadores_v1`) y viaja a
+   la nube con el botón de Análisis. Aquí había una migración del proyecto
+   Supabase antiguo que ya nadie llamaba; se ha quitado para no dejar una
+   puerta abierta a datos viejos. */
 
 // El 11 Inicial — v3.9 build 1780654533
 // ── ALMACENAMIENTO LOCAL ──────────────────────────────────────
@@ -163,6 +138,13 @@ async function loadData() {
     const stored = localStorage.getItem('oi_jugadores_v1');
     jug = stored ? JSON.parse(stored) : [];
     jug.sort(function(a,b){ return a.id - b.id; });
+    // Cada jugador guarda si está en plantilla (_enPlantilla) y en qué puesto
+    // (pos_campo), pero antes nadie lo volvía a leer: al recargar la pantalla
+    // la plantilla salía vacía aunque el dato estuviera guardado.
+    plant = jug.filter(function(j){ return j && j._enPlantilla; })
+               .map(function(j){
+                 return Object.assign({}, j, {_posAsignada: j.pos_campo || jugPos(j)[0]});
+               });
     syncStatus="ok"; render(); shT(jug.length + " jugadores ✓");
   } catch(e) {
     syncStatus="error"; shT("Error: "+e.message,"err"); render();

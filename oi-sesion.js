@@ -398,6 +398,23 @@ function hashRecuperacion(){
 }
 function limpiaHash(){ try{ history.replaceState(null, '', location.pathname); }catch(e){} }
 
+// ── Traer los jugadores de Captación desde la nube ────────────────────
+// Captación guarda su base en `oi_jugadores_v1` y no habla con la nube.
+// En un móvil recién abierto eso está vacío, así que se le da una manera
+// de bajarla sin tener que pasar por Análisis.
+function traeJugadores(){
+  var e = leeLS(K_ESP);
+  if(!ses)        return Promise.reject(new Error('Entra con tu cuenta primero'));
+  if(!e || !e.id) return Promise.reject(new Error('Elige un espacio de trabajo primero'));
+  return pide('/rest/v1/jugadores?espacio_id=eq.' + encodeURIComponent(e.id) + '&select=datos')
+    .then(function(filas){
+      var lista = (filas||[]).map(function(f){ return f.datos; }).filter(Boolean);
+      if(!lista.length) throw new Error('En la nube no hay jugadores guardados en este espacio');
+      localStorage.setItem('oi_jugadores_v1', JSON.stringify(lista));
+      return lista.length;
+    });
+}
+
 // ── Etiqueta de usuario ───────────────────────────────────────────────
 function ponChip(){
   if(document.getElementById('oi-s-chip')) return;
@@ -493,6 +510,7 @@ function arranca(){
 
 window.OISesion = {
   datos: function(){ return {ses:ses, espacio:esp}; },
+  traeJugadores: traeJugadores,
   testigo: testigo,
   salir: salir,
   URL: URL_, KEY: KEY
