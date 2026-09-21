@@ -1314,7 +1314,9 @@ function nubeInit(){
 
 const IMG_PREFIJO = 'oi_img_';
 const IMG_REF     = 'img:';
-const IMG_SUBIDAS = 'oi_img_subidas';
+// OJO: NO puede empezar por IMG_PREFIJO ('oi_img_'), o se contaría
+// a sí misma como una imagen y la limpieza de huérfanas la borraría.
+const IMG_SUBIDAS = 'oi_nube_img_subidas';
 const IMG_VACIA   = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // Huella síncrona del contenido. Dos funciones de dispersión
@@ -1395,7 +1397,11 @@ function imgHuellasGuardadas(){
   const out=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
-    if(k && k.slice(0,IMG_PREFIJO.length)===IMG_PREFIJO) out.push(k.slice(IMG_PREFIJO.length));
+    if(k && k!==IMG_SUBIDAS && k.slice(0,IMG_PREFIJO.length)===IMG_PREFIJO){
+      const h=k.slice(IMG_PREFIJO.length);
+      // una huella tiene la forma  largo-hash1-hash2
+      if(/^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$/.test(h)) out.push(h);
+    }
   }
   return out;
 }
@@ -1434,7 +1440,16 @@ function imgMigra(){
 // espacio. Los informes que se suben ya llevan solo la
 // referencia, así que la subida es diminuta.
 // ══════════════════════════════════════════════════════════
-function imgSubidas(){ try{ return new Set(JSON.parse(localStorage.getItem(IMG_SUBIDAS)||'[]')); }catch(e){ return new Set(); } }
+function imgSubidas(){
+  try{
+    let v=localStorage.getItem(IMG_SUBIDAS);
+    if(v===null){ // migrar desde el nombre antiguo, que chocaba con el prefijo
+      const viejo=localStorage.getItem('oi_img_subidas');
+      if(viejo!==null){ localStorage.setItem(IMG_SUBIDAS,viejo); localStorage.removeItem('oi_img_subidas'); v=viejo; }
+    }
+    return new Set(JSON.parse(v||'[]'));
+  }catch(e){ return new Set(); }
+}
 function imgMarcaSubidas(set){ try{ localStorage.setItem(IMG_SUBIDAS, JSON.stringify([...set])); }catch(e){} }
 
 function dataUrlABlob(d){
