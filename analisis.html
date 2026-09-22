@@ -464,6 +464,27 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .esp-nota{font-size:11px;line-height:1.55;color:var(--text3);margin:10px 0;}
 .esp-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .esp-btns .nav-btn{flex:1;justify-content:center;padding:9px 10px;font-size:11px;min-width:140px;}
+/* Panel de espacio: cada acción con su explicación al lado, para que no
+   parezca una secuencia de pasos obligatorios. */
+/* Estado del botón de la nube */
+.nav-btn.nube-pend{border-color:rgba(255,149,0,.75);color:#ffb862;}
+.nav-btn.nube-va{border-color:rgba(200,168,75,.9);color:#C8A84B;}
+.nav-btn.nube-va::after{content:'';display:inline-block;width:5px;height:5px;margin-left:5px;
+  border-radius:50%;background:currentColor;animation:nubeLat 1s ease-in-out infinite;}
+@keyframes nubeLat{0%,100%{opacity:.25;}50%{opacity:1;}}
+.esp-calma{background:rgba(200,168,75,.09);border:1px solid rgba(200,168,75,.35);
+  border-radius:6px;padding:9px 11px;font-size:12px;line-height:1.55;color:#e2d3a4;margin:0 0 12px;}
+.esp-calma b{color:#C8A84B;}
+.esp-acc{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;
+  padding:9px 0;border-top:1px solid rgba(255,255,255,.07);}
+.esp-acc:first-of-type{border-top:0;}
+.esp-acc .nav-btn{justify-content:center;padding:9px 12px;font-size:11px;min-width:190px;}
+.esp-acc > span{font-size:11px;line-height:1.55;color:var(--text3);padding-top:2px;}
+.esp-acc.peligro > span b{color:#ffb4b4;}
+@media(max-width:900px){
+  .esp-acc{grid-template-columns:1fr;gap:6px;}
+  .esp-acc .nav-btn{min-width:0;width:100%;}
+}
 
 /* ══════════════════════════════════════════════════════════
    MÓVIL Y TABLET
@@ -827,6 +848,8 @@ const NUBE_URL = 'https://npaddnmffepnuidekynb.supabase.co';
 const NUBE_KEY = 'sb_publishable_YfvyI8taXsUNCcun0kYUnw_BlxCbPR9';
 
 const NK_SES     = 'oi_nube_ses';
+const NK_PEND    = 'oi_nube_pendiente';   // hay cambios de aquí sin subir
+const NK_BORRA   = 'oi_nube_borrados';    // lápidas: lo borrado aquí, para borrarlo allí
 const NK_ESPACIO = 'oi_nube_espacio';
 const NK_ULTIMA  = 'oi_nube_ultima';
 
@@ -1065,6 +1088,156 @@ async function nubeAceptaInvitacionDeURL(){
 }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// GUARDADO AUTOMÁTICO
+//
+//   La idea: que no haya que pulsar nada. Reglas, por orden de
+//   importancia:
+//
+//   1. NUNCA se pierde trabajo. La subida solo añade y actualiza;
+//      jamás borra nada del navegador ni de la nube por su cuenta.
+//   2. Solo se BAJA sola cuando este dispositivo no tiene cambios
+//      pendientes. Si los tiene, primero sube, y así nada se pisa.
+//   3. Sin cobertura no pasa nada: se queda pendiente y se sube en
+//      cuanto haya conexión o al volver a abrir.
+//   4. Lo que borras aquí se apunta (lápidas) y se borra también
+//      allí en la siguiente subida. Sin esto, un informe borrado
+//      volvería a aparecer al bajar.
+// ══════════════════════════════════════════════════════════
+
+const AUTO_CALMA = 12000;      // espera tras el último cambio
+let autoT=null, autoEnCurso=false, autoEstado='', autoError='';
+
+function nubePendiente(){ try{ return localStorage.getItem(NK_PEND)==='1'; }catch(e){ return false; } }
+function nubeMarcaPendiente(si){
+  try{ si ? localStorage.setItem(NK_PEND,'1') : localStorage.removeItem(NK_PEND); }catch(e){}
+}
+
+// Lápidas
+function nubeLapidas(){ try{ const a=JSON.parse(localStorage.getItem(NK_BORRA)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function nubeApuntaBorrado(tabla, idLocal){
+  if(!idLocal) return;
+  const a=nubeLapidas();
+  if(!a.some(x=>x.tabla===tabla && x.id===String(idLocal))) a.push({tabla:tabla, id:String(idLocal)});
+  try{ localStorage.setItem(NK_BORRA, JSON.stringify(a)); }catch(e){}
+  nubeCambio();
+}
+async function nubeAplicaLapidas(){
+  const a=nubeLapidas();
+  if(!a.length || !nEspacio) return 0;
+  let hechas=0;
+  for(const x of a){
+    try{
+      await nubeFetch('/rest/v1/'+x.tabla+'?espacio_id=eq.'+encodeURIComponent(nEspacio.id)+
+        '&id_local=eq.'+encodeURIComponent(x.id), {method:'DELETE', headers:{'Prefer':'return=minimal'}});
+      hechas++;
+    }catch(e){ return hechas; }   // si falla, se quedan para la próxima
+  }
+  try{ localStorage.removeItem(NK_BORRA); }catch(e){}
+  return hechas;
+}
+
+// Aviso de que algo ha cambiado aquí
+function nubeCambio(){
+  if(!nSes || !nEspacio) return;
+  nubeMarcaPendiente(true);
+  nubePintaNube('pendiente');
+  clearTimeout(autoT);
+  autoT=setTimeout(()=>nubeSubeSolo('cambios'), AUTO_CALMA);
+}
+
+async function nubeSubeSolo(){
+  if(!nSes || !nEspacio || autoEnCurso) return false;
+  if(!nubePendiente() && !nubeLapidas().length) return true;
+  autoEnCurso=true; clearTimeout(autoT); nubePintaNube('subiendo');
+  try{
+    await nubeSubirImagenes(()=>{});
+    await nubeSubirTodo(()=>{});
+    await nubeAplicaLapidas();
+    nubeMarcaPendiente(false);
+    autoError=''; nubePintaNube('aldia');
+    return true;
+  }catch(e){
+    autoError = e && e.message ? e.message : 'sin conexión';
+    nubePintaNube('espera');
+    return false;
+  }finally{ autoEnCurso=false; }
+}
+
+async function nubeBajaSolo(){
+  // Solo si aquí no hay nada pendiente: entonces bajar no pisa nada.
+  if(!nSes || !nEspacio || autoEnCurso) return false;
+  if(nubePendiente() || nubeLapidas().length) return false;
+  autoEnCurso=true; nubePintaNube('bajando');
+  try{
+    const r = await nubeBajarTodo();
+    await nubeBajarImagenes(()=>{});
+    autoError=''; nubePintaNube('aldia');
+    // Los datos ya están en localStorage; que la pantalla los use.
+    try{ nubeRecarga(r); }catch(e){}
+    return true;
+  }catch(e){
+    autoError = e && e.message ? e.message : 'sin conexión';
+    nubePintaNube('espera');
+    return false;
+  }finally{ autoEnCurso=false; }
+}
+
+// Releer lo bajado sin recargar la página entera.
+function nubeRecarga(r){
+  let algo=false;
+  try{
+    if(typeof REPORTS!=='undefined'){ REPORTS = nubeLee('oi_informes_v3', REPORTS)||REPORTS; algo=true; }
+    if(typeof PLAYERS!=='undefined'){ PLAYERS = nubeLee('oi_jug_informes_v1', PLAYERS)||PLAYERS; }
+    if(algo && typeof renderReportList==='function'){
+      if(typeof curRep!=='undefined'){
+        const id = curRep && curRep.id;
+        curRep = (id && REPORTS.find(x=>x.id===id)) || REPORTS[0] || null;
+      }
+      renderReportList();
+      if(typeof renderReport==='function') renderReport();
+    }
+    if(typeof renderPlayerList==='function') renderPlayerList();
+  }catch(e){}
+  if(r && (r.informes||r.jugadores)) toast('Traído de la nube: '+(r.informes||0)+' informes · '+(r.jugadores||0)+' jugadores');
+}
+
+// Estado en el botón ☁
+function nubePintaNube(est){
+  autoEstado = est||'';
+  const b=document.getElementById('btn-nube');
+  if(!b) return;
+  b.classList.toggle('on', !!nSes);
+  b.classList.toggle('nube-pend', est==='pendiente'||est==='espera');
+  b.classList.toggle('nube-va',   est==='subiendo'||est==='bajando');
+  const quien = nSes ? ((nSes.email||'')+(nEspacio?(' · '+nEspacio.nombre):'')) : 'sin sesión';
+  const txt = {
+    aldia:     'Todo guardado en la nube',
+    pendiente: 'Cambios sin subir — se suben solos en unos segundos',
+    subiendo:  'Guardando en la nube…',
+    bajando:   'Trayendo de la nube…',
+    espera:    'No se ha podido guardar en la nube ('+(autoError||'sin conexión')+'). Se reintenta solo.'
+  }[est] || (nSes?'Nube':'Nube — sin sesión');
+  b.title = txt + (nSes?(' · '+quien):'');
+}
+
+// Arranque del automático y momentos en que conviene subir
+function nubeAutoArranca(){
+  if(!nSes || !nEspacio){ nubePintaNube(''); return; }
+  // Si hay algo de aquí sin subir, primero se salva. Si no, se trae lo último.
+  if(nubePendiente() || nubeLapidas().length) nubeSubeSolo();
+  else nubeBajaSolo();
+
+  // Al dejar la pantalla (cambiar de pestaña, cerrar, bloquear el móvil)
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='hidden' && nubePendiente()) nubeSubeSolo();
+  });
+  // Al volver la conexión
+  window.addEventListener('online', ()=>{ if(nubePendiente()) nubeSubeSolo(); });
+  // Red de seguridad: cada 3 minutos, si quedó algo pendiente
+  setInterval(()=>{ if(nubePendiente() && !autoEnCurso) nubeSubeSolo(); }, 180000);
+}
+
 // VENTANA DE LA NUBE
 // ══════════════════════════════════════════════════════════
 let nEsperando = false;
@@ -1229,6 +1402,8 @@ async function nubeAccion(que){
       let m='Subido: '+r.informes+' informes, '+r.jugadores+' jugadores, '+r.rivales+' rivales, '+r.eventos+' partidos';
       if(ri) m+= ri.subidas ? ', '+ri.subidas+' imágenes nuevas.' : (ri.pendientes?'.':' (las imágenes ya estaban).');
       if(ri && ri.fallos.length) m+=' Fallaron '+ri.fallos.length+' imágenes.';
+      try{ await nubeAplicaLapidas(); }catch(e){}
+      nubeMarcaPendiente(false); nubePintaNube('aldia');
       nubeMsg(m, (ri&&ri.fallos.length)?'mal':'bien');
       await nubePintaResumen();
       return;
@@ -1278,6 +1453,8 @@ function nubeInit(){
     btn.classList.toggle('on', !!nSes);
     btn.title = nSes ? ('Nube — '+(nSes.email||'')+(nEspacio?(' · '+nEspacio.nombre):'')) : 'Nube — sin sesión';
   }
+  nubeAutoArranca();
+
   // ¿han abierto un enlace de invitación?
   if(new URLSearchParams(location.search).get('invitacion')){
     setTimeout(async ()=>{
@@ -2520,7 +2697,14 @@ let TRAITS=[], REPORTS=[], PLAYERS=[];
 let curRep=null, curPl=null;
 
 function lsGet(k,def){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?def:v; }catch(e){ return def; } }
-function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ toast('⚠ Almacenamiento lleno: exporta y libera espacio'); return false; } }
+function lsSet(k,v){
+  try{
+    localStorage.setItem(k,JSON.stringify(v));
+    // Avisa al guardado automático: hay algo nuevo que llevar a la nube.
+    if(typeof nubeCambio==='function') nubeCambio();
+    return true;
+  }catch(e){ toast('⚠ Almacenamiento lleno: exporta y libera espacio'); return false; }
+}
 function getTraits(){ return TRAITS; }
 function loadData(){
   TRAITS=lsGet(K_TRAITS,null)||DEFAULT_TRAITS.slice();
@@ -2591,7 +2775,14 @@ function newReport(){
 }
 function duplicateReport(){ if(!curRep) return; const c=JSON.parse(JSON.stringify(curRep)); c.id=uid('r'); c.rival=(c.rival||'')+' (copia)'; reId(c); REPORTS.unshift(c); saveReports(); curRep=c; renderReportList(); renderReport(); toast('Informe duplicado'); }
 function reId(r){ (r.pages||[]).forEach(p=>{ p.id=uid('p'); (p.blocks||[]).forEach(b=>{ b.id=uid('b'); if(b.field) (b.field.els||[]).forEach(e=>e.id=uid('e')); }); if(p.field) (p.field.els||[]).forEach(e=>e.id=uid('e')); }); }
-function deleteReport(){ if(!curRep) return; if(!confirm('¿Eliminar el informe "'+(curRep.rival||'')+'"? Esta acción no se puede deshacer.')) return; REPORTS=REPORTS.filter(r=>r!==curRep); saveReports(); curRep=REPORTS[0]||null; renderReportList(); renderReport(); }
+function deleteReport(){
+  if(!curRep) return;
+  if(!confirm('¿Eliminar el informe "'+(curRep.rival||'')+'"? Esta acción no se puede deshacer.')) return;
+  // Se apunta para borrarlo también de la nube; si no, volvería al bajar.
+  if(typeof nubeApuntaBorrado==='function') nubeApuntaBorrado('informes', curRep.id);
+  REPORTS=REPORTS.filter(r=>r!==curRep); saveReports();
+  curRep=REPORTS[0]||null; renderReportList(); renderReport();
+}
 function selectReport(id){ curRep=REPORTS.find(r=>r.id===id)||null; FE.closeProps(); renderReportList(); renderReport(); }
 
 function renderReportList(){
@@ -3478,6 +3669,9 @@ function renderEspacioModal(){
   const claves=desgloseClaves().slice(0,7);
 
   let h='';
+  // Lo primero que se lee: que aquí no hay nada que guardar.
+  h+='<div class="esp-nota esp-calma">Tu trabajo <b>se guarda solo</b>, no hay que pulsar nada. '+
+     'Esta ventana es para ver cuánto espacio ocupas y para hacerte una copia en un archivo.</div>';
   h+='<div class="esp-bar"><i style="width:'+Math.min(100,pct)+'%'+(pct>85?';background:#e05252':(pct>70?';background:#ff9500':''))+'"></i></div>';
   h+='<div class="esp-res"><b>'+fmtKB(usado)+'</b> usados · <b>'+fmtKB(libre)+'</b> libres <span>('+pct+'% del espacio que da el navegador)</span></div>';
 
@@ -3523,7 +3717,7 @@ function renderEspacioModal(){
     }
   }
 
-  h+='<div class="esp-nota">Los escudos se reducen a 160 px y las fotos a 1000 px. Es de sobra para pantalla e impresión: en el informe un escudo se ve a unos 13 mm. No se cambia ningún dato ni se borra nada; solo pesan menos. Las imágenes que ya sean pequeñas no se tocan, así que puedes repetirlo sin perder calidad.</div>';
+  h+='<div class="esp-nota">Al comprimir, los escudos se reducen a 160 px y las fotos a 1000 px: de sobra para pantalla y para imprimir, donde un escudo se ve a unos 13 mm. Las que ya sean pequeñas no se tocan, así que puedes repetirlo sin perder calidad.</div>';
 
   if(ultimoResultado){
     const r=ultimoResultado;
@@ -3540,11 +3734,23 @@ function renderEspacioModal(){
     h+='<div class="esp-nota">Recarga la página para que la app trabaje ya con las imágenes nuevas.</div>';
     h+='<div class="esp-btns"><button class="nav-btn primary" onclick="location.reload()">↻ Recargar ahora</button></div>';
   } else {
-    h+='<div class="esp-btns">'+
-       '<button class="nav-btn'+(copiaHecha?'':' primary')+'" onclick="descargarCopia()">'+(copiaHecha?'✓ Copia descargada':'1. ⬇ Descargar copia de seguridad')+'</button>'+
-       '<button class="nav-btn'+(copiaHecha?' primary':'')+'" id="esp-limpiar" onclick="limpiarEspacio()">2. 🧹 Comprimir imágenes</button>'+
+    h+='<div class="pick-sec">Qué puedes hacer aquí</div>';
+
+    h+='<div class="esp-acc">'+
+       '<button class="nav-btn'+(copiaHecha?'':' primary')+'" onclick="descargarCopia()">'+
+         (copiaHecha?'✓ Copia descargada':'⬇ Descargar una copia')+'</button>'+
+       '<span>Te baja un archivo con todo dentro. Es tu seguro: si algún día se borra el navegador, ese archivo te lo devuelve. No cambia nada.</span>'+
        '</div>';
-    h+='<div class="esp-btns"><button class="nav-btn" onclick="document.getElementById(\'esp-restore-input\').click()">⬆ Restaurar desde una copia</button></div>';
+
+    h+='<div class="esp-acc">'+
+       '<button class="nav-btn" id="esp-limpiar" onclick="limpiarEspacio()">🧹 Comprimir imágenes</button>'+
+       '<span>Hace las fotos más ligeras sin tocar ningún dato. Solo hace falta cuando andes cerca del tope de espacio.</span>'+
+       '</div>';
+
+    h+='<div class="esp-acc peligro">'+
+       '<button class="nav-btn" onclick="document.getElementById(\'esp-restore-input\').click()">⬆ Restaurar desde una copia</button>'+
+       '<span><b>Cuidado con este.</b> Coge un archivo que bajaste antes y <b>reemplaza</b> lo que tengas ahora en este dispositivo. Lo de después de esa copia se pierde.</span>'+
+       '</div>';
   }
   b.innerHTML=h;
 }
@@ -3608,7 +3814,13 @@ function newPlayer(){
   PLAYERS.unshift(p); savePlayers(); curPl=p; renderPlayerList(); renderPlayer(); toast('Ficha creada');
 }
 function duplicatePlayer(){ if(!curPl) return; const c=JSON.parse(JSON.stringify(curPl)); c.id=uid('pl'); c.name=(c.name||'')+' (copia)'; if(c.field)(c.field.els||[]).forEach(e=>e.id=uid('e')); PLAYERS.unshift(c); savePlayers(); curPl=c; renderPlayerList(); renderPlayer(); toast('Ficha duplicada'); }
-function deletePlayer(){ if(!curPl) return; if(!confirm('¿Eliminar la ficha de "'+(curPl.name||'')+'"?')) return; PLAYERS=PLAYERS.filter(p=>p!==curPl); savePlayers(); curPl=PLAYERS[0]||null; renderPlayerList(); renderPlayer(); }
+function deletePlayer(){
+  if(!curPl) return;
+  if(!confirm('¿Eliminar la ficha de "'+(curPl.name||'')+'"?')) return;
+  if(typeof nubeApuntaBorrado==='function') nubeApuntaBorrado('informes', curPl.id);
+  PLAYERS=PLAYERS.filter(p=>p!==curPl); savePlayers();
+  curPl=PLAYERS[0]||null; renderPlayerList(); renderPlayer();
+}
 function selectPlayer(id){ curPl=PLAYERS.find(p=>p.id===id)||null; FE.closeProps(); renderPlayerList(); renderPlayer(); }
 
 function renderPlayerList(){
