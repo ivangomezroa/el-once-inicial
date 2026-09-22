@@ -465,6 +465,28 @@ function menu(chip){
   }, 0);
 }
 
+// ── Vigilar cambios de datos en CUALQUIER pantalla ────────────────────
+// Planificación, Pizarra, Sesión y Captación no hablan con la nube, pero sí
+// escriben en localStorage. Si no se enterara nadie, Análisis pensaría que
+// este dispositivo está al día y bajaría la nube encima de esos cambios.
+// Aquí se marca "pendiente" y Análisis ya se encarga de subirlo.
+(function vigila(){
+  var CLAVES = {'oi_informes_v3':1,'oi_jug_informes_v1':1,'oi_jugadores_v1':1,
+                'oi_rivals_v1':1,'oi_cal_v2':1};
+  var guardar = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(k,v){
+    var r = guardar.call(this,k,v);
+    try{
+      // Al traer de la nube también se escriben estas claves: eso no es un
+      // cambio de este dispositivo.
+      if(CLAVES[k] && !window.__oiBajando && localStorage.getItem(K_SES)){
+        guardar.call(localStorage, 'oi_nube_pendiente', '1');
+      }
+    }catch(e){}
+    return r;
+  };
+})();
+
 // ── Arranque ──────────────────────────────────────────────────────────
 function arranca(){
   guardaInvitacionDeURL();

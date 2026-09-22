@@ -1106,6 +1106,7 @@ async function nubeAceptaInvitacionDeURL(){
 // ══════════════════════════════════════════════════════════
 
 const AUTO_CALMA = 12000;      // espera tras el último cambio
+const NK_AUTO    = 'oi_nube_auto';   // ya se estrenó el automático en este navegador
 let autoT=null, autoEnCurso=false, autoEstado='', autoError='';
 
 function nubePendiente(){ try{ return localStorage.getItem(NK_PEND)==='1'; }catch(e){ return false; } }
@@ -1164,14 +1165,46 @@ async function nubeSubeSolo(){
   }finally{ autoEnCurso=false; }
 }
 
+// Cuánto hay aquí de cada cosa, para no dejar que una bajada
+// automática se lleve por delante lo que este dispositivo tenga de más.
+function nubeCuentaLocal(){
+  const n = k => { const v=nubeLee(k, null); if(Array.isArray(v)) return v.length;
+                   if(v && typeof v==='object') return Object.keys(v).length; return 0; };
+  return { informes:n('oi_informes_v3'), fichas:n('oi_jug_informes_v1'),
+           jugadores:n('oi_jugadores_v1'), rivales:n('oi_rivals_v1'), fechas:n('oi_cal_v2') };
+}
+async function nubeCuentaNube(){
+  const esp=encodeURIComponent(nEspacio.id);
+  const uno = async (t,q) => { try{ const r=await nubeFetch('/rest/v1/'+t+'?espacio_id=eq.'+esp+(q||'')+'&select=id_local'); return (r||[]).length; }catch(e){ return -1; } };
+  const inf = await nubeFetch('/rest/v1/informes?espacio_id=eq.'+esp+'&select=tipo,id_local').catch(()=>null);
+  return { informes: inf?inf.filter(x=>x.tipo==='equipo').length:-1,
+           fichas:   inf?inf.filter(x=>x.tipo==='jugador').length:-1,
+           jugadores:await uno('jugadores'), rivales:await uno('rivales'), eventos:await uno('eventos') };
+}
+
 async function nubeBajaSolo(){
   // Solo si aquí no hay nada pendiente: entonces bajar no pisa nada.
   if(!nSes || !nEspacio || autoEnCurso) return false;
   if(nubePendiente() || nubeLapidas().length) return false;
   autoEnCurso=true; nubePintaNube('bajando');
   try{
+    // Cinturón de seguridad: si aquí hay MÁS que allí, este dispositivo va
+    // por delante (cambios de otra pantalla, o de antes de que existiera el
+    // automático). Entonces no se baja: se sube.
+    const aqui = nubeCuentaLocal(), alli = await nubeCuentaNube();
+    const masAqui = (alli.informes >=0 && aqui.informes  > alli.informes)
+                 || (alli.fichas   >=0 && aqui.fichas    > alli.fichas)
+                 || (alli.jugadores>=0 && aqui.jugadores > alli.jugadores)
+                 || (alli.rivales  >=0 && aqui.rivales   > alli.rivales);
+    if(masAqui){
+      autoEnCurso=false;
+      nubeMarcaPendiente(true);
+      return await nubeSubeSolo();
+    }
+    window.__oiBajando = true;
     const r = await nubeBajarTodo();
     await nubeBajarImagenes(()=>{});
+    window.__oiBajando = false;
     autoError=''; nubePintaNube('aldia');
     // Los datos ya están en localStorage; que la pantalla los use.
     try{ nubeRecarga(r); }catch(e){}
@@ -1224,6 +1257,16 @@ function nubePintaNube(est){
 // Arranque del automático y momentos en que conviene subir
 function nubeAutoArranca(){
   if(!nSes || !nEspacio){ nubePintaNube(''); return; }
+  // Primera vez con el guardado automático en este navegador: no hay forma
+  // de saber si aquí hay trabajo posterior a la última subida, así que se
+  // da por hecho que sí. Subir nunca quita nada; bajar sí podría.
+  let estreno=false;
+  try{ estreno = !localStorage.getItem(NK_AUTO); }catch(e){}
+  if(estreno){
+    try{ localStorage.setItem(NK_AUTO,'1'); }catch(e){}
+    nubeMarcaPendiente(true);
+  }
+
   // Si hay algo de aquí sin subir, primero se salva. Si no, se trae lo último.
   if(nubePendiente() || nubeLapidas().length) nubeSubeSolo();
   else nubeBajaSolo();
