@@ -370,7 +370,10 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .fe-tb .sep{width:1px;height:16px;background:#c3c7d8;margin:0 2px;}
 .fe-tb .grp{display:flex;gap:1px;}
 .fe-stage{flex:1;min-height:0;position:relative;background:#15421d;border:1px solid #d5d8e5;border-radius:0 0 4px 4px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-.fe-stage svg{width:100%;height:100%;display:block;touch-action:none;user-select:none;}
+/* `touch-action:none` mataba el pellizcar: el navegador no llegaba a ver
+   el gesto. Con `pinch-zoom` el dedo suelto sigue siendo para trabajar y
+   los dos dedos son para ampliar y moverse por la página. */
+.fe-stage svg{width:100%;height:100%;display:block;touch-action:pinch-zoom;user-select:none;}
 .fe-stage.fit{align-items:stretch;}
 .fe.no-tb .fe-stage{border-radius:4px;}
 .fe-stage svg .sel-outline{fill:none;stroke:#fff;stroke-width:1.5;stroke-dasharray:5 3;pointer-events:none;}
@@ -1264,7 +1267,11 @@ function nubeAutoArranca(){
   try{ estreno = !localStorage.getItem(NK_AUTO); }catch(e){}
   if(estreno){
     try{ localStorage.setItem(NK_AUTO,'1'); }catch(e){}
-    nubeMarcaPendiente(true);
+    // ...pero solo si aquí HAY algo que proteger. En un dispositivo nuevo
+    // (el móvil la primera vez) no hay nada que perder, así que lo que toca
+    // es traerse el trabajo, no subir un vacío y esperar a la próxima vez.
+    const a=nubeCuentaLocal();
+    if(a.informes+a.fichas+a.jugadores+a.rivales+a.fechas > 0) nubeMarcaPendiente(true);
   }
 
   // Si hay algo de aquí sin subir, primero se salva. Si no, se trae lo último.
@@ -2523,8 +2530,32 @@ const FE = (function(){
     // ── punteros ──
     bindPointer(){
       const svg=this.svg;
+      // Dedos apoyados ahora mismo. Con dos o más, el gesto es del
+      // navegador (ampliar / moverse), no del editor: se cancela lo que
+      // se estuviera arrastrando para que no salte nada de sitio.
+      const dedos=new Set();
+      const suelta=ev=>{
+        dedos.delete(ev.pointerId);
+        try{ svg.releasePointerCapture(ev.pointerId); }catch(e){}
+      };
+      svg.addEventListener('pointerup', suelta);
+      svg.addEventListener('pointercancel', suelta);
+      svg.addEventListener('pointerleave', ev=>{ if(ev.pointerType!=='mouse') suelta(ev); });
+
       svg.addEventListener('pointerdown',ev=>{
         if(ev.button===2) return;
+        if(ev.pointerType!=='mouse'){
+          dedos.add(ev.pointerId);
+          if(dedos.size>1){
+            // segundo dedo: es un pellizco
+            // Se corta el arrastre y se deja el elemento donde esté: un
+            // pellizco no debe reescribir lo que acabas de mover. Si el
+            // roce te ha descolocado algo, ↶ Deshacer lo devuelve.
+            if(this.drag){ this.drag=null; this.render(); this.changed(); }
+            try{ svg.releasePointerCapture(ev.pointerId); }catch(e){}
+            return;
+          }
+        }
         FE.setActive(this);
         const p=this.toLocal(ev.clientX,ev.clientY);
         const t=ev.target;
@@ -2532,15 +2563,15 @@ const FE = (function(){
         if(/^(player|zone|ellipse|text|ball)/.test(this.tool)){ this.place(this.tool,p.x,p.y); if(!ev.shiftKey) this.tool='select'; this.render(); return; }
         if(/^arrow-/.test(this.tool)){
           const kind=this.tool.slice(6); const e={t:'arrow',id:uid('e'),kind,x1:p.x,y1:p.y,x2:p.x,y2:p.y,curve:0};
-          this.snap(); this.data.els.push(e); this.sel=e; this.drag={mode:'a2',e}; svg.setPointerCapture(ev.pointerId); this.render(); return;
+          this.snap(); this.data.els.push(e); this.sel=e; this.drag={mode:'a2',e}; try{ svg.setPointerCapture(ev.pointerId); }catch(e){} this.render(); return;
         }
         const hnd=t.closest&&t.closest('[data-handle]');
-        if(hnd&&this.sel){ this.snap(); const e=this.sel; this.drag={mode:hnd.dataset.handle,e,start:p,orig:deep(e)}; svg.setPointerCapture(ev.pointerId); return; }
+        if(hnd&&this.sel){ this.snap(); const e=this.sel; this.drag={mode:hnd.dataset.handle,e,start:p,orig:deep(e)}; try{ svg.setPointerCapture(ev.pointerId); }catch(e){} return; }
         const node=t.closest&&t.closest('g.el');
         if(node){
           this.selectById(node.dataset.id); const e=this.sel; this.snap();
           if(e.t==='arrow') this.drag={mode:'move-arrow',e,start:p,orig:deep(e)}; else this.drag={mode:'move',e,off:{x:p.x-e.x,y:p.y-e.y}};
-          svg.setPointerCapture(ev.pointerId); this.render(); FE.openProps(this); return;
+          try{ svg.setPointerCapture(ev.pointerId); }catch(e){} this.render(); FE.openProps(this); return;
         }
         this.sel=null; this.render(); FE.closeProps();
       });

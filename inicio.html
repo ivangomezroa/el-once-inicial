@@ -890,8 +890,91 @@ body{font-family:'Barlow',sans-serif;cursor:default;}
 
 </style>
 <script src="/oi-sesion.js"></script>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   MÓVIL — dos caras de la misma pantalla
+     · En VERTICAL: menú de tarjetas. La foto del despacho es cuadrada,
+       así que en vertical el navegador la recorta por los lados y los
+       iconos, que van en porcentajes, caían donde ya no hay mesa.
+     · En HORIZONTAL: el despacho, encajado con la proporción con la
+       que se diseñó (1.83) para que los iconos caigan en su sitio.
+   El ordenador no se toca: las dos reglas piden pantalla pequeña.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── VERTICAL: menú ─────────────────────────────────────────────── */
+@media (max-width:820px) and (orientation:portrait){
+  html,body{overflow-y:auto;overflow-x:hidden;height:auto;}
+  #scene{
+    width:100vw;min-height:100vh;height:auto;
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:11px;padding:124px 13px 84px;box-sizing:border-box;align-content:start;
+  }
+  #sky{position:fixed;background-size:cover;background-position:center 32%;}
+  #sky::after{background:linear-gradient(180deg,rgba(6,10,22,.86) 0%,rgba(6,10,22,.95) 100%);}
+  #desk,#crest-vinyl,#pitches,#pitches-wrap,#lamp,#glow,#atmo,#floor,#wall,
+  #win-outer,#stands,#evening-sky,.pt,#stars{display:none !important;}
+
+  #oi-cab{display:block !important;position:fixed;top:0;left:0;right:0;z-index:40;
+    padding:46px 0 12px;text-align:center;
+    background:linear-gradient(180deg,rgba(6,10,22,.97),rgba(6,10,22,.75));}
+  #oi-cab b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:26px;
+    font-weight:700;letter-spacing:2px;color:#C8A84B;line-height:1;}
+  #oi-cab span{display:block;font-size:8.5px;letter-spacing:2.4px;color:#8a93a5;margin-top:4px;}
+
+  #scene .hs{
+    position:static !important;inset:auto !important;
+    width:auto !important;height:auto !important;transform:none !important;
+    display:flex !important;flex-direction:column !important;
+    align-items:center !important;justify-content:center !important;
+    gap:9px !important;min-height:104px;padding:15px 8px;
+    background:rgba(30,45,64,.92) !important;
+    border:1px solid rgba(200,168,75,.34) !important;
+    border-radius:12px !important;overflow:visible !important;
+  }
+  #scene .hs:active{background:rgba(200,168,75,.18) !important;}
+  #scene .hs .hs-ring{display:none !important;}
+  #scene .hs .hs-icon{position:static !important;inset:auto !important;
+    width:42px !important;height:42px !important;flex:0 0 auto !important;}
+  #scene .hs .hs-icon svg{width:100% !important;height:100% !important;}
+  #scene .hs .hs-tip{
+    position:static !important;opacity:1 !important;transform:none !important;
+    bottom:auto !important;left:auto !important;background:none !important;
+    border:0 !important;box-shadow:none !important;padding:0 !important;
+    color:#ddd8cc !important;font-size:12.5px !important;letter-spacing:1.1px !important;
+    white-space:normal !important;text-align:center !important;line-height:1.25 !important;}
+  #scene .hs .hs-tip::after{display:none !important;}
+
+  /* la invitación a girar, discreta, al pie */
+  #oi-gira-pie{display:flex !important;}
+}
+
+/* ── HORIZONTAL en móvil: el despacho, encajado ─────────────────── */
+@media (max-height:560px) and (orientation:landscape){
+  html,body{overflow:hidden;}
+  body{display:flex;align-items:center;justify-content:center;background:#060a14;}
+  #scene{
+    width:min(100vw, calc(100vh * 1.83));
+    height:min(100vh, calc(100vw / 1.83));
+    min-height:0;
+  }
+  #oi-cab,#oi-gira-pie{display:none !important;}
+}
+
+/* En ordenador nada de esto existe */
+#oi-cab{display:none;}
+#oi-gira-pie{display:none;}
+</style>
 </head>
 <body>
+<div id="oi-cab"><b>EL ONCE INICIAL</b><span>SISTEMA DE GESTIÓN PARA EQUIPOS</span></div>
+<div id="oi-gira-pie" style="position:fixed;bottom:0;left:0;right:0;z-index:40;
+  align-items:center;justify-content:center;gap:9px;padding:14px 16px 18px;
+  background:linear-gradient(0deg,rgba(6,10,22,.97),rgba(6,10,22,0));
+  font-family:'Barlow',sans-serif;font-size:11.5px;letter-spacing:.4px;color:#8a93a5;">
+  <span style="display:inline-block;width:13px;height:18px;border:1.6px solid #C8A84B;
+    border-radius:3px;flex-shrink:0;"></span>
+  Gira el móvil y entras al despacho
+</div>
 <div id="scene">
 
 <!-- SKY -->
