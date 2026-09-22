@@ -2577,7 +2577,7 @@ const PAGE_LABEL={portada:'Portada',posible11:'Posible 11',alineaciones:'Última
 
 function newReport(){
   const r={ id:uid('r'), rival:'NUEVO RIVAL', jornada:'', fecha:todayStr(), hora:'', campo:'', superficie:'', medidas:'', tiempo:'', temp:'', temporada:seasonStr(),
-    competicion:'', sede:'', crestRival:'', crestOwn:'', photoCampo:'', photoEquip:'', pages:[] };
+    competicion:'', sede:'', rivalOtro:'', crestRival:'', crestOwn:'', photoCampo:'', photoEquip:'', pages:[] };
   r.pages.push(newPage('portada'));
   r.pages.push(newPage('posible11'));
   r.pages.push(newPage('alineaciones'));
@@ -2743,15 +2743,54 @@ function buildCover(page,p,r){
 
   const cen=elx('div','cover-center');
   const vs=elx('div','vs-row');
-  vs.appendChild(imgDrop(r,'crestOwn','contain','Escudo propio',400));
+
+  // ── QUIÉN VA A LA IZQUIERDA ────────────────────────────────────────
+  // Dos cosas distintas que antes estaban atadas a un solo botón:
+  //   · DE QUIÉN es el informe → siempre `crestRival`, que es el escudo
+  //     que identifica al equipo analizado en la lista y en cada página.
+  //   · QUIÉN JUEGA EN CASA    → lo dice `r.sede`, y es lo único que
+  //     decide el orden de los dos escudos de la portada.
+  // Antes el orden era fijo (nuestro escudo a la izquierda), así que un
+  // informe del equipo local pintaba al visitante en el sitio del local;
+  // y el botón ⇄ intercambiaba los datos, con lo que el informe pasaba a
+  // ser del otro equipo. Ahora el orden sigue a la sede sin tocar datos.
+  // Los informes antiguos, sin sede, conservan el orden de siempre.
+  const analizadoEnCasa = /local/i.test(r.sede||'');
+  const izq = analizadoEnCasa ? 'crestRival' : 'crestOwn';
+  const der = analizadoEnCasa ? 'crestOwn'   : 'crestRival';
+  const etiqEsc = k => (k==='crestRival' ? 'Escudo rival' : 'Escudo propio');
+
+  vs.appendChild(imgDrop(r,izq,'contain',etiqEsc(izq),400));
   const vsCol=elx('div',''); vsCol.style.cssText='display:flex;flex-direction:column;align-items:center;gap:2px;';
   vsCol.appendChild(elx('div','vs','VS'));
+
+  // ⇄ cambia la SEDE: quién juega en casa. No mueve ningún dato.
   const swap=elx('button','mini-btn no-print','⇄');
-  swap.title='Intercambiar los dos escudos';
-  swap.onclick=()=>{ const t=r.crestOwn; r.crestOwn=r.crestRival; r.crestRival=t; saveReports(); renderReport(); toast('Escudos intercambiados'); };
+  swap.title = (r.rival||'El equipo analizado') + (analizadoEnCasa
+    ? ' figura como LOCAL. Pulsa para ponerlo de visitante.'
+    : ' figura como VISITANTE. Pulsa para ponerlo de local.');
+  swap.onclick=()=>{
+    r.sede = analizadoEnCasa ? 'Visitante' : 'Local';
+    saveReports(); renderReport();
+    toast((r.rival||'El equipo analizado')+' → '+r.sede);
+  };
   vsCol.appendChild(swap);
+
+  // ⇅ cambia DE QUIÉN es el informe, y lo cambia todo a la vez para que
+  // no pueda quedarse el nombre de uno con el escudo del otro.
+  const otro=elx('button','mini-btn no-print','⇅');
+  otro.title='Hacer el informe sobre el otro equipo (cambia nombre, escudos y sede)';
+  otro.onclick=()=>{
+    const t=r.crestOwn; r.crestOwn=r.crestRival; r.crestRival=t;
+    if(r.rivalOtro){ const n=r.rival; r.rival=r.rivalOtro; r.rivalOtro=n; }
+    r.sede = analizadoEnCasa ? 'Visitante' : 'Local';
+    saveReports(); renderReportList(); renderReport();
+    toast('Informe sobre '+(r.rival||'el otro equipo'));
+  };
+  vsCol.appendChild(otro);
+
   vs.appendChild(vsCol);
-  vs.appendChild(imgDrop(r,'crestRival','contain','Escudo rival',400));
+  vs.appendChild(imgDrop(r,der,'contain',etiqEsc(der),400));
   cen.appendChild(vs);
   const fieldBox=elx('div','kv-box'); fieldBox.appendChild(elx('div','kv-h','Campo de juego'));
   const fv=elx('div','kv-v'); fv.appendChild(ed(r,'campo','','NOMBRE DEL CAMPO'));
@@ -2982,6 +3021,9 @@ function createReportFromMatch(m, cual){
   newReport();
   const r=curRep;
   r.rival=String(sujeto).toUpperCase();
+  // el otro equipo del partido, para el botón ⇅ de la portada
+  const elOtro = esLocal ? (m.rival||'') : (m.localName||'');
+  if(elOtro) r.rivalOtro=String(elOtro).toUpperCase();
   if(escudoSuyo) r.crestRival=escudoSuyo;
   if(escudoOtro) r.crestOwn=escudoOtro; else { const c=localStorage.getItem(CREST_KEY); if(c) r.crestOwn=c; }
   if(m.fecha) r.fecha=fmtFecha(m.fecha);
