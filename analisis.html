@@ -469,6 +469,46 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .esp-btns .nav-btn{flex:1;justify-content:center;padding:9px 10px;font-size:11px;min-width:140px;}
 /* Panel de espacio: cada acción con su explicación al lado, para que no
    parezca una secuencia de pasos obligatorios. */
+/* ══ EL POSIBLE ONCE: elegir sistema ══ */
+.once-sis{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;margin-top:4px;}
+.once-b{background:#0f1624;color:#ddd8cc;border:1px solid rgba(255,255,255,.14);
+  border-radius:6px;padding:12px 6px;font-family:'Barlow Condensed',sans-serif;
+  font-size:15px;letter-spacing:1px;cursor:pointer;}
+.once-b:hover{border-color:#C8A84B;color:#C8A84B;}
+.once-b.act{border-color:#C8A84B;background:rgba(200,168,75,.16);color:#C8A84B;}
+.once-col{display:flex;align-items:center;gap:11px;margin-top:4px;}
+.once-col input[type=color]{width:52px;height:38px;padding:0;border:1px solid rgba(255,255,255,.2);
+  border-radius:6px;background:none;cursor:pointer;flex-shrink:0;}
+.once-col span{font-size:11.5px;line-height:1.5;color:var(--text3);}
+.sys-wrap{display:flex;align-items:center;gap:6px;}
+.sys-mas{background:rgba(200,168,75,.12);border:1px solid rgba(200,168,75,.5);color:#C8A84B;
+  border-radius:5px;width:26px;height:24px;font-size:14px;line-height:1;cursor:pointer;flex-shrink:0;}
+.sys-mas:hover{background:rgba(200,168,75,.26);}
+
+/* ══ CAMPO A PANTALLA COMPLETA ══ */
+#fe-full{display:none;position:fixed;inset:0;z-index:300;background:#0b1220;
+  flex-direction:column;padding:0;}
+body.fe-full-abierto{overflow:hidden;}
+#fe-full .fe-full-top{display:flex;align-items:center;gap:10px;flex-shrink:0;
+  padding:8px 10px;background:var(--navy,#1B2A6B);border-bottom:1px solid rgba(200,168,75,.35);}
+#fe-full .fe-full-top b{font-family:'Barlow Condensed',sans-serif;font-size:14px;
+  letter-spacing:1.2px;color:#C8A84B;text-transform:uppercase;}
+#fe-full .fe-full-top .cerrar{margin-left:auto;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.22);color:#ddd8cc;border-radius:6px;
+  padding:8px 14px;font-size:13px;cursor:pointer;}
+#fe-full .fe-full-top .cerrar:hover{border-color:#C8A84B;color:#C8A84B;}
+#fe-full .fe-full-caja{flex:1;min-height:0;display:flex;padding:8px;}
+/* dentro de la capa el campo manda: ocupa todo y las agarraderas crecen */
+.fe.fe-en-full{flex:1;min-height:0;display:flex;flex-direction:column;}
+.fe.fe-en-full .fe-stage{flex:1;min-height:0;background:#15421d;}
+.fe.fe-en-full .fe-tb{flex-wrap:wrap;}
+@media(pointer:coarse) and (hover:none){
+  .fe.fe-en-full .fe-tb button{padding:9px 11px;}
+  .fe.fe-en-full .fe-stage svg .hnd{r:9;}
+}
+/* el botón de ampliar no se imprime, como el resto de la barra */
+@media print{ #fe-full{display:none !important;} }
+
 /* Estado del botón de la nube */
 .nav-btn.nube-pend{border-color:rgba(255,149,0,.75);color:#ffb862;}
 .nav-btn.nube-va{border-color:rgba(200,168,75,.9);color:#C8A84B;}
@@ -825,6 +865,24 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
     <div class="modal-hdr"><span>Espacio del navegador y copia de seguridad</span><button class="modal-close" onclick="closeEspacioModal()">×</button></div>
     <div class="modal-body" id="esp-modal-body"></div>
   </div>
+</div>
+
+<!-- MODAL: EL POSIBLE ONCE (sistema + color) -->
+<div id="once-modal-overlay" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-hdr"><span>Colocar el posible once</span><button class="modal-close" onclick="onceCierra()">×</button></div>
+    <div class="modal-body" id="once-modal-body"></div>
+  </div>
+</div>
+
+<!-- CAMPO A PANTALLA COMPLETA -->
+<div id="fe-full" class="no-print">
+  <div class="fe-full-top">
+    <b>Campo</b>
+    <span id="fe-full-aviso" style="font-size:10.5px;letter-spacing:.6px;color:#8a93a5;"></span>
+    <button class="cerrar" onclick="feFullCierra()">✕ Cerrar</button>
+  </div>
+  <div class="fe-full-caja"></div>
 </div>
 
 <!-- MODAL: CARACTERÍSTICAS DE JUGADOR -->
@@ -2353,7 +2411,12 @@ const FE = (function(){
       this.build(); editors.push(this);
     }
     get len(){ return this.data.type==='half'?L/2:L; }
-    get vb(){ const len=this.len; return this.data.orient==='v' ? [W+2*PAD, len+2*PAD] : [len+2*PAD, W+2*PAD]; }
+    // Orientación con la que se DIBUJA. Normalmente la del campo, pero a
+    // pantalla completa en un móvil en vertical se presenta de pie para
+    // aprovechar el alto. `data.orient` no se toca: las coordenadas de los
+    // jugadores son las mismas y el informe se imprime igual.
+    get orient(){ return this.orientVista || this.data.orient; }
+    get vb(){ const len=this.len; return this.orient==='v' ? [W+2*PAD, len+2*PAD] : [len+2*PAD, W+2*PAD]; }
     build(){
       this.c.innerHTML='';
       if(this.opts.toolbar!==false){
@@ -2394,13 +2457,13 @@ const FE = (function(){
       this.render();
     }
     // ── coordenadas ──
-    gTransform(){ return this.data.orient==='v' ? `translate(${PAD+W},${PAD}) rotate(90)` : `translate(${PAD},${PAD})`; }
-    upright(){ return this.data.orient==='v' ? 'rotate(-90)' : ''; }
+    gTransform(){ return this.orient==='v' ? `translate(${PAD+W},${PAD}) rotate(90)` : `translate(${PAD},${PAD})`; }
+    upright(){ return this.orient==='v' ? 'rotate(-90)' : ''; }
     toLocal(cx,cy){
       const r=this.svg.getBoundingClientRect(), [vw,vh]=this.vb;
       const s=Math.min(r.width/vw, r.height/vh)||1, ox=(r.width-vw*s)/2, oy=(r.height-vh*s)/2;
       const sx=(cx-r.left-ox)/s, sy=(cy-r.top-oy)/s;
-      if(this.data.orient==='v') return {x:sy-PAD, y:PAD+W-sx};
+      if(this.orient==='v') return {x:sy-PAD, y:PAD+W-sx};
       return {x:sx-PAD, y:sy-PAD};
     }
     // ── render ──
@@ -2743,8 +2806,416 @@ const FE = (function(){
     if(ev.key==='ArrowDown'){ ev.preventDefault(); active.nudge(0,st); }
   });
 
-  return { Editor, blank, openProps, closeProps, refreshProps, setActive, ARROWS, TEAM, get active(){return active;} };
+  return { Editor, blank, openProps, closeProps, refreshProps, setActive, ARROWS, TEAM, L, W, PAD, get active(){return active;} };
 })();
+</script>
+<script>
+// ══════════════════════════════════════════════════════════
+// EL POSIBLE ONCE
+//   · Elegir sistema y que se coloquen los once solos.
+//   · El portero con su color; los diez de campo, con el color
+//     que se saca del escudo del rival (y se puede corregir).
+//   · Campo a pantalla completa, para poder colocar con el dedo.
+//
+//   Coordenadas del campo: x a lo largo (0..1050), y a lo ancho
+//   (0..680). El equipo analizado ataca de izquierda a derecha,
+//   así que su portero va en la x pequeña.
+// ══════════════════════════════════════════════════════════
+
+const ONCE_MOVIL = ()=>window.matchMedia('(max-width:900px)').matches;
+
+// ── Sistemas más habituales, y cualquiera que se escriba a mano ──
+const ONCE_SISTEMAS = ['1-4-4-2','1-4-3-3','1-4-2-3-1','1-4-1-4-1','1-4-4-1-1',
+                       '1-4-1-2-3','1-3-5-2','1-5-3-2','1-3-4-3','1-4-5-1','1-5-4-1','1-4-3-1-2'];
+
+// "1-4-3-3" o "4-3-3" → [4,3,3]. El 1 de delante es el portero.
+function onceLineas(txt){
+  const n = String(txt||'').match(/\d+/g);
+  if(!n) return null;
+  let l = n.map(Number).filter(x=>x>0);
+  if(l.length>1 && l[0]===1) l = l.slice(1);       // quitar el portero
+  if(!l.length) return null;
+  const suma = l.reduce((a,b)=>a+b,0);
+  if(suma !== 10) return null;                      // diez de campo, ni más ni menos
+  return l;
+}
+
+// ══ DÓNDE VA CADA UNO Y CON QUÉ DORSAL ══════════════════════════════
+//
+//   Vista desde arriba, el equipo analizado ataca hacia la derecha (x
+//   creciente). Mirando hacia ahí, SU DERECHA es la parte de abajo del
+//   dibujo, o sea la y grande. Por eso el lateral derecho sale abajo.
+//
+//   Dorsales, tal como los quiere Iván:
+//     · Línea de 4 atrás → lateral derecho 2, central derecho 4,
+//       central izquierdo 5, lateral izquierdo 3.
+//     · Línea de 3 atrás → derecha 4, centro 5, izquierda 3.
+//     · Carrileros o jugadores de banda con línea de 3 → carril derecho 2,
+//       carril izquierdo 11.
+//     · Extremos → derecha 7, izquierda 11.
+//     · Dos medios centros → 6 y 8.
+//     · Tres medios centros → el que va por detrás, 6; los dos de delante,
+//       8 y 10 (y se dibujan escalonados, uno cerca de los centrales y dos
+//       por delante).
+//     · Dos puntas con solo dos medios centros → 9 y 10.
+//     · Dos puntas con tres medios centros → 7 y 9, porque el 10 es del
+//       medio centro.
+//
+//   No se codifica sistema por sistema: cada hueco pide los dorsales que
+//   le pegan por orden de preferencia y se le da el primero libre. Así los
+//   sistemas raros también salen con algo con sentido, y las reglas de
+//   arriba se cumplen solas en los habituales.
+// ══════════════════════════════════════════════════════════════════════
+
+// Reparto a lo ancho: dos centrales no se pegan a la banda y un punta
+// solo va al medio. La y pequeña es la izquierda del equipo.
+const ONCE_ANCHO = {
+  1:[0.50],
+  2:[0.32,0.68],
+  3:[0.22,0.50,0.78],
+  4:[0.12,0.37,0.63,0.88],
+  5:[0.08,0.29,0.50,0.71,0.92],
+  6:[0.07,0.24,0.41,0.59,0.76,0.93]
+};
+// Profundidad de cada línea según cuántas haya (sin contar al portero).
+const ONCE_FONDO = {
+  1:[0.50],
+  2:[0.30,0.70],
+  3:[0.24,0.52,0.80],
+  4:[0.21,0.42,0.62,0.84],
+  5:[0.19,0.36,0.53,0.69,0.86]
+};
+const ONCE_ESCALON = 0.055;   // lo que se separa el pivote de los interiores
+
+function onceReparto(n){
+  if(ONCE_ANCHO[n]) return ONCE_ANCHO[n];
+  const m = 0.06 + 0.02*Math.max(0,6-n);
+  return Array.from({length:n},(_,i)=> m + (1-2*m)*(n===1?0.5:i/(n-1)));
+}
+function onceFondo(n){
+  if(ONCE_FONDO[n]) return ONCE_FONDO[n];
+  return Array.from({length:n},(_,i)=> 0.18 + 0.68*(n===1?0.5:i/(n-1)));
+}
+
+// Los huecos de la línea de atrás, de izquierda a derecha (y creciente).
+function onceHuecosDefensa(d){
+  if(d===3) return [{rol:'central izq', pref:[3,5]},
+                    {rol:'central',     pref:[5,4]},
+                    {rol:'central der', pref:[4,5,2]}];
+  if(d===4) return [{rol:'lateral izq', pref:[3,2]},
+                    {rol:'central izq', pref:[5,4,3]},
+                    {rol:'central der', pref:[4,5]},
+                    {rol:'lateral der', pref:[2,3]}];
+  if(d===5) return [{rol:'carril izq',  pref:[11,3,2]},
+                    {rol:'central izq', pref:[3,5]},
+                    {rol:'central',     pref:[5,4]},
+                    {rol:'central der', pref:[4,5]},
+                    {rol:'carril der',  pref:[2,7]}];
+  return Array.from({length:d},(_,i)=>({rol:'defensa', pref:[]}));
+}
+
+// Los huecos de la línea de arriba.
+function onceHuecosArriba(f){
+  if(f===1) return [{rol:'punta', pref:[9]}];
+  if(f===2) return [{rol:'punta izq', pref:[10,7,11]},
+                    {rol:'punta der', pref:[9,7]}];
+  if(f===3) return [{rol:'extremo izq', pref:[11,10,7]},
+                    {rol:'punta',       pref:[9]},
+                    {rol:'extremo der', pref:[7,2]}];
+  return Array.from({length:f},(_,i)=>({rol:'arriba', pref:[]}));
+}
+
+// Los huecos de una línea del medio. `banda` dice si los de los extremos
+// de la línea juegan por fuera.
+function onceHuecosMedio(n, banda, defensa3){
+  const fuera = ()=>({
+    izq:{rol:'banda izq', pref:[11,10,7]},
+    der:{rol:'banda der', pref: defensa3?[2,7,8]:[7,2,8]}
+  });
+  if(!banda){
+    if(n===1) return [{rol:'pivote', pref:[6,8]}];
+    if(n===2) return [{rol:'medio izq', pref:[8,6,10]},
+                      {rol:'medio der', pref:[6,8]}];
+    if(n===3) return [{rol:'interior izq', pref:[10,8],  adelante:true},
+                      {rol:'pivote',       pref:[6,8],   atras:true},
+                      {rol:'interior der', pref:[8,10],  adelante:true}];
+    return Array.from({length:n},()=>({rol:'medio', pref:[]}));
+  }
+  const f=fuera(), dentro=n-2;
+  const medio = onceHuecosMedio(dentro, false, defensa3);
+  return [f.izq].concat(medio, [f.der]);
+}
+
+// Un pivote escalonado va por detrás de su línea y los interiores por
+// delante; el orden a lo ancho es el de la línea, pero los tres del medio
+// se juntan un poco para que no parezcan una línea plana.
+function onceColocaLinea(huecos, xLinea, L, W){
+  const n=huecos.length;
+  const anchos=onceReparto(n);
+  // si hay pivote + interiores, los tres del medio se reparten aparte
+  const tresCentro = huecos.filter(h=>h.atras||h.adelante).length===3;
+  return huecos.map((h,i)=>{
+    let x=xLinea, y=anchos[i];
+    if(h.atras)     x = xLinea - ONCE_ESCALON;
+    if(h.adelante)  x = xLinea + ONCE_ESCALON;
+    if(tresCentro){
+      // los tres centrales, más juntos que un reparto plano de tres
+      const centro=[0.30,0.50,0.70];
+      const idx=huecos.slice(0,i).filter(q=>q.atras||q.adelante).length;
+      if(h.atras||h.adelante) y=centro[idx];
+    }
+    return {x:Math.round(L*x), y:Math.round(W*y), rol:h.rol, pref:h.pref};
+  });
+}
+
+// Devuelve los once: {x,y,num,gk,rol}
+function oncePosiciones(lineas){
+  const L=FE.L, W=FE.W;
+  const d=lineas[0], f=lineas.length>1?lineas[lineas.length-1]:0;
+  const medias=lineas.slice(1,-1);
+  const fondos=onceFondo(lineas.length);
+  const defensa3 = (d===3);
+
+  // ¿los extremos de cada línea del medio juegan por fuera? Una línea de
+  // cuatro o cinco sí. Una de tres, solo si arriba hay un punta solo: con
+  // dos o tres arriba, esos tres son medios centros.
+  const huecos=[];
+  onceHuecosDefensa(d).forEach(h=>huecos.push({...h, x:fondos[0]}));
+  medias.forEach((n,i)=>{
+    const banda = n>=4 || (n===3 && f===1);
+    onceHuecosMedio(n, banda, defensa3).forEach(h=>huecos.push({...h, x:fondos[i+1]}));
+  });
+  if(f) onceHuecosArriba(f).forEach(h=>huecos.push({...h, x:fondos[lineas.length-1]}));
+
+  // colocar línea a línea (para que el escalonado salga bien)
+  const puestos=[];
+  let k=0;
+  const porLinea=[d].concat(medias, f?[f]:[]);
+  porLinea.forEach((n,i)=>{
+    const trozo=huecos.slice(k,k+n); k+=n;
+    onceColocaLinea(trozo, fondos[i], L, W).forEach(p=>puestos.push(p));
+  });
+
+  // dorsales: cada uno pide los suyos por orden y se le da el primero libre
+  const libres=new Set([2,3,4,5,6,7,8,9,10,11]);
+  puestos.forEach(p=>{
+    for(const n of (p.pref||[])){ if(libres.has(n)){ p.num=n; libres.delete(n); return; } }
+  });
+  const sobran=[...libres].sort((a,b)=>a-b);
+  puestos.forEach(p=>{ if(!p.num) p.num=sobran.shift(); });
+
+  return [{x:Math.round(L*0.055), y:Math.round(W*0.5), num:1, gk:true, rol:'portero'}]
+         .concat(puestos.map(p=>({x:p.x, y:p.y, num:p.num, gk:false, rol:p.rol})));
+}
+
+// ── Color dominante del escudo ─────────────────────────────────────
+// Se ignoran blancos, negros y grises: en un escudo eso suele ser fondo,
+// contorno o letras. De lo que queda, se coge el tono más presente y se
+// promedia, que da un color más real que el pixel más repetido.
+function onceColorDeImagen(src){
+  return new Promise(res=>{
+    if(!src) return res(null);
+    const im=new Image();
+    im.onload=()=>{
+      try{
+        const N=72, c=document.createElement('canvas'); c.width=N; c.height=N;
+        const cx=c.getContext('2d',{willReadFrequently:true});
+        cx.drawImage(im,0,0,N,N);
+        const d=cx.getImageData(0,0,N,N).data;
+        const cubos={};   // tono → {n, r, g, b}
+        for(let i=0;i<d.length;i+=4){
+          const a=d[i+3]; if(a<140) continue;
+          const r=d[i], g=d[i+1], b=d[i+2];
+          const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+          const v=mx/255, s=mx? (mx-mn)/mx : 0;
+          if(v>0.93 && s<0.18) continue;      // blanco
+          if(v<0.14) continue;                // negro
+          if(s<0.22) continue;                // gris
+          let h;
+          const dd=mx-mn;
+          if(dd===0) h=0;
+          else if(mx===r) h=60*(((g-b)/dd)%6);
+          else if(mx===g) h=60*(((b-r)/dd)+2);
+          else h=60*(((r-g)/dd)+4);
+          if(h<0) h+=360;
+          const k=Math.round(h/24);            // 15 cubos de tono
+          const q=cubos[k]||(cubos[k]={n:0,r:0,g:0,b:0});
+          const peso=s*v;                       // los vivos pesan más
+          q.n+=peso; q.r+=r*peso; q.g+=g*peso; q.b+=b*peso;
+        }
+        let mejor=null;
+        Object.values(cubos).forEach(q=>{ if(!mejor||q.n>mejor.n) mejor=q; });
+        if(!mejor||mejor.n<=0) return res(null);
+        const h2=x=>Math.max(0,Math.min(255,Math.round(x/mejor.n))).toString(16).padStart(2,'0');
+        res('#'+h2(mejor.r)+h2(mejor.g)+h2(mejor.b));
+      }catch(e){ res(null); }
+    };
+    im.onerror=()=>res(null);
+    im.src=src;
+  });
+}
+
+// Blanco o negro, el que se lea mejor encima de ese color.
+function onceTextoSobre(hex){
+  const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
+  if(!m) return '#ffffff';
+  const v=parseInt(m[1],16), r=(v>>16)&255, g=(v>>8)&255, b=v&255;
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  return lum>0.62 ? '#111111' : '#ffffff';
+}
+
+// ── Colocar ────────────────────────────────────────────────────────
+function onceColoca(ed, lineas, color){
+  if(!ed) return 0;
+  const col = color || FE.TEAM.away.fill;
+  const txt = onceTextoSobre(col);
+  ed.snap();
+  // fuera los jugadores que hubiera; flechas, zonas y textos se quedan
+  ed.data.els = ed.data.els.filter(e=>e.t!=='player');
+  oncePosiciones(lineas).forEach(p=>{
+    const t = p.gk ? FE.TEAM.gk : {fill:col, stroke:'#ffffff', txt:txt};
+    ed.data.els.push({t:'player', id:uid('e'), x:p.x, y:p.y, num:String(p.num),
+      name:'', fill:t.fill, stroke:t.stroke, txt:t.txt, r:17, ns:12, badges:[],
+      team: p.gk?'gk':'custom'});
+  });
+  ed.sel=null; ed.render(); ed.changed();
+  return 11;
+}
+
+// ── La hoja de elegir sistema ──────────────────────────────────────
+let onceEd=null, oncePag=null, onceInf=null, onceColor=null;
+
+function onceRegistra(ed, p, r){ ed.__once={p:p, r:r}; }
+
+async function onceAbre(ed, p, r){
+  onceEd=ed; oncePag=p; onceInf=r;
+  if(!onceColor || onceColor.para!==(r&&r.id)){
+    let c = (p && p.onceColor) || null;
+    if(!c){
+      try{ c = await onceColorDeImagen(imgSrc(r&&r.crestRival)); }catch(e){ c=null; }
+    }
+    onceColor = {para:(r&&r.id), hex: c || FE.TEAM.away.fill, auto: !(p&&p.onceColor)};
+  }
+  oncePinta();
+  document.getElementById('once-modal-overlay').style.display='flex';
+}
+function onceCierra(){ const o=document.getElementById('once-modal-overlay'); if(o) o.style.display='none'; }
+
+function oncePinta(){
+  const b=document.getElementById('once-modal-body'); if(!b) return;
+  const actual = (oncePag && oncePag.sistema) || '';
+  const hay = onceEd ? onceEd.data.els.filter(e=>e.t==='player').length : 0;
+  let h='';
+  h+='<div class="esp-nota" style="margin-top:0;">Elige el sistema y se colocan los once sobre el campo: '+
+     'el portero con su color y los diez de campo con el color de abajo. '+
+     (hay? '<b style="color:#ffb862;">Los '+hay+' jugadores que ya hay se reemplazan.</b> Las flechas, zonas y textos se quedan.' : '')+
+     '</div>';
+
+  h+='<div class="pick-sec">Color de los diez de campo</div>';
+  h+='<div class="once-col">'+
+     '<input type="color" id="once-color" value="'+escapeHtml(onceColor.hex)+'">'+
+     '<span>'+(onceColor.auto?'Sacado del escudo del rival. Si no acierta, cámbialo.':'Elegido por ti.')+'</span>'+
+     '</div>';
+
+  h+='<div class="pick-sec">Sistema</div><div class="once-sis">';
+  // si ha escrito uno a mano que vale y no está en la lista, va primero
+  const extra = (actual && onceLineas(actual) && ONCE_SISTEMAS.indexOf(actual)<0) ? [actual] : [];
+  extra.concat(ONCE_SISTEMAS).forEach(s=>{
+    h+='<button class="once-b'+(s===actual?' act':'')+'" data-sis="'+s+'">'+s+'</button>';
+  });
+  h+='</div>';
+  h+='<div class="esp-nota">También vale cualquier otro que escribas en la etiqueta del sistema, '+
+     'siempre que los de campo sumen diez (por ejemplo 1-3-4-2-1).</div>';
+  b.innerHTML=h;
+
+  b.querySelectorAll('[data-sis]').forEach(el=>{
+    el.onclick=()=>{
+      const s=el.dataset.sis, l=onceLineas(s);
+      if(!l){ toast('Ese sistema no suma diez jugadores de campo'); return; }
+      const c=document.getElementById('once-color').value;
+      oncePag.sistema=s;
+      oncePag.onceColor=c;
+      onceColor={para:onceInf&&onceInf.id, hex:c, auto:false};
+      onceColoca(onceEd,l,c);
+      saveReports(); renderReport();
+      onceCierra();
+      toast('Once colocado en '+s);
+    };
+  });
+  const ci=document.getElementById('once-color');
+  if(ci) ci.oninput=()=>{ onceColor={para:onceInf&&onceInf.id, hex:ci.value, auto:false}; };
+}
+
+// ── Campo a pantalla completa ──────────────────────────────────────
+// Se MUEVE el editor dentro de una capa que ocupa la pantalla y luego se
+// devuelve a su sitio. Al mover el nodo no se pierde nada: ni el estado,
+// ni los manejadores, ni el historial de deshacer.
+let feFullEd=null, feFullAncla=null;
+
+// De pie o tumbado según cómo esté el móvil, y se rehace al girarlo.
+function feFullOrientar(ed){
+  const dePie = ONCE_MOVIL() && window.matchMedia('(orientation:portrait)').matches;
+  if(dePie && ed.data.orient!=='v') ed.orientVista='v';
+  else delete ed.orientVista;
+  const av=document.getElementById('fe-full-aviso');
+  if(av) av.textContent = ed.orientVista ? 'de pie · se imprime tumbado' : '';
+  window.addEventListener('resize', feFullOrientarAhora);
+}
+function feFullOrientarAhora(){
+  if(!feFullEd) return;
+  feFullOrientar(feFullEd);
+  feFullEd.render();
+}
+
+function feFullAbre(ed){
+  if(!ed || feFullEd) return;
+  const capa=document.getElementById('fe-full'); if(!capa) return;
+  feFullEd=ed;
+  feFullAncla=document.createComment('campo');
+  ed.c.parentNode.insertBefore(feFullAncla, ed.c);
+  capa.querySelector('.fe-full-caja').appendChild(ed.c);
+  ed.c.classList.add('fe-en-full');
+  // En un móvil en vertical, un campo tumbado solo puede crecer a lo ancho
+  // y se queda pequeño. De pie aprovecha el alto: el doble de grande.
+  // Es solo la vista; los datos y la impresión no cambian.
+  feFullOrientar(ed);
+  document.body.classList.add('fe-full-abierto');
+  capa.style.display='flex';
+  FE.setActive(ed);
+  setTimeout(()=>ed.render(),50);
+}
+function feFullCierra(){
+  if(!feFullEd) return;
+  const ed=feFullEd, capa=document.getElementById('fe-full');
+  ed.c.classList.remove('fe-en-full');
+  delete ed.orientVista;
+  window.removeEventListener('resize', feFullOrientarAhora);
+  if(feFullAncla && feFullAncla.parentNode){
+    feFullAncla.parentNode.insertBefore(ed.c, feFullAncla);
+    feFullAncla.parentNode.removeChild(feFullAncla);
+  }
+  feFullAncla=null; feFullEd=null;
+  document.body.classList.remove('fe-full-abierto');
+  if(capa) capa.style.display='none';
+  FE.closeProps();
+  setTimeout(()=>{ ed.render(); if(typeof fitPages==='function') fitPages(); },50);
+}
+
+// Botón de ampliar en la barra del campo. Se añade a todos los campos:
+// en el móvil es lo que salva la situación, y en el ordenador también
+// viene bien para trabajar cómodo.
+function feBotonFull(ed){
+  if(!ed || !ed.tb || ed.tb.querySelector('[data-tool="full"]')) return;
+  const b=document.createElement('button');
+  b.dataset.tool='full';
+  b.innerHTML='⛶';
+  b.title='Ampliar el campo a toda la pantalla';
+  b.onmousedown=e=>e.preventDefault();
+  b.onclick=()=>feFullAbre(ed);
+  const sep=document.createElement('span'); sep.className='sep';
+  ed.tb.insertBefore(sep, ed.tb.firstChild);
+  ed.tb.insertBefore(b, ed.tb.firstChild);
+}
 </script>
 <script>
 // ══════════════════════════════════════════════════════════
@@ -3079,11 +3550,19 @@ function buildCover(page,p,r){
 
 // ── POSIBLE 11 ──
 function buildP11(page,p,r){
-  const sysNode=ed(p,'sistema','sys-badge','1-4-4-2');
+  // La etiqueta del sistema sigue siendo texto libre, y al lado un botón
+  // que abre la hoja para colocar los once de golpe.
+  const sysNode=elx('div','sys-wrap no-print-plain');
+  sysNode.appendChild(ed(p,'sistema','sys-badge','1-4-4-2'));
+  const mas=elx('button','sys-mas no-print','⊞');
+  mas.title='Colocar los once de este sistema sobre el campo';
+  sysNode.appendChild(mas);
   page.appendChild(pageHead(p,p.title,sysNode,r.crestRival));
   const body=elx('div','p11-body');
   const fw=elx('div','p11-field'); body.appendChild(fw);
-  mkField(fw,p.field,{lookupName:num=>lookupSquadName(r,num)});
+  const edCampo=mkField(fw,p.field,{lookupName:num=>lookupSquadName(r,num)});
+  mas.onclick=()=>onceAbre(edCampo,p,r);
+  feBotonFull(edCampo);
   const lg=elx('div','legend');
   lg.appendChild(elx('div','lg-h','Características'));
   TRAITS.forEach(t=>{ const row=elx('div','lg-row'); const ic=elx('div','lg-ic'+(/^[A-Za-z]$/.test(t.icon)?' c':''),escapeHtml(t.icon)); row.appendChild(ic); row.appendChild(elx('span','',escapeHtml(t.label))); lg.appendChild(row); });
@@ -3126,7 +3605,7 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
     blk.appendChild(tt);
     const row=elx('div','blk-row');
     const fw=elx('div','blk-field'); row.appendChild(fw);
-    mkField(fw,b.field,{lookupName:num=>lookupSquadName(r,num)});
+    feBotonFull(mkField(fw,b.field,{lookupName:num=>lookupSquadName(r,num)}));
     const tw=elx('div','blk-text'); const tb=elx('div','txtbox'); tb.appendChild(ed(b,'text','','Observaciones...',true)); tw.appendChild(tb); row.appendChild(tw);
     blk.appendChild(row);
     body.appendChild(blk);
