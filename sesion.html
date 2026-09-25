@@ -165,6 +165,9 @@
 #sess-content{padding:14px 20px;}
 
 /* ── PRINT STYLES: DIN A4 landscape, 2 pages ── */
+/* El escudo de impresion no se ve en pantalla: alli ya esta en la barra. */
+.print-crest{display:none;}
+
 @media print {
   @page { size:A4 landscape; margin:5mm 5mm; }
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
@@ -186,6 +189,7 @@
 
   /* Escudo del equipo: esquina superior derecha, no afecta al resto del layout */
   .print-crest {
+    display:block;
     position:absolute;
     top:2mm; right:2mm;
     width:13mm; height:13mm;
