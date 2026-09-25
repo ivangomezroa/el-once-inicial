@@ -7,7 +7,15 @@
 <style>
 :root{--navy:#1B2A6B;--navy-dark:#0d1530;--gold:#C8A84B;--gold-light:#e0c068;--bg:#0f1624;--bg2:#16202e;--bg3:#1c2a3a;--surface:#1e2d40;--surface2:#263548;--border:rgba(200,168,75,0.15);--border2:rgba(200,168,75,0.32);--text:#ddd8cc;--text2:#9a9280;--text3:#5e5a50;--red:#e05252;--radius:7px;--radius-lg:12px;--header-h:50px;--bottomnav-h:0px;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;touch-action:none;}
+/* El alto del body va en dvh, no en vh, y esto importa de verdad en un
+   móvil: `100vh` es el alto de la pantalla CON la barra del navegador
+   recogida, o sea el mayor posible. Mientras esa barra se ve (unos 90 px),
+   el body es más alto que lo que se ve, y como aquí hay `overflow:hidden`
+   la barra de pestañas de abajo quedaba fuera y NO había forma de bajar
+   hasta ella. `100dvh` es el alto que se ve ahora mismo, y se reajusta
+   cuando la barra del navegador aparece o se esconde.
+   La línea con vh se queda delante como recambio para navegadores viejos. */
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;touch-action:none;}
 /* HEADER */
 .header{background:var(--navy-dark);border-bottom:1.5px solid var(--border2);padding:0 14px;height:var(--header-h);display:flex;align-items:center;gap:10px;flex-shrink:0;z-index:200;}
 /* ── ESCUDO DEL EQUIPO (esquina opuesta al logo) ── */
@@ -3165,6 +3173,33 @@ function _loadOiCrest(){
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_loadOiCrest);}
 else{_loadOiCrest();}
+
+// ── Cinturón del alto de la pantalla ──────────────────────────────────
+// El CSS ya usa 100dvh, que es lo correcto. Esto es por si el navegador
+// no la entiende (y se queda con el 100vh de recambio): entonces el body
+// sería más alto que lo que se ve y, con overflow:hidden, la barra de
+// pestañas de abajo quedaría fuera sin forma de bajar hasta ella.
+// `visualViewport.height` es lo que se ve de verdad, sin depender de
+// ninguna unidad de CSS.
+(function(){
+  var vv = window.visualViewport;
+  if(!vv) return;
+  function ajusta(){
+    // Sólo se toca si de verdad sobra alto. Si cuadra, no se mete nadie.
+    var sobra = Math.round(document.body.getBoundingClientRect().height - vv.height);
+    if(sobra > 2){
+      document.body.style.height = Math.round(vv.height) + 'px';
+      if(typeof resizeCv === 'function') resizeCv();
+    } else if(document.body.style.height){
+      // Volvió a caber: se devuelve al CSS.
+      document.body.style.height = '';
+      if(typeof resizeCv === 'function') resizeCv();
+    }
+  }
+  vv.addEventListener('resize', ajusta);
+  window.addEventListener('orientationchange', function(){ setTimeout(ajusta, 250); });
+  ajusta();
+})();
 
 // ── Cuando la nube trae datos, refrescar sin recargar ──
 // La pantalla ya está pintada con lo que había en el navegador. Si llega
