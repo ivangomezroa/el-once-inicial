@@ -180,17 +180,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cal-year-sel option{background:var(--navy2);}
 
 .cal-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);background:var(--navy);}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--navy);}
 .cal-wd{
   padding:7px;text-align:center;font-family:var(--font-cond);
   font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
   color:var(--gold);border-right:1px solid var(--border);
 }
 .cal-wd:last-child{border-right:none;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));}
 .cal-cell{
   min-height:88px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);
   padding:5px;position:relative;cursor:pointer;transition:background 0.12s;
+  min-width:0;overflow:hidden;
 }
 .cal-cell:hover{background:rgba(200,168,75,0.04);}
 .cal-cell:nth-child(7n){border-right:none;}
@@ -201,12 +202,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   border-radius:50%;display:flex;align-items:center;justify-content:center;
 }
 .cal-day-num{font-family:var(--font-cond);font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px;}
-.cal-events{display:flex;flex-direction:column;gap:2px;}
+.cal-events{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .cal-event{
   border-radius:3px;padding:2px 5px;font-size:10px;font-family:var(--font-cond);
   font-weight:600;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  cursor:pointer;display:flex;align-items:center;gap:3px;
+  cursor:pointer;display:flex;align-items:center;gap:3px;min-width:0;
 }
+/* (La regla que recortaba los hijos del chip se quitó: con minmax(0,1fr)
+   en la rejilla y min-width:0 en la celda ya no hace falta, y en el
+   ordenador recortaba la hora a "1…" al imprimir.) */
 .ev-sesion{background:rgba(42,122,26,0.6);color:#a0ffb0;border-left:2px solid #3a7a28;}
 .ev-partido-liga{background:rgba(200,168,75,0.3);color:var(--gold);border-left:2px solid var(--gold);}
 .ev-partido-copa{background:rgba(120,80,200,0.4);color:#c0a0ff;border-left:2px solid #9060e0;}
@@ -462,6 +466,198 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* Print */
 /* ══ IMPRESIÓN — Horizontal A4, cabeceras visibles, ahorro tinta ══ */
+/* ══════════════════════════════════════════════════════════════════
+   MÓVIL (≤820 px)
+   Esta pantalla nunca se había adaptado: sólo tenía reglas de
+   impresión. Todo lo de aquí exige pantalla pequeña, así que en el
+   ordenador no cambia ni un píxel.
+   ══════════════════════════════════════════════════════════════════ */
+/* El interruptor rejilla/lista y el botón de filtro sólo existen en móvil */
+#oi-vista-sw, #oi-filtro-btn, #oi-dia-panel, #oi-agenda, #oi-plan-sw, #oi-dias-tira { display:none; }
+
+@media (max-width:820px){
+  /* ── Cabecera y pestañas ── */
+  .oi-nav-sub{display:none;}
+  .oi-nav-main{font-size:12px;letter-spacing:.6px;}
+  .tabs-inline{gap:4px;}
+  .tab-btn{padding:9px 10px;font-size:11px;letter-spacing:.6px;}
+
+  /* ── Los filtros, detrás de un botón ──
+     Once chips en cuatro filas se comían un tercio de la pantalla
+     antes de que se viera el calendario. */
+  #oi-filtro-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.35);
+    color:#C8A84B;padding:9px 14px;border-radius:7px;cursor:pointer;
+    font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:1px;
+  }
+  #filter-chips.oi-plegado{display:none!important;}
+
+  /* ── Interruptor rejilla / lista ── */
+  #oi-vista-sw{
+    display:inline-flex;border:1px solid rgba(200,168,75,0.3);border-radius:7px;
+    overflow:hidden;margin-left:8px;
+  }
+  #oi-vista-sw button{
+    background:transparent;border:none;color:var(--text2);cursor:pointer;
+    padding:11px 14px;font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:1px;
+  }
+  #oi-vista-sw button.on{background:var(--gold);color:#0d1530;}
+
+  /* ── Rejilla del mes: puntos en vez de texto ──
+     A 51 px de columna no cabe "11:30 vs UD POBLENSE": se quedaba en
+     "vs (". Así que el evento es un punto de su color y el detalle
+     sale debajo al tocar el día. */
+  body.oi-cal-rejilla .cal-cell{min-height:58px;}
+  body.oi-cal-rejilla .cal-day-num{text-align:center;margin-bottom:2px;font-size:13px;}
+  body.oi-cal-rejilla .cal-cell.today .cal-day-num{margin:0 auto 2px;}
+  body.oi-cal-rejilla .cal-events{
+    flex-direction:row;flex-wrap:wrap;gap:3px;justify-content:center;
+  }
+  body.oi-cal-rejilla .cal-event{
+    width:8px;height:8px;min-height:8px;border-radius:50%;padding:0;
+    border-left:none;flex:0 0 auto;overflow:hidden;
+    /* El texto del evento va como nodo de texto suelto dentro del chip,
+       sin elemento que envolverlo, así que ocultar los hijos no basta:
+       se veía la letra dentro del punto. */
+    font-size:0;line-height:0;
+    /* el punto no se puede tocar: 8 px no es un objetivo para un dedo.
+       Para editar se usa la lista del día, que tiene filas altas. */
+    pointer-events:none;
+  }
+  body.oi-cal-rejilla .cal-event > *,
+  body.oi-cal-rejilla .cal-event .ev-crest{display:none!important;}
+  body.oi-cal-rejilla .cal-cell.oi-sel{
+    background:rgba(200,168,75,0.14);box-shadow:inset 0 0 0 1px rgba(200,168,75,0.5);
+  }
+  /* los puntos heredan el color del borde izquierdo que ya tenía cada tipo */
+  body.oi-cal-rejilla .ev-sesion{background:#3a7a28;}
+  body.oi-cal-rejilla .ev-partido-liga{background:#C8A84B;}
+  body.oi-cal-rejilla .ev-partido-copa{background:#9060e0;}
+  body.oi-cal-rejilla .ev-partido-amistoso{background:#5080c0;}
+  body.oi-cal-rejilla .ev-partido-rival{background:#b040e0;}
+  body.oi-cal-rejilla .ev-partido-captacion{background:#20b0c0;}
+  body.oi-cal-rejilla .ev-descanso{background:#505060;}
+  body.oi-cal-rejilla .ev-cumple{background:#c04090;}
+  body.oi-cal-rejilla .ev-otro{background:#3050a0;}
+
+  /* ── Panel del día tocado ── */
+  body.oi-cal-rejilla #oi-dia-panel{
+    display:block;margin-bottom:10px;background:var(--surface);
+    border:1px solid rgba(200,168,75,0.25);border-radius:8px;padding:12px 14px;
+    /* alto mínimo para que la rejilla no dé un salto al elegir un día */
+    min-height:96px;box-sizing:border-box;
+  }
+  #oi-dia-panel .oi-dp-tit{
+    font-family:var(--font-cond);font-size:12px;letter-spacing:1.5px;color:var(--gold);
+    text-transform:uppercase;margin-bottom:9px;
+  }
+  #oi-dia-panel .oi-dp-ev{
+    display:flex;align-items:center;gap:9px;padding:13px 2px;min-height:46px;
+    border-top:1px solid rgba(255,255,255,0.07);cursor:pointer;
+  }
+  #oi-dia-panel .oi-dp-ev:first-of-type{border-top:none;}
+  #oi-dia-panel .oi-dp-pt{width:9px;height:9px;border-radius:50%;flex:0 0 9px;}
+  #oi-dia-panel .oi-dp-txt{font-size:14px;color:var(--text);min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #oi-dia-panel .oi-dp-vacio{font-size:13px;color:var(--text3);padding:4px 0 10px;}
+  #oi-dia-panel .oi-dp-add{
+    width:100%;margin-top:10px;background:rgba(200,168,75,0.1);
+    border:1px solid rgba(200,168,75,0.35);color:#C8A84B;padding:11px;border-radius:7px;
+    font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;
+  }
+
+  /* ── Lista de agenda ── */
+  body.oi-cal-lista .cal-grid-wrap{display:none;}
+  body.oi-cal-lista #oi-agenda{
+    display:block;background:var(--surface);border:1px solid rgba(200,168,75,0.2);
+    border-radius:8px;padding:2px 14px 6px;
+  }
+  #oi-agenda .oi-ag-dia{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07);}
+  #oi-agenda .oi-ag-dia:last-child{border-bottom:none;}
+  #oi-agenda .oi-ag-fecha{flex:0 0 46px;text-align:center;}
+  #oi-agenda .oi-ag-dow{font-family:var(--font-cond);font-size:10px;letter-spacing:1px;
+    color:var(--text3);text-transform:uppercase;}
+  #oi-agenda .oi-ag-num{font-family:var(--font-cond);font-size:22px;font-weight:700;color:var(--text);}
+  #oi-agenda .oi-ag-dia.hoy .oi-ag-num{
+    background:var(--gold);color:#0d1530;border-radius:50%;
+    width:30px;height:30px;line-height:30px;margin:2px auto 0;}
+  #oi-agenda .oi-ag-evs{flex:1;min-width:0;}
+  #oi-agenda .oi-ag-ev{display:flex;gap:9px;align-items:flex-start;padding:5px 0;cursor:pointer;}
+  #oi-agenda .oi-ag-barra{width:3px;align-self:stretch;border-radius:2px;flex:0 0 3px;margin-top:2px;}
+  #oi-agenda .oi-ag-t{font-size:14px;color:var(--text);font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #oi-agenda .oi-ag-s{font-family:var(--font-cond);font-size:11px;letter-spacing:.8px;text-transform:uppercase;}
+  #oi-agenda .oi-ag-nada{padding:22px 0;text-align:center;color:var(--text3);font-size:13px;}
+
+  /* ── Planning semanal ── */
+  /* La barra de la semana tiene cuatro botones y a 390 px el último se
+     salía 27 px de la pantalla. Que envuelvan. */
+  .plan-header-row{flex-wrap:wrap;}
+  .plan-week-nav{flex-wrap:wrap;gap:6px;}
+  .plan-week-nav > *{flex:0 1 auto;}
+  .plan-week-nav .btn{padding:8px 12px;font-size:11px;}
+
+  /* El contenedor de la vista es un flex en columna: sin esto estiraba
+     el interruptor a todo lo ancho y le aplastaba el alto a 22 px. */
+  #oi-plan-sw, #oi-dias-tira, #oi-plan-aviso{
+    align-self:flex-start;flex:0 0 auto;
+  }
+  /* Y lo mismo para el panel y la agenda: el contenedor es un flex en
+     columna, así que sin flex:0 0 auto el panel se quedaba en su
+     min-height y el contenido se salía por debajo de la caja. */
+  #oi-dia-panel, #oi-agenda{align-self:stretch;flex:0 0 auto;}
+  #oi-dias-tira{align-self:stretch;}
+  #oi-plan-sw{
+    display:inline-flex;border:1px solid rgba(200,168,75,0.3);border-radius:7px;overflow:hidden;
+  }
+  #oi-plan-sw button{
+    background:transparent;border:none;color:var(--text2);cursor:pointer;
+    padding:11px 14px;font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:1px;
+  }
+  #oi-plan-sw button.on{background:var(--gold);color:#0d1530;}
+  #oi-dias-tira{display:flex;gap:5px;overflow-x:auto;padding:0 0 3px;margin:10px 0 0;}
+  #oi-dias-tira button{
+    flex:0 0 auto;min-width:46px;padding:7px 4px;border-radius:7px;cursor:pointer;
+    font-family:var(--font-cond);background:rgba(27,42,107,0.5);
+    border:1px solid rgba(200,168,75,0.2);color:var(--text);
+  }
+  #oi-dias-tira button .d{font-size:10px;letter-spacing:1px;opacity:.8;}
+  #oi-dias-tira button .n{font-size:17px;font-weight:700;}
+  #oi-dias-tira button.on{background:var(--gold);border-color:var(--gold);color:#0d1530;}
+  body.oi-plan-dia #oi-dias-tira{display:flex;}
+  body.oi-plan-semana #oi-dias-tira{display:none;}
+
+  /* un día: la tabla ocupa el ancho entero */
+  body.oi-plan-dia .plan-table{min-width:0;width:100%;}
+  body.oi-plan-dia .plan-table td,
+  body.oi-plan-dia .plan-table th{min-width:0;}
+  /* la hora, un poco más ancha: a 58 px salía cortada ("09:0") */
+  body.oi-plan-dia .plan-table .hora-cell{width:62px!important;min-width:62px!important;}
+
+  /* semana entera: HORA y los días se quedan quietos al desplazar */
+  /* Sin esto el sticky de abajo no hace nada: Chrome ignora
+     position:sticky en celdas cuando la tabla es border-collapse:collapse. */
+  body.oi-plan-semana .plan-table{border-collapse:separate;border-spacing:0;}
+  /* El !important es necesario: la celda de la hora la genera el JS con
+     style="position:relative" en línea, y eso gana a cualquier hoja de
+     estilos. `sticky` sigue siendo bloque contenedor, así que la × de
+     borrar la franja se queda en su sitio. */
+  body.oi-plan-semana .plan-table th:first-child,
+  body.oi-plan-semana .plan-table td:first-child{
+    position:sticky!important;left:0;z-index:6;background:#16203a;
+    box-shadow:2px 0 6px rgba(0,0,0,0.45);width:62px;min-width:62px;
+  }
+  body.oi-plan-semana .plan-table thead th{position:sticky;top:0;z-index:5;background:var(--navy);}
+  body.oi-plan-semana .plan-table thead th:first-child{z-index:7;}
+  #oi-plan-aviso{display:none;}
+  body.oi-plan-semana #oi-plan-aviso{
+    display:flex;align-items:center;gap:6px;margin:10px 0 0;
+    font-family:var(--font-cond);font-size:11px;letter-spacing:1px;
+    color:var(--text3);text-transform:uppercase;
+  }
+}
+
 @media print {
   @page { size: A4 landscape; margin: 8mm 6mm; }
 
@@ -2097,6 +2293,317 @@ function saveRivalToHistory(name, crest){
     </div>
   </div>
 </div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   PLANIFICACIÓN EN EL MÓVIL
+   ══════════════════════════════════════════════════════════════════════
+   Esta pantalla se diseñó para el ordenador. Aquí se le añade el
+   comportamiento que hace falta con el dedo, SIN tocar ninguna de las
+   funciones que ya había: se envuelven (`renderCalendar`,
+   `renderWeeklyPlan`, `switchTab`) y se hace el trabajo extra después.
+   Si algo de aquí falla, la pantalla sigue funcionando como antes.
+
+   Todo está condicionado a pantalla pequeña, así que en el ordenador no
+   cambia nada.
+
+   Calendario: rejilla con un punto por evento (a 51 px de columna no
+   cabe el texto) y el detalle del día debajo, o lista de agenda.
+   Planning: un día a todo lo ancho, o la semana con HORA y los días
+   fijos al desplazar.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+var ANCHO = 820;
+function movil(){ return window.innerWidth <= ANCHO; }
+
+/* Colores de cada tipo, para los puntos y las barras. Los mismos que ya
+   usaban los bordes de .ev-* en el CSS. */
+var COL = {
+  'sesion':'#3a7a28', 'partido-liga':'#C8A84B', 'partido-copa':'#9060e0',
+  'partido-amistoso':'#5080c0', 'partido-rival':'#b040e0',
+  'partido-captacion':'#20b0c0', 'descanso':'#505060',
+  'cumple':'#c04090', 'otro':'#3050a0'
+};
+var DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+/* Cómo se lee un evento en una línea. */
+function titulo(ev){
+  if(ev.type && ev.type.indexOf('partido')===0){
+    var quien = ev.rival || ev.localName || 'Partido';
+    var donde = (ev.sede==='Visitante') ? 'en ' : 'vs ';
+    return (ev.hora ? ev.hora + ' · ' : '') + donde + quien;
+  }
+  if(ev.type==='cumple') return '🎂 ' + (ev.titulo || 'Cumpleaños');
+  return (ev.hora ? ev.hora + ' · ' : '') + (ev.titulo || ev.type || '—');
+}
+function subtitulo(ev){
+  if(ev.type && ev.type.indexOf('partido')===0){
+    var comp = ev.competicion || ev.type.replace('partido-','');
+    return comp + (ev.sede ? ' · ' + ev.sede : '');
+  }
+  return (ev.type||'').replace('-',' ');
+}
+function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+/* ── Los trozos que se añaden a la pantalla ───────────────────────── */
+function monta(){
+  if(document.getElementById('oi-filtro-btn')) return;
+
+  // 1) Botón que despliega los filtros
+  var chips = document.getElementById('filter-chips');
+  if(chips){
+    chips.classList.add('oi-plegado');
+    var bf = document.createElement('button');
+    bf.id = 'oi-filtro-btn';
+    bf.innerHTML = '⚙ Filtro';
+    bf.onclick = function(){
+      chips.classList.toggle('oi-plegado');
+      bf.innerHTML = chips.classList.contains('oi-plegado') ? '⚙ Filtro' : '⚙ Filtro ✕';
+    };
+    chips.parentNode.insertBefore(bf, chips);
+
+    // 2) Interruptor rejilla / lista, al lado
+    var sw = document.createElement('div');
+    sw.id = 'oi-vista-sw';
+    sw.innerHTML = '<button data-v="rejilla">Rejilla</button><button data-v="lista">Lista</button>';
+    sw.onclick = function(e){
+      var b = e.target.closest('[data-v]'); if(!b) return;
+      vistaCal(b.getAttribute('data-v'));
+    };
+    chips.parentNode.insertBefore(sw, chips);
+  }
+
+  // 3) Panel del día y lista de agenda, debajo de la rejilla
+  var wrap = document.querySelector('.cal-grid-wrap');
+  if(wrap){
+    var dp = document.createElement('div'); dp.id = 'oi-dia-panel';
+    var ag = document.createElement('div'); ag.id = 'oi-agenda';
+    // El panel ENCIMA de la rejilla: debajo quedaba fuera de pantalla en un
+    // móvil de 640 px de alto, y desplazar la vista para enseñarlo metía el
+    // nombre del mes y las flechas detrás de la barra de arriba.
+    wrap.parentNode.insertBefore(dp, wrap);
+    wrap.parentNode.insertBefore(ag, wrap.nextSibling);
+  }
+
+  // 4) Planning: interruptor día/semana, tira de días y el aviso
+  var tabla = document.getElementById('plan-table');
+  if(tabla){
+    var cont = tabla.parentNode;                 // el que tiene overflow-x
+    var sw2 = document.createElement('div');
+    sw2.id = 'oi-plan-sw';
+    sw2.innerHTML = '<button data-p="dia">Un día</button><button data-p="semana">Semana</button>';
+    sw2.onclick = function(e){
+      var b = e.target.closest('[data-p]'); if(!b) return;
+      vistaPlan(b.getAttribute('data-p'));
+    };
+    var tira = document.createElement('div'); tira.id = 'oi-dias-tira';
+    var av = document.createElement('div'); av.id = 'oi-plan-aviso';
+    av.innerHTML = '<span style="color:#C8A84B;">↔</span> Desliza para ver el resto de la semana';
+    cont.parentNode.insertBefore(sw2, cont);
+    cont.parentNode.insertBefore(tira, cont);
+    cont.parentNode.insertBefore(av, cont);
+  }
+}
+
+/* ── Calendario: rejilla o lista ──────────────────────────────────── */
+var vistaC = 'rejilla', diaSel = null;
+
+function vistaCal(v){
+  vistaC = v;
+  document.body.classList.toggle('oi-cal-rejilla', v==='rejilla');
+  document.body.classList.toggle('oi-cal-lista',   v==='lista');
+  var sw = document.getElementById('oi-vista-sw');
+  if(sw) [].forEach.call(sw.children, function(b){
+    b.classList.toggle('on', b.getAttribute('data-v')===v); });
+  // Hay que volver a enganchar: mientras se estaba en lista, un repintado
+  // del calendario devolvió a los días su comportamiento de escritorio
+  // (abrir "Nuevo evento"), porque enganchaCeldas() no actúa en lista.
+  enganchaCeldas();
+  pintaCal();
+}
+
+function pintaCal(){
+  if(!movil()) return;
+  if(vistaC === 'rejilla') pintaDia(); else pintaAgenda();
+}
+
+/* Al tocar un día se selecciona y su detalle sale debajo. Los puntos no
+   se pueden tocar (8 px no es un objetivo para un dedo), así que editar
+   un evento se hace desde estas filas, que son altas. */
+function enganchaCeldas(){
+  if(!movil() || vistaC !== 'rejilla') return;
+  [].forEach.call(document.querySelectorAll('#cal-grid .cal-cell'), function(cel){
+    cel.onclick = function(){
+      diaSel = cel.dataset.key;
+      [].forEach.call(document.querySelectorAll('#cal-grid .cal-cell'), function(c){
+        c.classList.toggle('oi-sel', c === cel); });
+      pintaDia();
+      // Aquí NO se desplaza la vista. Se probó y el remedio era peor: el
+      // nombre del mes y las flechas ‹ › se metían detrás de la barra de
+      // arriba y no se podía cambiar de mes sin volver a subir. En modo
+      // puntos el panel ya queda a la vista sin mover nada.
+    };
+  });
+}
+
+function pintaDia(){
+  var dp = document.getElementById('oi-dia-panel'); if(!dp) return;
+  if(!diaSel){
+    dp.innerHTML = '<div class="oi-dp-vacio">Toca un día para ver lo que tiene.</div>';
+    return;
+  }
+  var d = new Date(diaSel + 'T12:00:00');
+  var evs = (window.events && events[diaSel]) ? events[diaSel] : [];
+  var vis = evs.filter(function(ev){ return activeFilters.has(ev.type); });
+  var h = '<div class="oi-dp-tit">' + esc(DOW[d.getDay()]) + ' ' + d.getDate()
+        + ' de ' + esc(MONTHS[d.getMonth()].toLowerCase()) + '</div>';
+  if(!vis.length){
+    h += '<div class="oi-dp-vacio">No hay nada este día.</div>';
+  } else {
+    vis.forEach(function(ev){
+      var c = COL[ev.type] || '#505060';
+      h += '<div class="oi-dp-ev" data-i="' + evs.indexOf(ev) + '">'
+        +  '<span class="oi-dp-pt" style="background:' + c + '"></span>'
+        +  '<span class="oi-dp-txt">' + esc(titulo(ev)) + '</span></div>';
+    });
+  }
+  h += '<button class="oi-dp-add">+ Añadir a este día</button>';
+  dp.innerHTML = h;
+  dp.onclick = function(e){
+    if(e.target.closest('.oi-dp-add')){ openModal(diaSel); return; }
+    var f = e.target.closest('.oi-dp-ev');
+    if(f) openModal(diaSel, parseInt(f.getAttribute('data-i'), 10));
+  };
+}
+
+function pintaAgenda(){
+  var ag = document.getElementById('oi-agenda'); if(!ag) return;
+  var evs = window.events || {};
+  // sólo el mes que se está viendo, para que cuadre con las flechas
+  var pre = curYear + '-' + String(curMonth+1).padStart(2,'0') + '-';
+  var dias = Object.keys(evs).filter(function(k){
+    return k.indexOf(pre)===0 && (evs[k]||[]).some(function(ev){ return activeFilters.has(ev.type); });
+  }).sort();
+  if(!dias.length){
+    ag.innerHTML = '<div class="oi-ag-nada">Este mes no tiene nada con los filtros puestos.</div>';
+    ag.onclick = null;
+    return;
+  }
+  var hoy = new Date();
+  var hoyK = hoy.getFullYear() + '-' + String(hoy.getMonth()+1).padStart(2,'0')
+           + '-' + String(hoy.getDate()).padStart(2,'0');
+  var h = '';
+  dias.forEach(function(k){
+    var d = new Date(k + 'T12:00:00');
+    var todos = evs[k] || [];
+    var vis = todos.filter(function(ev){ return activeFilters.has(ev.type); });
+    h += '<div class="oi-ag-dia' + (k===hoyK ? ' hoy' : '') + '">'
+      +  '<div class="oi-ag-fecha"><div class="oi-ag-dow">' + esc(DOW[d.getDay()]) + '</div>'
+      +  '<div class="oi-ag-num">' + d.getDate() + '</div></div><div class="oi-ag-evs">';
+    vis.forEach(function(ev){
+      var c = COL[ev.type] || '#505060';
+      h += '<div class="oi-ag-ev" data-k="' + k + '" data-i="' + todos.indexOf(ev) + '">'
+        +  '<span class="oi-ag-barra" style="background:' + c + '"></span>'
+        +  '<div style="min-width:0;"><div class="oi-ag-t">' + esc(titulo(ev)) + '</div>'
+        +  '<div class="oi-ag-s" style="color:' + c + '">' + esc(subtitulo(ev)) + '</div></div></div>';
+    });
+    h += '</div></div>';
+  });
+  ag.innerHTML = h;
+  ag.onclick = function(e){
+    var f = e.target.closest('.oi-ag-ev'); if(!f) return;
+    openModal(f.getAttribute('data-k'), parseInt(f.getAttribute('data-i'), 10));
+  };
+}
+
+/* ── Planning: un día o la semana ─────────────────────────────────── */
+var vistaP = 'dia', diaP = 0;
+
+function vistaPlan(v){
+  vistaP = v;
+  document.body.classList.toggle('oi-plan-dia',    v==='dia');
+  document.body.classList.toggle('oi-plan-semana', v==='semana');
+  var sw = document.getElementById('oi-plan-sw');
+  if(sw) [].forEach.call(sw.children, function(b){
+    b.classList.toggle('on', b.getAttribute('data-p')===v); });
+  pintaPlan();
+}
+
+function pintaPlan(){
+  if(!movil()) return;
+  var t = document.getElementById('plan-table'); if(!t) return;
+
+  // tira de días, con la fecha de la semana que se esté viendo
+  var tira = document.getElementById('oi-dias-tira');
+  if(tira && window.weekStart){
+    var h = '';
+    for(var i=0;i<7;i++){
+      var d = new Date(weekStart); d.setDate(d.getDate()+i);
+      h += '<button data-i="' + i + '" class="' + (i===diaP ? 'on' : '') + '">'
+        +  '<div class="d">' + esc(DAY_NAMES[i]) + '</div>'
+        +  '<div class="n">' + d.getDate() + '</div></button>';
+    }
+    tira.innerHTML = h;
+    tira.onclick = function(e){
+      var b = e.target.closest('[data-i]'); if(!b) return;
+      diaP = parseInt(b.getAttribute('data-i'), 10);
+      pintaPlan();
+    };
+  }
+
+  // qué columnas se ven: 0 es HORA, 1..7 son lunes..domingo
+  var soloUno = (vistaP === 'dia');
+  [].forEach.call(t.querySelectorAll('tr'), function(tr){
+    [].forEach.call(tr.children, function(cel, i){
+      cel.style.display = (!soloUno || i===0 || i===diaP+1) ? '' : 'none';
+    });
+  });
+  if(soloUno) t.parentNode.scrollLeft = 0;
+}
+
+/* ── Envolver lo que ya había, sin tocarlo ────────────────────────── */
+function envuelve(nombre, despues){
+  var orig = window[nombre];
+  if(typeof orig !== 'function') return;
+  window[nombre] = function(){
+    var r = orig.apply(this, arguments);
+    try{ despues.apply(this, arguments); }catch(e){}
+    return r;
+  };
+}
+
+function arranca(){
+  if(!movil()){
+    // En el ordenador no se monta nada, para no cambiar ni un píxel.
+    envuelve('renderCalendar', function(){ if(movil()){ monta(); enganchaCeldas(); pintaCal(); } });
+    envuelve('renderWeeklyPlan', function(){ if(movil()){ monta(); pintaPlan(); } });
+    return;
+  }
+  monta();
+  vistaCal('rejilla');
+  vistaPlan('dia');
+  envuelve('renderCalendar',   function(){ enganchaCeldas(); pintaCal(); });
+  envuelve('renderWeeklyPlan', function(){ pintaPlan(); });
+  // Los filtros ya llaman a renderCalendar() al terminar, y ese está
+  // envuelto, así que la lista y el panel del día se enteran solos.
+  // El botón de filtro y el interruptor sólo pintan en el Calendario.
+  envuelve('switchTab', function(t){
+    var m = (t === 'cal') ? '' : 'none';
+    ['oi-filtro-btn','oi-vista-sw'].forEach(function(id){
+      var e = document.getElementById(id); if(e) e.style.display = m;
+    });
+    var s2 = document.getElementById('oi-plan-sw');
+    if(s2) s2.style.display = (t === 'plan') ? '' : 'none';
+  });
+  enganchaCeldas(); pintaCal();
+}
+
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arranca);
+else arranca();
+})();
+</script>
 
 </body>
 <!-- build-old:1786284371 -->
