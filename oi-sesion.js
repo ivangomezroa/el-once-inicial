@@ -762,26 +762,41 @@ function pzArranca(){
   // hay nada que proteger, así que se baja a la primera.
   var estreno = false;
   try{ estreno = !localStorage.getItem(PZ_AUTO); }catch(e2){}
-  var teniaAlgo = PZ_SUELTAS.some(function(k){ return f.tenia[k]; });
   if(estreno){
     try{ localStorage.setItem(PZ_AUTO,'1'); }catch(e2){}
-    if(f.cuenta > 0 || teniaAlgo) f.pend = true;
+    // Solo las tareas y las sesiones son trabajo que se pueda perder. Los
+    // valores sueltos (tipos, modelo de juego, escudo) los crea cualquier
+    // pantalla con solo abrirse, así que tenerlos NO significa ir por
+    // delante: si bloquearan la bajada, un móvil nuevo no se traería nunca
+    // la librería a la primera, porque casi ningún navegador está limpio.
+    if(f.cuenta > 0) f.pend = true;
   }
 
-  if(f.pend || f.lapidas){ pzMarca(true); pzSubeSiHay(); }
-  else {
-    // Cinturón: aunque no hubiera marca, este dispositivo va por delante
-    // si tiene más tareas o sesiones que la nube, o si tiene algo suelto
-    // (el modelo de juego, los tipos, la plantilla, el escudo) que allí
-    // no está. En ese caso se sube, no se baja.
-    pzEstadoAlli(e).then(function(al){
-      var faltan = PZ_SUELTAS.filter(function(k){
-        return f.tenia[k] && al.claves.indexOf(k) < 0;
-      });
-      if(f.cuenta > al.cuenta || faltan.length){ pzMarca(true); return pzSubeSiHay(); }
-      return pzBaja();
-    }).catch(function(){});
-  }
+  // Subir y bajar son cosas distintas y pueden hacer falta las dos a la
+  // vez: por ejemplo un móvil nuevo que ya tiene el escudo (hay que
+  // subirlo) pero no tiene las tareas (hay que bajarlas). Primero se
+  // sube, que es lo que nunca se puede perder, y después se baja.
+  pzEstadoAlli(e).then(function(al){
+    var faltanAlli = PZ_SUELTAS.filter(function(k){
+      return f.tenia[k] && al.claves.indexOf(k) < 0;
+    });
+    var faltanAqui = PZ_SUELTAS.filter(function(k){
+      return !f.tenia[k] && al.claves.indexOf(k) >= 0;
+    });
+    var listasAdelantadas = f.cuenta > al.cuenta;
+    var subir = f.pend || f.lapidas || listasAdelantadas || faltanAlli.length;
+    // Solo se baja si este dispositivo no tiene nada sin guardar.
+    var bajar = !f.pend && !f.lapidas && !listasAdelantadas
+                && (al.cuenta > f.cuenta || faltanAqui.length);
+
+    var p = Promise.resolve();
+    if(subir){ pzMarca(true); p = pzSubeSiHay(); }
+    return p.then(function(){ if(bajar) return pzBaja(); });
+  }).catch(function(){
+    // Sin cobertura: si había algo pendiente se queda marcado y se
+    // reintentará; no se baja nada a ciegas.
+    if(f.pend || f.lapidas) pzMarca(true);
+  });
 
   // Reintentos: al volver la conexión, al dejar la pestaña, y cada 3 min.
   window.addEventListener('online', function(){ pzSubeSiHay(); });
