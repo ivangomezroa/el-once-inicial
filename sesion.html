@@ -436,7 +436,7 @@
   
   <div class="oi-nav-sep"></div>
   <div class="oi-nav-right" style="gap:8px;">
-    <button onclick="printSession()" style="background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.3);color:#C8A84B;padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
+    <button id="btn-print" onclick="printSession()" style="background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.3);color:#C8A84B;padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="2" width="10" height="5" rx="1"/><rect x="2" y="7" width="12" height="7" rx="1"/><rect x="5" y="10" width="6" height="4"/></svg>
       Imprimir
     </button>
@@ -818,9 +818,9 @@ function loadSession(id){
   curSessionId=id;
   const s=sessions.find(s=>s.id===id);if(!s)return;
   renderSessionList();
-  document.getElementById('empty-state').style.display='none';
-  document.getElementById('sess-content').style.display='block';
-  document.getElementById('btn-print').style.display='';
+  var ve=document.getElementById('empty-state'); if(ve) ve.style.display='none';
+  var vc=document.getElementById('sess-content'); if(vc) vc.style.display='block';
+  var vp=document.getElementById('btn-print');    if(vp) vp.style.display='';
   renderSession(s);
 }
 
@@ -1195,10 +1195,12 @@ function updateTotals(s){
 function deleteSession(id){
   if(!confirm('¿Eliminar esta sesión?'))return;
   sessions=sessions.filter(s=>s.id!==id);saveSessions();curSessionId=null;
+  // Sin esto, la sesión reaparecería la próxima vez que se baje de la nube.
+  try{ window.OISesion && OISesion.borrado('sesiones', id); }catch(e){}
   renderSessionList();
-  document.getElementById('empty-state').style.display='';
-  document.getElementById('sess-content').style.display='none';
-  document.getElementById('btn-print').style.display='none';
+  var de=document.getElementById('empty-state'); if(de) de.style.display='';
+  var dc=document.getElementById('sess-content'); if(dc) dc.style.display='none';
+  var dp=document.getElementById('btn-print');    if(dp) dp.style.display='none';
 }
 function printSession(){window.print();}
 
@@ -1297,6 +1299,31 @@ function _loadOiCrest(){
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_loadOiCrest);}
 else{_loadOiCrest();}
+
+// ── Cuando la nube trae datos, refrescar sin recargar ──
+window.addEventListener('oi-datos', function(ev){
+  var cl = (ev.detail && ev.detail.claves) || [];
+  var hay = function(k){ return cl.indexOf(k) >= 0; };
+  try{
+    // Las tareas vienen de la pizarra: aquí solo se leen, para elegirlas.
+    if(hay('pz_tasks_v3')) tasks = JSON.parse(localStorage.getItem('pz_tasks_v3')||'[]');
+    // La plantilla de 24 se pinta dentro de la sesión (la asistencia),
+    // así que no tiene repintado propio: se repinta la sesión abierta.
+    if(hay('pz_players')){
+      var pl = JSON.parse(localStorage.getItem('pz_players')||'null');
+      if(Array.isArray(pl) && pl.length) players = pl;
+    }
+    if(hay('pz_sessions')){
+      sessions = JSON.parse(localStorage.getItem('pz_sessions')||'[]');
+      if(typeof renderSessionList === 'function') renderSessionList();
+    }
+    if(curSessionId && (hay('pz_sessions') || hay('pz_players') || hay('pz_tasks_v3'))){
+      var s2 = sessions.find(function(x){ return x.id === curSessionId; });
+      if(s2 && typeof renderSession === 'function') renderSession(s2);
+    }
+    if(hay('oi_team_crest')) _loadOiCrest();
+  }catch(e){}
+});
 </script>
 </body>
 </html>

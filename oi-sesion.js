@@ -465,22 +465,361 @@ function menu(chip){
   }, 0);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   PIZARRA Y PLANILLA DE SESIÓN EN LA NUBE
+   ══════════════════════════════════════════════════════════════════════
+   La pizarra y la planilla guardaban SOLO en el navegador. Esto las sube
+   y las baja solas, sin pulsar nada, desde CUALQUIERA de las pantallas
+   (porque este fichero lo cargan las seis).
+
+   Por qué es un motor aparte y no el de Análisis:
+     Análisis ya tiene el suyo para informes, jugadores, rivales y
+     calendario. Dos motores tocando los mismos datos es justo la forma
+     de perder trabajo. Así que este usa TABLAS distintas (tareas,
+     sesiones, ajustes), CLAVES de localStorage distintas y su propia
+     marca de pendiente. Los dos no se cruzan en ningún punto.
+
+   Reglas, por orden de importancia — las mismas que ya costaron un
+   disgusto y por las que existe el cinturón de seguridad:
+     1. Nunca se pierde trabajo. Subir solo añade y actualiza.
+     2. Solo se BAJA si este dispositivo no tiene nada pendiente.
+     3. Sin cobertura no pasa nada: queda pendiente y se sube al volver.
+     4. Los borrados viajan (lápidas), si no reaparecen al bajar.
+   ══════════════════════════════════════════════════════════════════════ */
+var PZ_PEND  = 'oi_pz_pend';       // hay cambios de aquí sin subir
+var PZ_BORRA = 'oi_pz_borrados';   // lápidas: lo borrado aquí, para borrarlo allí
+var PZ_AUTO  = 'oi_pz_auto';       // ya se estrenó el automático en este navegador
+var PZ_ULT   = 'oi_pz_ultima';
+var PZ_CALMA = 12000;              // espera tras el último cambio
+
+// Listas (una fila por elemento) y valores sueltos (una fila por clave).
+var PZ_LISTAS = {
+  'pz_tasks_v3': {tabla:'tareas',   fila: function(t){
+      return {id_local:String(t.id), nombre:String(t.name||''),
+              fase:String(t.fasePrincipal||''), datos:t}; }},
+  'pz_sessions': {tabla:'sesiones', fila: function(s){
+      return {id_local:String(s.id), numero:(parseInt(s.num,10)||null),
+              fecha:String(s.date||''), datos:s}; }}
+};
+var PZ_SUELTAS = ['pz_mdj','pz_tipos','pz_players','oi_team_crest'];
+var PZ_CLAVES  = {'pz_tasks_v3':1,'pz_sessions':1,'pz_mdj':1,'pz_tipos':1,
+                  'pz_players':1,'oi_team_crest':1};
+
+var pzT = null, pzEnCurso = false;
+
+// ── La foto del momento de abrir ──────────────────────────────────────
+// Se toma AQUÍ, al cargar este fichero, que va en el <head> y por tanto
+// antes de que la pantalla ejecute nada. Hace falta porque las pantallas
+// escriben en localStorage solo con pintarse (la pizarra reescribe
+// pz_tipos y pz_mdj cada vez), y eso pasa ANTES de que la decisión de
+// subir o bajar llegue de la nube. Si la decisión se tomara leyendo el
+// momento, un dispositivo recién estrenado se creería con trabajo
+// pendiente por haber abierto la pantalla, y nunca bajaría nada.
+var pzInicio = null;
+function pzFoto(){
+  if(pzInicio) return pzInicio;
+  var tenia = {};
+  PZ_SUELTAS.forEach(function(k){
+    try{ tenia[k] = localStorage.getItem(k) !== null; }catch(e){ tenia[k] = false; }
+  });
+  pzInicio = {pend: pzPend(), lapidas: pzLapidas().length,
+              cuenta: pzCuentaAqui(), tenia: tenia, listas: pzCuentaPorLista()};
+  return pzInicio;
+}
+function pzCuentaPorLista(){
+  var o = {};
+  Object.keys(PZ_LISTAS).forEach(function(k){
+    var a = pzLista(k);
+    o[k] = a ? a.filter(function(x){ return x && x.id; }).length : 0;
+  });
+  return o;
+}
+
+function pzPend(){ try{ return localStorage.getItem(PZ_PEND)==='1'; }catch(e){ return false; } }
+function pzMarca(si){
+  try{ si ? localStorage.setItem(PZ_PEND,'1') : localStorage.removeItem(PZ_PEND); }catch(e){}
+}
+function pzLapidas(){
+  try{ var a=JSON.parse(localStorage.getItem(PZ_BORRA)||'[]'); return Array.isArray(a)?a:[]; }
+  catch(e){ return []; }
+}
+// El escudo es una cadena base64, no JSON: se envuelve para que quepa
+// en la misma columna jsonb que el resto.
+function pzLeeSuelta(k){
+  try{
+    var s = localStorage.getItem(k);
+    if(s===null) return null;
+    if(k==='oi_team_crest') return {v:s};
+    return JSON.parse(s);
+  }catch(e){ return null; }
+}
+function pzEscribeSuelta(k, d){
+  try{
+    if(d===null || d===undefined) return false;
+    if(k==='oi_team_crest'){
+      var v = (d && typeof d==='object') ? d.v : d;
+      if(!v) return false;
+      localStorage.setItem(k, String(v)); return true;
+    }
+    localStorage.setItem(k, JSON.stringify(d)); return true;
+  }catch(e){ return false; }
+}
+function pzLista(k){
+  try{ var a=JSON.parse(localStorage.getItem(k)||'null'); return Array.isArray(a)?a:null; }
+  catch(e){ return null; }
+}
+
+// Cuántas tareas y sesiones hay aquí. Es el cinturón: si aquí hay más
+// que allí, este dispositivo va por delante y NO se baja nada encima.
+function pzCuentaAqui(){
+  var n = 0;
+  Object.keys(PZ_LISTAS).forEach(function(k){
+    var a = pzLista(k); if(a) n += a.filter(function(x){ return x && x.id; }).length;
+  });
+  return n;
+}
+// Qué hay en la nube, en barato: solo los id_local y las claves, que
+// pesan poco. Así no hay que depender de las cabeceras de conteo de
+// PostgREST, y de paso se sabe qué valores sueltos tiene ya.
+function pzEstadoAlli(e){
+  var q = 'espacio_id=eq.' + encodeURIComponent(e.id);
+  return Promise.all([
+    pide('/rest/v1/tareas?'   + q + '&select=id_local'),
+    pide('/rest/v1/sesiones?' + q + '&select=id_local'),
+    pide('/rest/v1/ajustes?'  + q + '&select=clave')
+  ]).then(function(r){
+    return {cuenta: (r[0]||[]).length + (r[1]||[]).length,
+            claves: (r[2]||[]).map(function(x){ return x.clave; })};
+  });
+}
+
+// ── Apuntar un borrado, para que también se borre en la nube ──
+function pzBorrado(tabla, idLocal){
+  try{
+    var a = pzLapidas();
+    a.push({tabla:tabla, id:String(idLocal)});
+    localStorage.setItem(PZ_BORRA, JSON.stringify(a.slice(-400)));
+    pzMarca(true); pzCambio();
+  }catch(e){}
+}
+function pzAplicaLapidas(e){
+  var a = pzLapidas();
+  if(!a.length) return Promise.resolve(0);
+  return Promise.all(a.map(function(l){
+    return pide('/rest/v1/'+l.tabla+'?espacio_id=eq.'+encodeURIComponent(e.id)
+              + '&id_local=eq.'+encodeURIComponent(l.id), {method:'DELETE'})
+      .then(function(){ return 1; });
+  })).then(function(){
+    try{ localStorage.removeItem(PZ_BORRA); }catch(e2){}
+    return a.length;
+  });
+}
+
+// ── Subir ──
+function pzSubeTabla(tabla, filas){
+  if(!filas.length) return Promise.resolve(0);
+  var LIMITE = 1200*1024, lotes = [], i = 0;
+  while(i < filas.length){
+    var lote = [], bytes = 0;
+    while(i < filas.length){
+      var s = JSON.stringify(filas[i]).length;
+      if(lote.length && bytes + s > LIMITE) break;
+      lote.push(filas[i]); bytes += s; i++;
+    }
+    lotes.push(lote);
+  }
+  return lotes.reduce(function(p, lote){
+    return p.then(function(){
+      return pide('/rest/v1/'+tabla+'?on_conflict=espacio_id,id_local', {
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body: JSON.stringify(lote)
+      });
+    });
+  }, Promise.resolve()).then(function(){ return filas.length; });
+}
+
+function pzSube(){
+  var e = leeLS(K_ESP);
+  if(!ses || !e || !e.id) return Promise.reject(new Error('Sin sesión o sin espacio'));
+  var res = {};
+  return pzAplicaLapidas(e).then(function(){
+    var pasos = [];
+    Object.keys(PZ_LISTAS).forEach(function(k){
+      var cfg = PZ_LISTAS[k], a = pzLista(k);
+      if(!a) return;
+      var filas = a.filter(function(x){ return x && x.id; }).map(function(x){
+        var f = cfg.fila(x); f.espacio_id = e.id; return f;
+      });
+      pasos.push(function(){
+        return pzSubeTabla(cfg.tabla, filas).then(function(n){ res[cfg.tabla] = n; });
+      });
+    });
+    var aj = [];
+    PZ_SUELTAS.forEach(function(k){
+      var d = pzLeeSuelta(k);
+      if(d===null || d===undefined) return;
+      aj.push({espacio_id:e.id, clave:k, datos:d});
+    });
+    if(aj.length) pasos.push(function(){
+      return pide('/rest/v1/ajustes?on_conflict=espacio_id,clave', {
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body: JSON.stringify(aj)
+      }).then(function(){ res.ajustes = aj.length; });
+    });
+    return pasos.reduce(function(p,f){ return p.then(f); }, Promise.resolve());
+  }).then(function(){
+    try{ localStorage.setItem(PZ_ULT, new Date().toISOString()); }catch(e2){}
+    return res;
+  });
+}
+
+// ── Bajar ──
+function pzBaja(){
+  var e = leeLS(K_ESP);
+  if(!e || !e.id) return Promise.reject(new Error('Sin espacio'));
+  var q = 'espacio_id=eq.' + encodeURIComponent(e.id);
+  return Promise.all([
+    pide('/rest/v1/tareas?'   + q + '&select=datos'),
+    pide('/rest/v1/sesiones?' + q + '&select=datos'),
+    pide('/rest/v1/ajustes?'  + q + '&select=clave,datos')
+  ]).then(function(r){
+    var tareas   = (r[0]||[]).map(function(x){ return x.datos; }).filter(Boolean);
+    var sesiones = (r[1]||[]).map(function(x){ return x.datos; }).filter(Boolean);
+    var ajustes  = {};
+    (r[2]||[]).forEach(function(x){ if(x && x.clave) ajustes[x.clave] = x.datos; });
+
+    var cambiadas = [];
+    var ahora = pzCuentaPorLista(), f0 = pzFoto().listas;
+    // Último cinturón: si una lista ha CRECIDO desde que se abrió la
+    // pantalla, aquí se ha guardado algo mientras se pedían los datos.
+    // Eso no se pisa: se sube en la siguiente vuelta.
+    var seguro = function(k){ return ahora[k] <= (f0[k]||0); };
+    window.__oiBajando = true;
+    try{
+      // Solo se escribe lo que la nube tiene de verdad: una nube vacía
+      // no borra lo que haya aquí.
+      if(tareas.length && seguro('pz_tasks_v3')){
+        try{ localStorage.setItem('pz_tasks_v3', JSON.stringify(tareas)); cambiadas.push('pz_tasks_v3'); }catch(e2){}
+      }
+      if(sesiones.length && seguro('pz_sessions')){
+        try{ localStorage.setItem('pz_sessions', JSON.stringify(sesiones)); cambiadas.push('pz_sessions'); }catch(e2){}
+      }
+      PZ_SUELTAS.forEach(function(k){
+        if(ajustes[k] !== undefined && pzEscribeSuelta(k, ajustes[k])) cambiadas.push(k);
+      });
+    } finally {
+      window.__oiBajando = false;
+    }
+    // Bajar NO deja pendiente: si lo dejara, se subiría en bucle. Pero si
+    // algo se ha quedado sin pisar por el cinturón, eso SÍ hay que subirlo.
+    var protegidas = Object.keys(PZ_LISTAS).filter(function(k){ return !seguro(k); });
+    if(protegidas.length){ pzMarca(true); pzCambio(); } else { pzMarca(false); }
+    if(cambiadas.length) pzAvisaPantalla(cambiadas);
+    return {tareas:tareas.length, sesiones:sesiones.length,
+            ajustes:Object.keys(ajustes).length, claves:cambiadas};
+  });
+}
+
+// La pantalla ya está pintada con lo que había, así que se le avisa para
+// que se refresque sin recargar. Si no escucha, no pasa nada: el dato ya
+// está guardado y se verá la próxima vez.
+function pzAvisaPantalla(claves){
+  try{
+    window.dispatchEvent(new CustomEvent('oi-datos', {detail:{claves:claves}}));
+  }catch(e){}
+}
+
+// ── Automático ──
+function pzCambio(){
+  if(!ses) return;
+  pzMarca(true);
+  if(pzT) clearTimeout(pzT);
+  pzT = setTimeout(function(){ pzSubeSiHay(); }, PZ_CALMA);
+}
+
+function pzSubeSiHay(){
+  if(pzEnCurso || !ses) return Promise.resolve();
+  if(!pzPend() && !pzLapidas().length) return Promise.resolve();
+  pzEnCurso = true;
+  return pzSube().then(function(){
+    pzMarca(false);
+  }).catch(function(){
+    // Sin cobertura: se queda pendiente y se reintenta.
+  }).then(function(){ pzEnCurso = false; });
+}
+
+function pzArranca(){
+  var e = leeLS(K_ESP);
+  if(!ses || !e || !e.id) return;
+
+  var f = pzFoto();
+
+  // Primera vez en este navegador: no hay forma de saber si aquí hay
+  // trabajo posterior a la última subida, así que si había ALGO se da por
+  // hecho que sí y se sube en vez de bajar. En un dispositivo virgen no
+  // hay nada que proteger, así que se baja a la primera.
+  var estreno = false;
+  try{ estreno = !localStorage.getItem(PZ_AUTO); }catch(e2){}
+  var teniaAlgo = PZ_SUELTAS.some(function(k){ return f.tenia[k]; });
+  if(estreno){
+    try{ localStorage.setItem(PZ_AUTO,'1'); }catch(e2){}
+    if(f.cuenta > 0 || teniaAlgo) f.pend = true;
+  }
+
+  if(f.pend || f.lapidas){ pzMarca(true); pzSubeSiHay(); }
+  else {
+    // Cinturón: aunque no hubiera marca, este dispositivo va por delante
+    // si tiene más tareas o sesiones que la nube, o si tiene algo suelto
+    // (el modelo de juego, los tipos, la plantilla, el escudo) que allí
+    // no está. En ese caso se sube, no se baja.
+    pzEstadoAlli(e).then(function(al){
+      var faltan = PZ_SUELTAS.filter(function(k){
+        return f.tenia[k] && al.claves.indexOf(k) < 0;
+      });
+      if(f.cuenta > al.cuenta || faltan.length){ pzMarca(true); return pzSubeSiHay(); }
+      return pzBaja();
+    }).catch(function(){});
+  }
+
+  // Reintentos: al volver la conexión, al dejar la pestaña, y cada 3 min.
+  window.addEventListener('online', function(){ pzSubeSiHay(); });
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden') pzSubeSiHay();
+  });
+  setInterval(function(){ pzSubeSiHay(); }, 180000);
+}
+
+// Se toma ya, mientras nadie ha podido escribir nada.
+pzFoto();
+
 // ── Vigilar cambios de datos en CUALQUIER pantalla ────────────────────
-// Planificación, Pizarra, Sesión y Captación no hablan con la nube, pero sí
-// escriben en localStorage. Si no se enterara nadie, Análisis pensaría que
-// este dispositivo está al día y bajaría la nube encima de esos cambios.
-// Aquí se marca "pendiente" y Análisis ya se encarga de subirlo.
+// Ninguna pantalla salvo Análisis habla con la nube, pero todas escriben
+// en localStorage. Para las claves de Análisis se deja la marca y él se
+// encarga; para las de pizarra y sesión, este fichero las sube él mismo.
 (function vigila(){
   var CLAVES = {'oi_informes_v3':1,'oi_jug_informes_v1':1,'oi_jugadores_v1':1,
                 'oi_rivals_v1':1,'oi_cal_v2':1};
   var guardar = Storage.prototype.setItem;
+  var leer = Storage.prototype.getItem;
   Storage.prototype.setItem = function(k,v){
+    var vigilada = CLAVES[k] || PZ_CLAVES[k];
+    // Volver a escribir LO MISMO no es un cambio. Importa de verdad: la
+    // pizarra reescribe pz_tipos y pz_mdj cada vez que se pinta, así que
+    // sin esta comprobación el dispositivo se marcaba "pendiente" solo por
+    // abrir la pantalla, y entonces nunca se bajaba nada de la nube.
+    var igual = false;
+    if(vigilada && !window.__oiBajando){
+      try{ igual = (leer.call(this, k) === String(v)); }catch(e){}
+    }
     var r = guardar.call(this,k,v);
     try{
-      // Al traer de la nube también se escriben estas claves: eso no es un
-      // cambio de este dispositivo.
-      if(CLAVES[k] && !window.__oiBajando && localStorage.getItem(K_SES)){
-        guardar.call(localStorage, 'oi_nube_pendiente', '1');
+      // Al traer de la nube también se escriben estas claves: eso tampoco
+      // es un cambio de este dispositivo.
+      if(vigilada && !igual && !window.__oiBajando && localStorage.getItem(K_SES)){
+        if(CLAVES[k]) guardar.call(localStorage, 'oi_nube_pendiente', '1');
+        if(PZ_CLAVES[k]){ guardar.call(localStorage, PZ_PEND, '1'); pzCambio(); }
       }
     }catch(e){}
     return r;
@@ -505,13 +844,13 @@ function arranca(){
     if(!t){ quitaVelo(); modo = 'entrar'; pintaEntrar(); return; }
     return aplicaInvitacion().then(function(){
       cargaSesion();
-      if(esp && esp.id){ quitaVelo(); ponChip(); return; }
+      if(esp && esp.id){ quitaVelo(); ponChip(); pzArranca(); return; }
       return rpc('mis_espacios').then(function(lista){
         lista = lista || [];
         if(lista.length === 1){
           grabaLS(K_ESP, {id:lista[0].id, nombre:lista[0].nombre, rol:lista[0].rol});
           esp = leeLS(K_ESP);
-          quitaVelo(); ponChip();
+          quitaVelo(); ponChip(); pzArranca();
         } else {
           pintaEspacios(lista);
         }
@@ -523,6 +862,9 @@ function arranca(){
       quitaVelo(); ponChip();
       var chip = document.getElementById('oi-s-chip');
       if(chip){ chip.title = 'Sin conexión con la nube: trabajas en local'; chip.style.opacity = '.62'; }
+      // Sin cobertura no se baja nada, pero sí se dejan puestos los
+      // reintentos: lo que se trabaje ahora subirá al volver la conexión.
+      pzArranca();
     } else {
       pintaEspacios([]);
       aviso('No se ha podido hablar con la nube: ' + mensajeError(e), 'mal');
@@ -535,7 +877,13 @@ window.OISesion = {
   traeJugadores: traeJugadores,
   testigo: testigo,
   salir: salir,
-  URL: URL_, KEY: KEY
+  URL: URL_, KEY: KEY,
+  // Pizarra y planilla de sesión: la pantalla apunta el borrado con
+  // `borrado()` y escucha el evento 'oi-datos' para refrescarse.
+  borrado: pzBorrado,
+  sube: pzSubeSiHay,
+  baja: pzBaja,
+  pendiente: pzPend
 };
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arranca);

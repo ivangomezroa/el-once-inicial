@@ -2513,7 +2513,10 @@ window.duplicateTask=function(id){
 }
 
 // Event delegation registered in init() below
-function deleteTask(id){if(!confirm('¿Eliminar?'))return;tasks=tasks.filter(t=>t.id!==id);localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks));if(tid===id)tid=null;renderLib();}
+function deleteTask(id){if(!confirm('¿Eliminar?'))return;tasks=tasks.filter(t=>t.id!==id);localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks));
+  // Sin esto, la tarea reaparecería la próxima vez que se baje de la nube.
+  try{ window.OISesion && OISesion.borrado('tareas', id); }catch(e){}
+  if(tid===id)tid=null;renderLib();}
 
 function getFT(f){if(!f)return'';if(f.startsWith('OF-ORG'))return`<span class="tag tag-of">Org.Of</span>`;if(f.startsWith('OF-TR'))return`<span class="tag tag-to">Trans.Of</span>`;if(f.startsWith('DEF-ORG'))return`<span class="tag tag-def">Org.Def</span>`;if(f.startsWith('DEF-TR'))return`<span class="tag tag-td">Trans.Def</span>`;if(f.startsWith('ABP'))return`<span class="tag tag-abp">ABP</span>`;return'';}
 function renderLib(){
@@ -3162,6 +3165,31 @@ function _loadOiCrest(){
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_loadOiCrest);}
 else{_loadOiCrest();}
+
+// ── Cuando la nube trae datos, refrescar sin recargar ──
+// La pantalla ya está pintada con lo que había en el navegador. Si llega
+// algo de la nube (otro dispositivo, o la primera visita en este), hay
+// que releerlo: si no, se vería lo viejo hasta recargar a mano.
+window.addEventListener('oi-datos', function(ev){
+  var cl = (ev.detail && ev.detail.claves) || [];
+  var hay = function(k){ return cl.indexOf(k) >= 0; };
+  try{
+    if(hay('pz_tasks_v3')){
+      tasks = JSON.parse(localStorage.getItem('pz_tasks_v3')||'[]');
+      if(typeof renderLib === 'function') renderLib();
+    }
+    if(hay('pz_tipos')){
+      tipos = JSON.parse(localStorage.getItem('pz_tipos')||'[]');
+      if(typeof renderTipos === 'function') renderTipos();
+    }
+    if(hay('pz_mdj')){
+      mdj = JSON.parse(localStorage.getItem('pz_mdj')||'{}');
+      if(typeof renderMDJ === 'function') renderMDJ();
+    }
+    if(hay('oi_team_crest')) _loadOiCrest();
+    if(cl.length && typeof notify === 'function') notify('Datos traídos de la nube');
+  }catch(e){}
+});
 </script>
 <script>
 // Marcar pestaña activa en pizarra
