@@ -1546,9 +1546,28 @@ function hitLine(x,y,l){
   const t=Math.max(0,Math.min(1,((x-l.x1)*dx+(y-l.y1)*dy)/len2));
   return Math.hypot(x-(l.x1+t*dx),y-(l.y1+t*dy))<14;
 }
+// Cierra lo que haya abierto encima del campo. Devuelve true si cerró algo.
+// El menú de pulsación larga ya se cerraba solo (por el click en el
+// documento), pero el modal de Cambiar color / Tamaño se quedaba abierto
+// hasta darle a la ×. Los cajones de Elementos y Ficha no hacen falta
+// aquí: los tapa su propio velo, que ya los cierra al tocarlo.
+function cierraLoDeEncima(){
+  var algo = false;
+  var m = document.getElementById('dmodal');
+  if(m && getComputedStyle(m).display !== 'none'){ closeProps(); algo = true; }
+  var c = document.getElementById('ctx');
+  if(c && c.classList.contains('show')){ closeCtx(); algo = true; }
+  return algo;
+}
+
 function onMD(e){
   if(e.button===2)return;
   const{x,y}=gpos(e);
+
+  // Si había algo abierto encima, el primer toque sólo sirve para
+  // descartarlo: así no se mueve el dibujo sin querer. Salvo que haya un
+  // elemento esperando a colocarse, que entonces manda eso.
+  if(!tapPlaceEl && cierraLoDeEncima()) return;
 
   // TAP-TO-PLACE (mobile palette)
   if(tapPlaceEl){
