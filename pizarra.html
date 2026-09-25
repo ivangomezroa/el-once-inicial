@@ -79,6 +79,27 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .panel-body::-webkit-scrollbar{width:3px;}
 .panel-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 /* DRAWER OVERLAY */
+/* Girar y ampliar la vista se añadieron para el móvil: con ratón el campo
+   entra entero y tumbado, que es como se guarda. Dejando esos cinco
+   controles en el ordenador la barra crecía más que la pantalla y se
+   quedaban fuera dos botones de capas (Enviar atrás y Al fondo). */
+@media (pointer:fine){
+  .tb-vista.solo-dedo{display:none;}
+}
+/* El aviso de "Shift+clic=multi" es de adorno y ya está en los títulos de
+   los botones: por debajo de 1500 px se queda fuera de la barra y además
+   empuja a los botones de capas. Se esconde ahí. */
+@media (max-width:1499px){
+  .canvas-info{display:none;}
+}
+/* En pantallas de ordenador menos anchas los botones se aprietan un poco,
+   para que ninguno quede fuera de la barra. Antes, en un portátil de
+   1280, los dos últimos de capas ya se salían. A 1440 no cambia nada. */
+@media (pointer:fine) and (max-width:1439px){
+  .canvas-toolbar .tb{width:27px;height:27px;}
+  .canvas-toolbar .tbw{width:auto;padding:0 6px;}
+  .canvas-toolbar .tsep{margin:0 1px;}
+}
 .drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:149;-webkit-tap-highlight-color:transparent;}
 .drawer-overlay.show{display:block;}
 /* PALETTE */
@@ -561,14 +582,15 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
     <div class="tb" id="tb-pressure" onclick="setLT('pressure')" title="Presión"><svg width="22" height="13" viewBox="0 0 22 13"><line x1="1" y1="6.5" x2="17" y2="6.5" stroke="#FFC000" stroke-width="2" stroke-dasharray="3,2"/><polygon points="21,6.5 14,3 14,10" fill="#FFC000"/></svg></div>
     <div class="tb" id="tb-dots" onclick="setLT('dots')" title="Línea puntos (sin flecha)"><svg width="22" height="13" viewBox="0 0 22 13"><line x1="1" y1="6.5" x2="21" y2="6.5" stroke="#fff" stroke-width="2" stroke-dasharray="2,4"/></svg></div>
     <div class="tsep"></div>
-    <div class="tb" onclick="undo()" title="Deshacer"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 6.5a5 5 0 1 1 1 3"/><polyline points="0,4 1.5,6.5 4.5,5"/></svg></div>
+    <div class="tb" onclick="undo()" title="Deshacer (Ctrl+Z)"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 6.5a5 5 0 1 1 1 3"/><polyline points="0,4 1.5,6.5 4.5,5"/></svg></div>
+    <div class="tb" onclick="redo()" title="Rehacer (Ctrl+Y)"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" transform="scale(-1,1) translate(-13,0)"><path d="M1.5 6.5a5 5 0 1 1 1 3"/><polyline points="0,4 1.5,6.5 4.5,5"/></svg></div>
     <div class="tb" onclick="clearCanvas()" title="Limpiar campo"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="11" height="11" rx="2"/><line x1="4" y1="4" x2="9" y2="9"/><line x1="9" y1="4" x2="4" y2="9"/></svg></div>
     <div class="tsep"></div>
-    <div class="tb tb-vista" id="tb-orient" onclick="toggleOrient()" title="Ver el campo de pie o tumbado">↕ De pie</div>
-    <div class="tb tb-vista" onclick="vZoom(1.4)" title="Ampliar">＋</div>
-    <div class="tb tb-vista" onclick="vZoom(1/1.4)" title="Reducir">－</div>
-    <div class="tb tb-vista" id="tb-todo" onclick="vTodo()" title="Ver todo el campo">⤢</div>
-    <span class="tb-zoom" id="tb-zoomtxt">100%</span>
+    <div class="tb tb-vista solo-dedo" id="tb-orient" onclick="toggleOrient()" title="Ver el campo de pie o tumbado">↕ De pie</div>
+    <div class="tb tb-vista solo-dedo" onclick="vZoom(1.4)" title="Ampliar">＋</div>
+    <div class="tb tb-vista solo-dedo" onclick="vZoom(1/1.4)" title="Reducir">－</div>
+    <div class="tb tb-vista solo-dedo" id="tb-todo" onclick="vTodo()" title="Ver todo el campo">⤢</div>
+    <span class="tb-zoom tb-vista solo-dedo" id="tb-zoomtxt">100%</span>
     <div class="tsep"></div>
     <span style="font-size:10px;color:var(--text3);">Campo:</span>
     <div class="tb tbw active" id="tb-full" onclick="setFT('full')">Completo</div>
@@ -713,7 +735,7 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
 // Goal: 7.32m wide
 
 // ============ STATE ============
-let ELS=[],LINES=[],HIST=[],selEl=null,selLine=null;
+let ELS=[],LINES=[],HIST=[],REDO=[],selEl=null,selLine=null;
 let selGroup=[]; // multi-selection: elements
 let selGroupLines=[]; // multi-selection: lines
 let tool='select',lt='pass',ft='full',horiz=true;
@@ -942,7 +964,10 @@ function fieldRect(){
     else{fh=avH;fw=fh/ratio;}
   }
   fw=Math.max(1,fw);fh=Math.max(1,fh);
-  return{x:(W-fw)/2,y:(H-fh)/2,w:fw,h:fh};
+  // Redondeado a píxeles enteros: si el lienzo mide un alto impar, el campo
+  // centrado caía en medio píxel y las líneas del campo salían borrosas.
+  // Además así el dibujo no depende de que el alto del lienzo sea par.
+  return{x:Math.round((W-fw)/2),y:Math.round((H-fh)/2),w:Math.round(fw),h:Math.round(fh)};
 }
 
 // ============ FIELD DRAWING ============
@@ -1797,10 +1822,24 @@ function onDbl(e){
 }
 
 // ============ CONTEXT MENU / PROPS ============
-let ctxEl=null,ctxLine=null;
+let ctxEl=null,ctxLine=null,ctxPunto=null;
+// El portapapeles es {els:[],lines:[]} desde que se copian también las
+// flechas; antes era un array suelto. Las dos comprobaciones de abajo
+// seguían midiendo clipboard.length, que en un objeto es undefined: por
+// eso "Pegar" no salía nunca y la pulsación larga sobre el fondo del
+// campo no abría el menú.
+function hayEnPortapapeles(){
+  if(!clipboard) return 0;
+  if(Array.isArray(clipboard)) return clipboard.length;
+  return (clipboard.els||[]).length + (clipboard.lines||[]).length;
+}
+
 function onRClick(e){
   e.preventDefault();
   const{x,y}=gpos(e);
+  // Dónde se ha pulsado, para pegar ahí mismo y no con un desplazamiento
+  // fijo respecto al original.
+  ctxPunto={x:x,y:y};
 
   // Lines get priority over zones — same logic as onMD
   const hitL=LINES.find(l=>hitLine(x,y,l));
@@ -1813,7 +1852,7 @@ function onRClick(e){
   ctxEl=hit||null;
   ctxLine=finalLine||null;
 
-  if(!hit&&!ctxLine&&(!clipboard||!clipboard.length))return;
+  if(!hit&&!ctxLine&&!hayEnPortapapeles())return;
 
   if(hit){selEl=hit;selLine=null;}
   else if(ctxLine){selLine=ctxLine;selEl=null;}
@@ -1825,13 +1864,16 @@ function onRClick(e){
 
   document.getElementById('ctx-copy').style.display=(hasEl||hasLine)?'flex':'none';
   document.getElementById('ctx-cut').style.display=(hasEl||hasLine)?'flex':'none';
-  document.getElementById('ctx-paste').style.display=clipboard&&clipboard.length?'flex':'none';
+  document.getElementById('ctx-paste').style.display=hayEnPortapapeles()?'flex':'none';
   const zShow=(hasEl||hasLine)?'flex':'none';
   document.getElementById('ctx-front').style.display=zShow;
   document.getElementById('ctx-fwd').style.display=zShow;
   document.getElementById('ctx-bwd').style.display=zShow;
   document.getElementById('ctx-back').style.display=zShow;
   document.getElementById('ctx-color').style.display=(hasEl||hasLine)?'flex':'none';
+  // Eliminar no se ocultaba nunca: en el menú del fondo (sólo Pegar)
+  // aparecía un "Eliminar" que no borraba nada.
+  document.getElementById('ctx-del').style.display=(hasEl||hasLine)?'flex':'none';
   document.getElementById('ctx-label').style.display=(hasEl&&(hit.type==='ct'||hit.type==='player'||hit.type==='label'))?'flex':'none';
   document.getElementById('ctx-resize').style.display=(hasEl&&(hit.type==='goal-big'||hit.type==='goal-mini'||hit.type==='zone'||hit.type==='cone'||hit.type==='cone-flat'||hit.type==='hurdle-s'||hit.type==='hurdle-l'||hit.type==='hoop'||hit.type==='ladder'))?'flex':'none';
   // El alto depende de cuantas opciones se muestren, asi que se mide:
@@ -1845,7 +1887,7 @@ function onRClick(e){
 
 document.getElementById('ctx-copy').onclick=()=>{closeCtx();copySelected();};
 document.getElementById('ctx-cut').onclick=()=>{closeCtx();cutSelected();};
-document.getElementById('ctx-paste').onclick=()=>{closeCtx();pasteClipboard();};
+document.getElementById('ctx-paste').onclick=()=>{closeCtx();pasteClipboard(ctxPunto);};
 document.getElementById('ctx-color').onclick=()=>{closeCtx();if(ctxEl)openColorProps(ctxEl);if(ctxLine)openLineColorProps(ctxLine);};
 document.getElementById('ctx-label').onclick=()=>{closeCtx();if(ctxEl){const l=prompt('Texto/Siglas:',ctxEl.label||ctxEl.num||ctxEl.text||'');if(l!==null){if(ctxEl.type==='player')ctxEl.num=l.trim();else if(ctxEl.type==='ct')ctxEl.label=l.trim().substring(0,4);else ctxEl.text=l.trim();render();}}};
 document.getElementById('ctx-resize').onclick=()=>{closeCtx();if(ctxEl)openResizeProps(ctxEl);};
@@ -1974,7 +2016,7 @@ function setTool(t){
   document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
   document.getElementById('tb-select')?.classList.add('active');
   document.querySelectorAll('.pal-wide').forEach(b=>b.classList.remove('atool'));
-  canvas.style.cursor='default';
+  cv.style.cursor='default';
 }
 function setLT(t){
   lt=t;tool=t;
@@ -2019,8 +2061,13 @@ function deleteSelected(){
   render();
 }
 function clearCanvas(){if(!confirm('¿Limpiar el campo?'))return;saveH();ELS=[];LINES=[];selEl=null;selLine=null;selGroup=[];render();}
-function undo(){if(!HIST.length)return;const s=HIST.pop();ELS=s.e;LINES=s.l;selEl=null;selLine=null;selGroup=[];render();}
-function saveH(){HIST.push({e:JSON.parse(JSON.stringify(ELS)),l:JSON.parse(JSON.stringify(LINES))});if(HIST.length>40)HIST.shift();}
+function foto(){return{e:JSON.parse(JSON.stringify(ELS)),l:JSON.parse(JSON.stringify(LINES))};}
+function pon(s){ELS=s.e;LINES=s.l;selEl=null;selLine=null;selGroup=[];selGroupLines=[];render();}
+// Deshacer guarda el estado actual en REDO, para poder volver.
+function undo(){if(!HIST.length){notify('Nada que deshacer');return;}REDO.push(foto());pon(HIST.pop());}
+function redo(){if(!REDO.length){notify('Nada que rehacer');return;}HIST.push(foto());pon(REDO.pop());}
+// Cualquier cambio nuevo invalida lo rehacible, como en cualquier programa.
+function saveH(){HIST.push(foto());if(HIST.length>40)HIST.shift();REDO.length=0;}
 
 // ============ Z-ORDER ============
 function _allZItems(){
@@ -2103,14 +2150,25 @@ function cutSelected(){
   notify(`✓ ${total>1?total+' elementos cortados':'Elemento cortado'}`);
 }
 
-function pasteClipboard(){
+// `destino` (opcional): punto del lienzo donde dejarlo. Se usa al pegar
+// desde el menú, para que caiga donde se ha pulsado. Con Ctrl+V no se
+// pasa nada y se mantiene el desplazamiento de siempre, 18 px.
+function pasteClipboard(destino){
   if(!clipboard)return;
   const elsData=Array.isArray(clipboard)?clipboard:(clipboard.els||[]);
   const linesData=Array.isArray(clipboard)?[]:(clipboard.lines||[]);
   if(!elsData.length&&!linesData.length)return;
   saveH();
-  const pasted=elsData.map(el=>{const ne=JSON.parse(JSON.stringify(el));ne.x+=18;ne.y+=18;return ne;});
-  const pastedLines=linesData.map(l=>{const nl=JSON.parse(JSON.stringify(l));nl.x1+=18;nl.y1+=18;nl.x2+=18;nl.y2+=18;return nl;});
+  let dx=18, dy=18;
+  if(destino){
+    // El grupo se mueve entero: se toma su esquina y se lleva al punto.
+    let minx=Infinity, miny=Infinity;
+    elsData.forEach(el=>{ minx=Math.min(minx,el.x); miny=Math.min(miny,el.y); });
+    linesData.forEach(l=>{ minx=Math.min(minx,l.x1,l.x2); miny=Math.min(miny,l.y1,l.y2); });
+    if(isFinite(minx)){ dx=destino.x-minx; dy=destino.y-miny; }
+  }
+  const pasted=elsData.map(el=>{const ne=JSON.parse(JSON.stringify(el));ne.x+=dx;ne.y+=dy;return ne;});
+  const pastedLines=linesData.map(l=>{const nl=JSON.parse(JSON.stringify(l));nl.x1+=dx;nl.y1+=dy;nl.x2+=dx;nl.y2+=dy;return nl;});
   ELS.push(...pasted);
   LINES.push(...pastedLines);
   if(pasted.length===1&&!pastedLines.length){selEl=pasted[0];selGroup=[];selLine=null;}
@@ -2139,6 +2197,10 @@ function onKey(e){
   if(mod&&e.key==='c'){e.preventDefault();copySelected();return;}
   if(mod&&e.key==='x'){e.preventDefault();cutSelected();return;}
   if(mod&&e.key==='v'){e.preventDefault();pasteClipboard();return;}
+
+  // Deshacer y rehacer: sólo estaban en el botón de la barra.
+  if(mod&&(e.key==='z'||e.key==='Z')){e.preventDefault();if(e.shiftKey)redo();else undo();return;}
+  if(mod&&(e.key==='y'||e.key==='Y')){e.preventDefault();redo();return;}
 
   // Z-order
   if(mod&&e.key===']'){e.preventDefault();bringForward();return;}
