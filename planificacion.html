@@ -1006,6 +1006,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     </div>
     <div class="modal-date-lbl" id="modal-date-lbl"></div>
 
+    <!-- Antes la fecha venía sólo del día que se hubiera pulsado en el
+         calendario. El botón "+ Añadir evento" abría el modal sin día, y
+         entonces Guardar no hacía nada: se salía en la primera línea.
+         Con este campo siempre hay fecha, y además se puede mover un
+         evento de día sin borrarlo y volver a crearlo. -->
+    <div class="form-row">
+      <label class="form-label">Fecha</label>
+      <input class="form-input" type="date" id="ev-fecha">
+    </div>
+
     <div class="form-row">
       <label class="form-label">Tipo de evento</label>
       <div class="type-grid">
@@ -1270,13 +1280,22 @@ function changeMonth(d){curMonth+=d;if(curMonth>11){curMonth=0;curYear++;}if(cur
 function goToday(){curMonth=new Date().getMonth();curYear=new Date().getFullYear();renderCalendar();}
 
 // ── MODAL ──
+function hoyKey(){var h=new Date();return dk(h.getFullYear(),h.getMonth(),h.getDate());}
+function pintaFechaModal(key){
+  var l=document.getElementById('modal-date-lbl'); if(!l) return;
+  if(!key){ l.textContent=''; return; }
+  var d=new Date(key+'T12:00:00');
+  l.textContent=DAY_NAMES[d.getDay()===0?6:d.getDay()-1]+', '+d.getDate()+' de '+MONTHS[d.getMonth()].toLowerCase()+' de '+d.getFullYear();
+}
 function openModal(key,idx=null){
+  // Sin día (el botón "+ Añadir evento") se empieza por hoy, que es lo que
+  // se espera al pulsarlo, y siempre se puede cambiar en el campo Fecha.
+  if(!key) key = hoyKey();
   modalDateKey=key;modalEvIdx=idx;tmpRivalCrest=null;
   curSelType='sesion';
-  if(key){
-    const d=new Date(key+'T12:00:00');
-    document.getElementById('modal-date-lbl').textContent=DAY_NAMES[d.getDay()===0?6:d.getDay()-1]+', '+d.getDate()+' de '+MONTHS[d.getMonth()].toLowerCase()+' de '+d.getFullYear();
-  }
+  var cf=document.getElementById('ev-fecha');
+  if(cf){ cf.value=key; cf.onchange=function(){ pintaFechaModal(this.value); }; }
+  pintaFechaModal(key);
   if(idx!==null&&key){
     const ev=events[key][idx];
     document.getElementById('modal-title-txt').textContent='Editar evento';
@@ -1320,7 +1339,19 @@ function setType(t){
 }
 
 function saveEvent(){
-  if(!modalDateKey)return;
+  // La fecha manda la lleva el campo; modalDateKey es sólo de dónde venía.
+  var cf=document.getElementById('ev-fecha');
+  var nuevaKey=(cf && cf.value) ? cf.value : modalDateKey;
+  if(!nuevaKey){ alert('Elige una fecha'); return; }
+  var keyVieja=modalDateKey;
+  // Si se ha cambiado el día de un evento que ya existía, se saca del día
+  // antiguo antes de guardarlo en el nuevo, para que no salga dos veces.
+  if(modalEvIdx!==null && keyVieja && keyVieja!==nuevaKey && events[keyVieja]){
+    events[keyVieja].splice(modalEvIdx,1);
+    if(!events[keyVieja].length) delete events[keyVieja];
+    modalEvIdx=null;
+  }
+  modalDateKey=nuevaKey;
   if(!events[modalDateKey])events[modalDateKey]=[];
   var wasSync = modalEvIdx!==null && events[modalDateKey][modalEvIdx] && events[modalDateKey][modalEvIdx]._sync;
   var nuestroEquipo = document.getElementById('ev-nuestro-equipo') ? document.getElementById('ev-nuestro-equipo').checked : true;
@@ -1362,6 +1393,15 @@ function saveEvent(){
   // Desbloquear día — el usuario está añadiendo/editando manualmente
   var bidx = syncBlockedDays.indexOf(modalDateKey);
   if(bidx !== -1){ syncBlockedDays.splice(bidx,1); localStorage.setItem('oi_sync_blocked',JSON.stringify(syncBlockedDays)); }
+  // Si el evento cae en otro mes, se salta a ese mes: si no, se guarda y
+  // parece que no ha pasado nada porque no se ve.
+  try{
+    var pd=modalDateKey.split('-');
+    var ay=parseInt(pd[0],10), am=parseInt(pd[1],10)-1;
+    if(typeof curYear!=='undefined' && typeof curMonth!=='undefined' && (curYear!==ay||curMonth!==am)){
+      curYear=ay; curMonth=am;
+    }
+  }catch(e){}
   closeModal();renderCalendar();
 }
 function deleteEvent(){
