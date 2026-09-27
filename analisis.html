@@ -260,7 +260,25 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .mini-btn.on{background:var(--navy);color:var(--gold);border-color:var(--navy);}
 .mini-btn.danger:hover{color:#b81e1e;border-color:#b81e1e;}
 .blk-vs{display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--navy);font-size:13px;flex-shrink:0;}
-.blk-vs .img-drop{width:32px;height:32px;border-radius:50%;padding:0;}
+.blk-vs{position:relative;}
+/* Sin flex:0 0 el escudo se encogía a 26 px dentro de la fila: se veía
+   un circulito diminuto y era casi imposible acertarle con el ratón. */
+.blk-vs .img-drop{width:34px;height:34px;min-width:34px;flex:0 0 34px;border-radius:50%;padding:0;
+  font-size:13px;border-style:solid;border-color:#c9c9d6;background:#eeeef4;}
+.blk-vs .img-drop:hover{border-color:#1B2A6B;background:#e3e6f2;}
+.blk-vs .eq-pick{position:relative;}
+.blk-vs .eq-pick-in{min-width:64px;}
+.eq-list{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  z-index:40;min-width:180px;max-height:212px;overflow-y:auto;background:#fff;
+  border:1px solid #c9c9d6;border-radius:6px;box-shadow:0 8px 22px rgba(0,0,0,.18);
+  margin-top:3px;text-align:left;font-weight:400;}
+.eq-it{display:flex;align-items:center;gap:7px;padding:6px 9px;cursor:pointer;font-size:11px;color:#222;}
+.eq-it:hover{background:#eef1fa;}
+.eq-it img{width:20px;height:20px;object-fit:contain;flex:0 0 20px;}
+.eq-it .eq-ph{width:20px;text-align:center;flex:0 0 20px;opacity:.5;}
+.eq-it .eq-n{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.eq-it .eq-sin{font-size:9px;color:#99a;}
+@media print{ .eq-list{display:none !important;} }
 .blk-vs .ed{min-width:40px;text-align:center;}
 .page-tools{position:absolute;top:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:6;opacity:0;transition:opacity .15s;}
 .page:hover .page-tools{opacity:1;}
@@ -428,6 +446,10 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .banner{border-color:transparent !important;}
   .ed:empty::before{content:'';}
   .img-drop{border-color:transparent;background:transparent;color:transparent;}
+  /* El escudo del bloque VS lleva borde y fondo propios con más
+     especificidad que la regla de arriba: hay que apagarlo aquí también,
+     o al imprimir saldría un círculo gris donde no hay escudo. */
+  .blk-vs .img-drop{border-color:transparent !important;background:transparent !important;color:transparent !important;}
   .img-drop:not(.has){border-color:#ddd;}
   .fe-stage{border-color:#ccc;border-radius:4px;}
   .banner,.kv-h,.dq-h,.pn-num,.page-stripe i,.rbadge{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -3388,12 +3410,88 @@ function imgDrop(obj,key,cls,ph,max,jpeg){
   const setImg=()=>{ d.innerHTML=''; if(obj[key]){ const im=document.createElement('img'); im.src=imgSrc(obj[key]); d.appendChild(im); const x=document.createElement('div'); x.className='img-x no-print'; x.textContent='×'; x.onclick=e=>{ e.stopPropagation(); obj[key]=''; d.classList.remove('has'); setImg(); saveAll(); }; d.appendChild(x); d.classList.add('has'); }
     else { d.innerHTML='<span>'+(ph||'+ Imagen')+'</span>'; d.classList.remove('has'); } };
   setImg();
+  // Se expone para que el buscador de equipos guardados pueda refrescar el
+  // escudo al elegir uno, sin repintar el informe entero.
+  d.refresca=setImg;
   d.onclick=()=>pickImage(max||600, url=>{ obj[key]=url; setImg(); saveAll(); }, jpeg);
   d.addEventListener('dragover',e=>{ e.preventDefault(); d.style.borderColor='#1B2A6B'; });
   d.addEventListener('dragleave',()=>{ d.style.borderColor=''; });
   d.addEventListener('drop',e=>{ e.preventDefault(); d.style.borderColor=''; const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f&&f.type.startsWith('image/')) resizeImageFile(f,max||600,url=>{ obj[key]=url; setImg(); saveAll(); },jpeg); });
   return d;
 }
+// ── Campo de nombre de equipo con los equipos ya guardados ──────────
+// Antes había que escribir el nombre a mano y subir el escudo a mano, y el
+// escudo ya estaba guardado de otro partido. Ahora al escribir salen los
+// equipos conocidos y al elegir uno se pone su escudo solo.
+// `fuera`: nombres a no sugerir. Hace falta porque el propio campo que se
+// está escribiendo se guarda en el informe a cada tecla, así que "yecl" se
+// colaba en la lista como si fuera un equipo más.
+function equiposGuardados(fuera){
+  const m=new Map();
+  const noQuiero=new Set((fuera||[]).map(x=>String(x||'').trim().toLowerCase()).filter(Boolean));
+  noQuiero.add('nuevo rival');   // el nombre por defecto de un informe nuevo
+  const mete=(nombre,escudo)=>{
+    const n=(nombre||'').trim(); if(!n) return;
+    const k=n.toLowerCase();
+    if(noQuiero.has(k)) return;
+    // gana el que traiga escudo
+    if(!m.has(k) || (!imgHay(m.get(k).crest) && imgHay(escudo))) m.set(k,{name:n,crest:escudo||''});
+  };
+  (typeof getRivals==='function' ? getRivals() : []).forEach(r=>mete(r.name, r.crest));
+  (REPORTS||[]).forEach(r=>{
+    mete(r.rival, r.crestRival);
+    (r.pages||[]).forEach(p=>(p.blocks||[]).forEach(b=>{
+      if(b.vs){ mete(b.vs.home, b.vs.crestHome); mete(b.vs.away, b.vs.crestAway); }
+    }));
+  });
+  return [...m.values()].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+}
+
+function edEquipo(vs, keyNombre, keyEscudo, cajaEscudo, ph){
+  const cont=document.createElement('div');
+  cont.className='eq-pick';
+  const d=ed(vs, keyNombre, 'eq-pick-in', ph);
+  cont.appendChild(d);
+  const lista=document.createElement('div');
+  lista.className='eq-list no-print';
+  cont.appendChild(lista);
+
+  let abierta=false;
+  const cerrar=()=>{ abierta=false; lista.style.display='none'; lista.innerHTML=''; };
+  const elegir=(eq)=>{
+    vs[keyNombre]=eq.name;
+    d.textContent=eq.name;
+    if(imgHay(eq.crest)){ vs[keyEscudo]=eq.crest; if(cajaEscudo&&cajaEscudo.refresca) cajaEscudo.refresca(); }
+    cerrar(); saveAll();
+  };
+  const pinta=()=>{
+    const t=(d.innerText||'').trim().toLowerCase();
+    // fuera de la lista lo que hay escrito ahora mismo en los dos campos de
+    // este bloque, que si no se sugiere a sí mismo
+    let eqs=equiposGuardados([d.innerText, vs.home, vs.away]);
+    if(t) eqs=eqs.filter(e=>e.name.toLowerCase().indexOf(t)>=0);
+    eqs=eqs.slice(0,8);
+    if(!eqs.length){ cerrar(); return; }
+    lista.innerHTML='';
+    eqs.forEach(e=>{
+      const fila=document.createElement('div');
+      fila.className='eq-it';
+      fila.innerHTML=(imgHay(e.crest)?'<img src="'+imgSrc(e.crest)+'" alt="">':'<span class="eq-ph">⚽</span>')
+        +'<span class="eq-n">'+escapeHtml(e.name)+'</span>'
+        +(imgHay(e.crest)?'':'<span class="eq-sin">sin escudo</span>');
+      // mousedown y no click: el click llega después del blur y ya se ha cerrado
+      fila.addEventListener('mousedown',ev=>{ ev.preventDefault(); elegir(e); });
+      lista.appendChild(fila);
+    });
+    lista.style.display='block'; abierta=true;
+  };
+  d.addEventListener('focus',pinta);
+  d.addEventListener('input',pinta);
+  d.addEventListener('keydown',ev=>{ if(ev.key==='Escape'){ cerrar(); } });
+  d.addEventListener('blur',()=>setTimeout(cerrar,120));
+  return cont;
+}
+
 function elx(tag,cls,html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
 function kv(head,obj,key,ph){ const b=elx('div','kv-box'); b.appendChild(elx('div','kv-h',head)); const v=elx('div','kv-v'); v.appendChild(ed(obj,key,'',ph||'—')); b.appendChild(v); return b; }
 function kvSede(r){
@@ -3593,11 +3691,15 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
     const tt=elx('div','blk-titles');
     if(withVs&&b.vs){
       const v=elx('div','blk-vs');
-      v.appendChild(imgDrop(b.vs,'crestHome','contain','+',200));
-      v.appendChild(ed(b.vs,'home','','Local'));
+      const escL=imgDrop(b.vs,'crestHome','contain','🛡',200);
+      const escV=imgDrop(b.vs,'crestAway','contain','🛡',200);
+      escL.title='Poner escudo del equipo local';
+      escV.title='Poner escudo del equipo visitante';
+      v.appendChild(escL);
+      v.appendChild(edEquipo(b.vs,'home','crestHome',escL,'Local'));
       v.appendChild(elx('span','','vs'));
-      v.appendChild(ed(b.vs,'away','','Visitante'));
-      v.appendChild(imgDrop(b.vs,'crestAway','contain','+',200));
+      v.appendChild(edEquipo(b.vs,'away','crestAway',escV,'Visitante'));
+      v.appendChild(escV);
       tt.appendChild(v);
     }
     tt.appendChild(ed(b,'t1','ed-title', withVs?'JORNADA / RESULTADO':'TÍTULO DEL BLOQUE'));
