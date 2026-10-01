@@ -3,6 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Icono y nombre al guardar la app en la pantalla de inicio del móvil.
+     Los ficheros icon-192.png, icon-512.png y manifest.json ya estaban en
+     el repositorio, pero NINGUNA pantalla los enlazaba: por eso el móvil
+     ponía una captura en vez del escudo. -->
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="El Once Inicial">
+<meta name="application-name" content="El Once Inicial">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1B2A6B">
+
 <title>Análisis — El Once Inicial</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
@@ -2629,6 +2644,19 @@ const FE = (function(){
 
       svg.addEventListener('pointerdown',ev=>{
         if(ev.button===2) return;
+        // En un móvil la hoja del informe se dibuja a un tercio de su
+        // tamaño (scale de fitPages), así que un jugador mide 11 px en
+        // pantalla y el botón ⛶ de ampliar, 8. Con el dedo no hay forma de
+        // agarrar nada. Así que en pantalla pequeña el campo de la hoja es
+        // sólo una vista: al tocarlo se abre a pantalla completa, que es
+        // donde ya se puede mover todo.
+        if(ev.pointerType!=='mouse' && !this.c.classList.contains('fe-en-full')
+           && svg.getBoundingClientRect().width < 420
+           && typeof feFullAbre==='function'){
+          ev.preventDefault();
+          feFullAbre(this);
+          return;
+        }
         if(ev.pointerType!=='mouse'){
           dedos.add(ev.pointerId);
           if(dedos.size>1){
