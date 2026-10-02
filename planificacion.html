@@ -1375,11 +1375,39 @@ function pintaFechaModal(key){
   var d=new Date(key+'T12:00:00');
   l.textContent=DAY_NAMES[d.getDay()===0?6:d.getDay()-1]+', '+d.getDate()+' de '+MONTHS[d.getMonth()].toLowerCase()+' de '+d.getFullYear();
 }
+// El evento guarda localName/localCrest y si juega nuestro equipo. Al abrirlo
+// hay que devolver esos tres datos al formulario: antes se perdían y el
+// partido aparecía sin equipo local, aunque en el calendario sí se veía.
+function esNuestroEquipo(ev){
+  if(!ev) return true;
+  if(typeof ev.nuestroEquipo === 'boolean') return ev.nuestroEquipo;
+  // Eventos antiguos, sin el campo: si guardaron nombre de local era externo.
+  return !(ev.localName && String(ev.localName).trim());
+}
+function cargaEquipoLocal(ev){
+  var chk = document.getElementById('ev-nuestro-equipo');
+  var nuestro = esNuestroEquipo(ev);
+  if(chk) chk.checked = nuestro;
+  if(typeof toggleNuestroEquipo === 'function') toggleNuestroEquipo();
+  var li = document.getElementById('local-crest-img');
+  var lp = document.getElementById('local-crest-ph');
+  if(nuestro){ tmpLocalCrest = null; return; }
+  var ln = document.getElementById('ev-local-name');
+  if(ln) ln.value = (ev && ev.localName) || '';
+  tmpLocalCrest = (ev && ev.localCrest) || null;
+  if(tmpLocalCrest){
+    if(li){ li.src = tmpLocalCrest; li.style.display = 'block'; }
+    if(lp) lp.style.display = 'none';
+  } else {
+    if(li){ li.src = ''; li.style.display = 'none'; }
+    if(lp) lp.style.display = '';
+  }
+}
 function openModal(key,idx=null){
   // Sin día (el botón "+ Añadir evento") se empieza por hoy, que es lo que
   // se espera al pulsarlo, y siempre se puede cambiar en el campo Fecha.
   if(!key) key = hoyKey();
-  modalDateKey=key;modalEvIdx=idx;tmpRivalCrest=null;
+  modalDateKey=key;modalEvIdx=idx;tmpRivalCrest=null;tmpLocalCrest=null;
   curSelType='sesion';
   var cf=document.getElementById('ev-fecha');
   if(cf){ cf.value=key; cf.onchange=function(){ pintaFechaModal(this.value); }; }
@@ -1397,7 +1425,8 @@ function openModal(key,idx=null){
     var gl=document.getElementById('ev-goles-l'), gv=document.getElementById('ev-goles-v');
     if(gl) gl.value=(ev.golesL==null?'':ev.golesL);
     if(gv) gv.value=(ev.golesV==null?'':ev.golesV);
-    if(ev.rivalCrest){showRivalCrest(ev.rivalCrest);}
+    if(ev.rivalCrest){showRivalCrest(ev.rivalCrest);tmpRivalCrest=ev.rivalCrest;}
+    cargaEquipoLocal(ev);
     document.getElementById('btn-del').style.display='';
   } else {
     document.getElementById('modal-title-txt').textContent='Nuevo evento';
@@ -1408,6 +1437,7 @@ function openModal(key,idx=null){
     var gl0=document.getElementById('ev-goles-l'), gv0=document.getElementById('ev-goles-v');
     if(gl0) gl0.value=''; if(gv0) gv0.value='';
     resetRivalCrest();
+    cargaEquipoLocal(null);
     document.getElementById('btn-del').style.display='none';
   }
   buildRivalsList();
