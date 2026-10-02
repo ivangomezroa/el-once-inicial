@@ -218,6 +218,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 }
 .cal-day-num{font-family:var(--font-cond);font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px;}
 .cal-events{display:flex;flex-direction:column;gap:2px;min-width:0;}
+/* El resultado es lo que no se puede perder: no se encoge y se va a la
+   derecha. Lo que se recorta con puntos suspensivos es el nombre del
+   equipo. Antes el chip empujaba el marcador fuera y al imprimir se veía
+   "18:00 vs UD POBLENSE" con el 2-1 cortado. */
+.cal-event .ev-vs{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:3px;flex:0 1 auto;}
+.cal-event .ev-res{font-family:var(--font-cond);font-weight:700;letter-spacing:.5px;
+  background:rgba(0,0,0,.28);border-radius:3px;padding:0 4px;margin-left:auto;flex:0 0 auto;}
+.cal-event .ev-falta{color:#ff9500;font-weight:700;flex:0 0 auto;margin-left:auto;}
 .cal-event{
   border-radius:3px;padding:2px 5px;font-size:10px;font-family:var(--font-cond);
   font-weight:600;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -541,6 +550,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     pointer-events:none;
   }
   body.oi-cal-rejilla .cal-event > *,
+  body.oi-cal-rejilla .cal-event .ev-vs,
+  body.oi-cal-rejilla .cal-event .ev-res,
   body.oi-cal-rejilla .cal-event .ev-crest{display:none!important;}
   body.oi-cal-rejilla .cal-cell.oi-sel{
     background:rgba(200,168,75,0.14);box-shadow:inset 0 0 0 1px rgba(200,168,75,0.5);
@@ -1063,7 +1074,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <label style="font-size:10px;letter-spacing:1px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;">¿Juega nuestro equipo?</label>
           <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-            <input type="checkbox" id="ev-nuestro-equipo" checked onchange="toggleNuestroEquipo()" style="accent-color:#C8A84B;">
+            <input type="checkbox" id="ev-nuestro-equipo" checked onchange="toggleNuestroEquipo();pintaEtiquetasResultado()" style="accent-color:#C8A84B;">
             <span style="font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;" id="ev-nuestro-label">Sí</span>
           </label>
         </div>
@@ -1076,7 +1087,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <img id="local-crest-img" class="rival-crest-img" alt="">
               <svg id="local-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
             </div>
-            <input class="form-input" id="ev-local-name" placeholder="Equipo local" oninput="autoLocalCrest(this.value)" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
+            <input class="form-input" id="ev-local-name" placeholder="Equipo local" oninput="autoLocalCrest(this.value);pintaEtiquetasResultado()" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
             <div class="vs-text">VS</div>
@@ -1087,7 +1098,29 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <img id="rival-crest-img" class="rival-crest-img" alt="">
               <svg id="rival-crest-ph" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(200,168,75,0.5)" stroke-width="1.2"><path d="M8 1L13 3.5V7C13 10 11 12.5 8 13.5C5 12.5 3 10 3 7V3.5Z"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
             </div>
-            <input class="form-input" id="ev-rival" placeholder="Equipo visitante" oninput="autoRivalCrest(this.value)" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
+            <input class="form-input" id="ev-rival" placeholder="Equipo visitante" oninput="autoRivalCrest(this.value);pintaEtiquetasResultado()" style="text-align:center;font-size:10px;padding:3px 6px;" list="rivals-list">
+          </div>
+        </div>
+
+        <!-- RESULTADO — sobre todo para los partidos que ya se han jugado.
+             El orden es el mismo que el del VS de arriba: izquierda y
+             derecha, así no hay duda de quién es quién. -->
+        <div class="form-row" id="row-resultado" style="margin-bottom:8px;">
+          <label class="form-label">Resultado <span id="res-aviso" style="color:#ff9500;font-weight:400;text-transform:none;letter-spacing:0;"></span></label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;min-width:0;text-align:center;">
+              <input class="form-input" type="number" min="0" max="99" id="ev-goles-l"
+                     placeholder="—" style="text-align:center;font-size:20px;padding:6px;font-weight:700;">
+              <div id="res-lbl-l" style="font-size:9.5px;color:var(--text3);margin-top:3px;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Local</div>
+            </div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:var(--text3);padding-bottom:14px;">–</div>
+            <div style="flex:1;min-width:0;text-align:center;">
+              <input class="form-input" type="number" min="0" max="99" id="ev-goles-v"
+                     placeholder="—" style="text-align:center;font-size:20px;padding:6px;font-weight:700;">
+              <div id="res-lbl-v" style="font-size:9.5px;color:var(--text3);margin-top:3px;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Visitante</div>
+            </div>
           </div>
         </div>
 
@@ -1174,6 +1207,41 @@ var syncBlockedDays=JSON.parse(localStorage.getItem('oi_sync_blocked')||'[]');
 
 // ── UTILS ──
 function dk(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+
+/* ── RESULTADOS ──────────────────────────────────────────────────────
+   Estas ayudas van AQUÍ y no en el bloque del móvil, porque ese bloque
+   es una función que se llama a sí misma y lo de dentro no se ve desde
+   fuera: openModal y renderCalendar no las encontraban. */
+// "2-1" si el partido tiene resultado puesto; '' si no.
+function resultado(ev){
+  if(!ev || !(ev.type||'').startsWith('partido')) return '';
+  var a=ev.golesL, b=ev.golesV;
+  if(a===''||a==null||b===''||b==null) return '';
+  return a+'-'+b;
+}
+// ¿Es un partido de un día que ya pasó?
+function yaJugado(ev, clave){
+  if(!ev || !(ev.type||'').startsWith('partido') || !clave) return false;
+  var h=new Date(); var hoy=dk(h.getFullYear(),h.getMonth(),h.getDate());
+  return clave < hoy;
+}
+// Nombres que se ven en el VS, para rotular las dos casillas de goles.
+function nombresDelPartido(){
+  var nuestro = document.getElementById('ev-nuestro-equipo');
+  var esNuestro = nuestro ? nuestro.checked : true;
+  var izq = esNuestro
+    ? 'Nuestro equipo'
+    : ((document.getElementById('ev-local-name')||{}).value || 'Local').trim() || 'Local';
+  var der = ((document.getElementById('ev-rival')||{}).value || 'Visitante').trim() || 'Visitante';
+  return {izq: izq, der: der};
+}
+function pintaEtiquetasResultado(){
+  var n=nombresDelPartido();
+  var a=document.getElementById('res-lbl-l'), b=document.getElementById('res-lbl-v');
+  if(a) a.textContent=n.izq;
+  if(b) b.textContent=n.der;
+}
+
 function getMonday(d){const r=new Date(d);const day=r.getDay();r.setDate(r.getDate()-day+(day===0?-6:1));r.setHours(0,0,0,0);return r;}
 function wkKey(d){const u=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=u.getUTCDay()||7;u.setUTCDate(u.getUTCDate()+4-dn);const ys=new Date(Date.UTC(u.getUTCFullYear(),0,1));return `${u.getUTCFullYear()}-W${Math.ceil((((u-ys)/86400000)+1)/7)}`;}
 
@@ -1266,14 +1334,19 @@ function renderCalendar(){
           // Partido externo: escudo local + nombre local vs escudo rival + nombre rival
           var lc=ev.localCrest?('<img class="ev-crest" src="'+ev.localCrest+'">'):ev.localName||'?';
           var rc=ev.rivalCrest?('<img class="ev-crest" src="'+ev.rivalCrest+'">'):ev.rival||'?';
-          el.innerHTML=(ev.hora?'<span style="opacity:0.7">'+ev.hora+'</span> ':'')+lc+' vs '+rc;
+          el.innerHTML=(ev.hora?'<span style="opacity:0.7">'+ev.hora+'</span> ':'')
+            +'<span class="ev-vs">'+lc+' vs '+rc+'</span>';
         } else {
           // Nuestro equipo: nuestro escudo vs rival
           var oc=localStorage.getItem('oi_team_crest');
           var oEl=oc?('<img class="ev-crest" src="'+oc+'">'):ev.localName||'🛡';
           var rc2=ev.rivalCrest?('<img class="ev-crest" src="'+ev.rivalCrest+'">'):ev.rival||'?';
-          el.innerHTML=(ev.hora?'<span style="opacity:0.7">'+ev.hora+'</span> ':'')+oEl+' vs '+(ev.rival?rc2:rc2);
+          el.innerHTML=(ev.hora?'<span style="opacity:0.7">'+ev.hora+'</span> ':'')
+            +'<span class="ev-vs">'+oEl+' vs '+rc2+'</span>';
         }
+        var _res=resultado(ev);
+        if(_res) el.innerHTML += ' <b class="ev-res">'+_res+'</b>';
+        else if(yaJugado(ev,key)) el.innerHTML += ' <span class="ev-falta" title="Falta el resultado">·</span>';
       } else if(ev.type==='cumple'){
         el.innerHTML=`🎂 ${ev.titulo||'Cumpleaños'}`;
       } else {
@@ -1321,6 +1394,9 @@ function openModal(key,idx=null){
     document.getElementById('ev-competicion').value=ev.competicion||'';
     document.getElementById('ev-sede').value=ev.sede||'Local';
     document.getElementById('ev-notas').value=ev.notas||'';
+    var gl=document.getElementById('ev-goles-l'), gv=document.getElementById('ev-goles-v');
+    if(gl) gl.value=(ev.golesL==null?'':ev.golesL);
+    if(gv) gv.value=(ev.golesV==null?'':ev.golesV);
     if(ev.rivalCrest){showRivalCrest(ev.rivalCrest);}
     document.getElementById('btn-del').style.display='';
   } else {
@@ -1329,11 +1405,20 @@ function openModal(key,idx=null){
     ['ev-titulo','ev-hora','ev-rival','ev-notas'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('ev-competicion').value='';
     document.getElementById('ev-sede').value='Local';
+    var gl0=document.getElementById('ev-goles-l'), gv0=document.getElementById('ev-goles-v');
+    if(gl0) gl0.value=''; if(gv0) gv0.value='';
     resetRivalCrest();
     document.getElementById('btn-del').style.display='none';
   }
   buildRivalsList();
   updateVsPreview();
+  pintaEtiquetasResultado();
+  // Si el partido ya se jugó y no tiene resultado, se dice.
+  var av=document.getElementById('res-aviso');
+  if(av){
+    var evAct=(idx!==null&&key&&events[key])?events[key][idx]:null;
+    av.textContent=(evAct && !resultado(evAct) && yaJugado(evAct,key)) ? '— ya se jugó' : '';
+  }
   document.getElementById('modal-bg').classList.add('open');
 }
 function closeModal(){
@@ -1390,6 +1475,10 @@ function saveEvent(){
     competicion:document.getElementById('ev-competicion').value,
     sede:document.getElementById('ev-sede').value,
     notas:document.getElementById('ev-notas').value.trim(),
+    golesL:(document.getElementById('ev-goles-l')||{}).value===''?null:
+           ((document.getElementById('ev-goles-l')||{}).value ?? null),
+    golesV:(document.getElementById('ev-goles-v')||{}).value===''?null:
+           ((document.getElementById('ev-goles-v')||{}).value ?? null),
   };
   // Guardar ambos equipos en historial de rivales
   if(rivalNameVal) saveRivalToHistory(rivalNameVal, rivalCrestVal);
@@ -2128,6 +2217,18 @@ function openModalPartido(wk,di){
   var rp=document.getElementById('mpartido-rival-ph');
   if(ex&&ex.rivalCrest){_mpRivalCrest=ex.rivalCrest;if(ri){ri.src=ex.rivalCrest;ri.style.display='block';}if(rp)rp.style.display='none';}
   else{if(ri)ri.style.display='none';if(rp)rp.style.display='';}
+  var gn=document.getElementById('mpartido-goles-n'), gr=document.getElementById('mpartido-goles-r');
+  if(gn) gn.value=(ex&&ex.golesN!=null?ex.golesN:'');
+  if(gr) gr.value=(ex&&ex.golesR!=null?ex.golesR:'');
+  var lr=document.getElementById('mpartido-res-lbl-r');
+  if(lr) lr.textContent=((ex&&ex.rival)||'Rival');
+  var avp=document.getElementById('mpartido-res-aviso');
+  if(avp){
+    var hoyP=new Date();
+    var yaPaso = dk(d.getFullYear(),d.getMonth(),d.getDate()) < dk(hoyP.getFullYear(),hoyP.getMonth(),hoyP.getDate());
+    var sinRes = !(ex && ex.golesN!=null && ex.golesN!=='' && ex.golesR!=null && ex.golesR!=='');
+    avp.textContent = (yaPaso && sinRes) ? '— ya se jugó' : '';
+  }
   var bg=document.getElementById('modal-partido-bg');
   if(bg)bg.style.display='flex';
 }
@@ -2162,9 +2263,27 @@ function saveModalPartido(){
   if(_mpWk===null||_mpDi===null)return;
   if(!weeklyPlan[_mpWk])weeklyPlan[_mpWk]={};
   var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
-  var pd={rival:g('mpartido-rival-name'),hora:g('mpartido-hora'),sede:g('mpartido-sede'),competicion:g('mpartido-comp'),rivalCrest:_mpRivalCrest};
+  var gN=g('mpartido-goles-n'), gR=g('mpartido-goles-r');
+  var pd={rival:g('mpartido-rival-name'),hora:g('mpartido-hora'),sede:g('mpartido-sede'),competicion:g('mpartido-comp'),rivalCrest:_mpRivalCrest,
+          golesN:(gN===''?null:gN), golesR:(gR===''?null:gR)};
   weeklyPlan[_mpWk][_mpWk+'_partido_'+_mpDi]=pd;
   localStorage.setItem('oi_weekly_v2',JSON.stringify(weeklyPlan));
+  // El resultado se guarda también en el partido de ese día del calendario,
+  // que es el registro con fecha y de donde lo leerá la pantalla de Datos.
+  // En el calendario el orden es local–visitante, así que si jugamos fuera
+  // se da la vuelta.
+  (function(){
+    var mon=weekStartFromWk(_mpWk); if(!mon) return;
+    var d=new Date(mon); d.setDate(d.getDate()+_mpDi);
+    var key=dk(d.getFullYear(),d.getMonth(),d.getDate());
+    var lista=(window.events&&events[key])?events[key]:null; if(!lista) return;
+    var ev=lista.find(function(x){ return x.type && x.type.indexOf('partido')===0; });
+    if(!ev) return;
+    if(pd.golesN==null && pd.golesR==null){ ev.golesL=null; ev.golesV=null; }
+    else if(pd.sede==='Visitante'){ ev.golesL=pd.golesR; ev.golesV=pd.golesN; }
+    else { ev.golesL=pd.golesN; ev.golesV=pd.golesR; }
+    localStorage.setItem('oi_cal_v2', JSON.stringify(events));
+  })();
   if(pd.rival&&!rivals.find(function(r){return r.name===pd.rival;})){rivals.push({name:pd.rival,crest:pd.rivalCrest||null});localStorage.setItem('oi_rivals_v1',JSON.stringify(rivals));}
   syncWeekDayToCalendar(_mpWk,_mpDi,'partido');
   closeModalPartido();
@@ -2183,8 +2302,13 @@ function getPlanPartidoCellHtml(wk,di){
   var hora = pd && pd.hora ? pd.hora : '';
   var rival = pd && pd.rival ? pd.rival : '';
   var h = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">';
+  var tieneRes = pd && pd.golesN!=null && pd.golesN!=='' && pd.golesR!=null && pd.golesR!=='';
+  var medio = tieneRes
+    ? '<span style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:#fff;letter-spacing:1px;background:rgba(0,0,0,.3);border-radius:4px;padding:1px 7px;">'
+        + (isV ? (pd.golesR+' – '+pd.golesN) : (pd.golesN+' – '+pd.golesR)) + '</span>'
+    : '<span style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;color:#C8A84B;letter-spacing:1px;">VS</span>';
   h += '<div style="display:flex;align-items:center;gap:8px;">' + leftEl;
-  h += '<span style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;color:#C8A84B;letter-spacing:1px;">VS</span>';
+  h += medio;
   h += rightEl + '</div>';
   if(hora) h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:11px;color:rgba(200,168,75,0.8);">' + hora + '</div>';
   if(rival) h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:9px;color:rgba(200,168,75,0.5);">' + rival + '</div>';
@@ -2313,7 +2437,27 @@ function saveRivalToHistory(name, crest){
           <input type="file" id="mpartido-rival-crest-input" accept="image/*" style="display:none;" onchange="mpartidoRivalCrest(event)">
         </div>
         <div style="flex:1;">
-          <input id="mpartido-rival-name" class="form-input" placeholder="Nombre del rival" style="margin-bottom:6px;" oninput="updateMPartidoPreview()" list="rivals-list">
+          <input id="mpartido-rival-name" class="form-input" placeholder="Nombre del rival" style="margin-bottom:6px;" oninput="updateMPartidoPreview();(function(){var l=document.getElementById('mpartido-res-lbl-r');if(l)l.textContent=this.value.trim()||'Rival';}).call(this)" list="rivals-list">
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultado: el mismo orden que el VS de arriba (nosotros · rival),
+         y si la sede es Visitante se avisa de quién es quién. -->
+    <div style="margin-bottom:12px;">
+      <label class="form-label">Resultado <span id="mpartido-res-aviso" style="color:#ff9500;font-weight:400;text-transform:none;letter-spacing:0;"></span></label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;text-align:center;">
+          <input class="form-input" type="number" min="0" max="99" id="mpartido-goles-n"
+                 placeholder="—" style="text-align:center;font-size:20px;padding:6px;font-weight:700;">
+          <div style="font-size:9.5px;color:#a09890;margin-top:3px;">Nosotros</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:#a09890;padding-bottom:14px;">–</div>
+        <div style="flex:1;text-align:center;">
+          <input class="form-input" type="number" min="0" max="99" id="mpartido-goles-r"
+                 placeholder="—" style="text-align:center;font-size:20px;padding:6px;font-weight:700;">
+          <div id="mpartido-res-lbl-r" style="font-size:9.5px;color:#a09890;margin-top:3px;
+               white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Rival</div>
         </div>
       </div>
     </div>
@@ -2387,15 +2531,18 @@ function titulo(ev){
   if(ev.type && ev.type.indexOf('partido')===0){
     var quien = ev.rival || ev.localName || 'Partido';
     var donde = (ev.sede==='Visitante') ? 'en ' : 'vs ';
-    return (ev.hora ? ev.hora + ' · ' : '') + donde + quien;
+    var res = resultado(ev);
+    return (ev.hora ? ev.hora + ' · ' : '') + donde + quien + (res ? '  ' + res : '');
   }
   if(ev.type==='cumple') return '🎂 ' + (ev.titulo || 'Cumpleaños');
   return (ev.hora ? ev.hora + ' · ' : '') + (ev.titulo || ev.type || '—');
 }
-function subtitulo(ev){
+function subtitulo(ev, clave){
   if(ev.type && ev.type.indexOf('partido')===0){
     var comp = ev.competicion || ev.type.replace('partido-','');
-    return comp + (ev.sede ? ' · ' + ev.sede : '');
+    var base = comp + (ev.sede ? ' · ' + ev.sede : '');
+    if(!resultado(ev) && yaJugado(ev, clave)) base += ' · falta el resultado';
+    return base;
   }
   return (ev.type||'').replace('-',' ');
 }
@@ -2562,7 +2709,7 @@ function pintaAgenda(){
       h += '<div class="oi-ag-ev" data-k="' + k + '" data-i="' + todos.indexOf(ev) + '">'
         +  '<span class="oi-ag-barra" style="background:' + c + '"></span>'
         +  '<div style="min-width:0;"><div class="oi-ag-t">' + esc(titulo(ev)) + '</div>'
-        +  '<div class="oi-ag-s" style="color:' + c + '">' + esc(subtitulo(ev)) + '</div></div></div>';
+        +  '<div class="oi-ag-s" style="color:' + c + '">' + esc(subtitulo(ev, k)) + '</div></div></div>';
     });
     h += '</div></div>';
   });
