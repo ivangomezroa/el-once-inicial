@@ -540,7 +540,25 @@ body.fe-full-abierto{overflow:hidden;}
 .fe.fe-en-full .fe-stage{flex:1;min-height:0;background:#15421d;}
 .fe.fe-en-full .fe-tb{flex-wrap:wrap;}
 @media(pointer:coarse) and (hover:none){
-  .fe.fe-en-full .fe-tb button{padding:9px 11px;}
+  /* El ancho y alto fijos de .fe-tb button (24x22) ganaban al padding, así
+     que en el móvil los botones de copiar, pegar, deshacer y borrar seguían
+     siendo de 24 px. A pantalla completa van a 40, que ya es de dedo. */
+  /* En una fila que se desplaza de lado: 23 botones de 40 px en 390 de
+     ancho ocupaban CUATRO filas (190 px) y dejaban el campo en 235 px de
+     alto. Así la barra mide una fila y el campo se queda con lo suyo. */
+  /* Sin min-width:0 el ancho natural de la barra en una sola fila (1092 px)
+     estiraba TODO el contenedor y el campo se iba fuera de la pantalla:
+     los jugadores quedaban en x=645 de una pantalla de 390. */
+  .fe.fe-en-full{min-width:0;max-width:100%;}
+  .fe.fe-en-full .fe-tb{gap:5px;padding:6px;flex-wrap:nowrap;overflow-x:auto;
+    overflow-y:hidden;-webkit-overflow-scrolling:touch;min-width:0;max-width:100%;}
+  .fe.fe-en-full .fe-tb button{flex:0 0 auto;}
+  .fe.fe-en-full .fe-tb .grp{flex:0 0 auto;gap:5px;}
+  .fe.fe-en-full .fe-tb .sep{flex:0 0 auto;}
+  .fe.fe-en-full .fe-tb button{width:40px;height:40px;padding:0;font-size:15px;
+    border-color:#c3c7d8;background:#fff;}
+  .fe.fe-en-full .fe-tb button svg{width:20px;height:20px;}
+  .fe.fe-en-full .fe-tb .sep{height:26px;}
   .fe.fe-en-full .fe-stage svg .hnd{r:9;}
 }
 /* el botón de ampliar no se imprime, como el resto de la barra */
@@ -2682,9 +2700,20 @@ const FE = (function(){
         if(hnd&&this.sel){ this.snap(); const e=this.sel; this.drag={mode:hnd.dataset.handle,e,start:p,orig:deep(e)}; try{ svg.setPointerCapture(ev.pointerId); }catch(e){} return; }
         const node=t.closest&&t.closest('g.el');
         if(node){
+          // ¿ya estaba seleccionado este mismo antes de tocarlo?
+          const yaEstaba = !!(this.sel && this.sel.id===node.dataset.id);
           this.selectById(node.dataset.id); const e=this.sel; this.snap();
           if(e.t==='arrow') this.drag={mode:'move-arrow',e,start:p,orig:deep(e)}; else this.drag={mode:'move',e,off:{x:p.x-e.x,y:p.y-e.y}};
-          try{ svg.setPointerCapture(ev.pointerId); }catch(e){} this.render(); FE.openProps(this); return;
+          try{ svg.setPointerCapture(ev.pointerId); }catch(e){} this.render();
+          // Con el dedo el panel de propiedades es una hoja que tapa la
+          // mitad de abajo del campo (medido: 49%). Abrirlo al primer toque
+          // hacía que, al ir a mover un jugador, saltara la ventanita de
+          // editar y el campo quedara medio escondido. Así que con el dedo
+          // el primer toque sólo selecciona y deja arrastrar, y el panel se
+          // abre al SEGUNDO toque sobre el mismo elemento. Con ratón, igual
+          // que siempre.
+          if(ev.pointerType==='mouse' || yaEstaba) FE.openProps(this);
+          return;
         }
         this.sel=null; this.render(); FE.closeProps();
       });
@@ -2708,7 +2737,11 @@ const FE = (function(){
         if(!this.drag) return; const d=this.drag; this.drag=null;
         if(d.mode==='a2' && Math.hypot(d.e.x2-d.e.x1,d.e.y2-d.e.y1)<10){ this.data.els=this.data.els.filter(x=>x!==d.e); this.sel=null; this.hist.pop(); this.render(); return; }
         if(d.mode==='a2'){ this.tool=ev.shiftKey?this.tool:'select'; }
-        this.render(); this.changed(); if(this.sel) FE.openProps(this);
+        this.render(); this.changed();
+        // Al soltar también se abría el panel, así que el guardia del
+        // pointerdown no servía de nada: con el dedo, al levantarlo salía
+        // igual la ventanita. Con ratón, como siempre.
+        if(this.sel && ev.pointerType==='mouse') FE.openProps(this);
       };
       svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
       svg.addEventListener('dblclick',ev=>{ const node=ev.target.closest&&ev.target.closest('g.el'); if(!node) return; this.selectById(node.dataset.id); this.render(); FE.openProps(this); const f=document.querySelector('#fe-props [data-focus]'); if(f){ f.focus(); f.select&&f.select(); } });
