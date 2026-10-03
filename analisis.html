@@ -2625,7 +2625,14 @@ const FE = (function(){
     setTool(t){ this.tool=t; this.render(); }
     newEl(kind,x,y){
       const id=uid('e');
-      if(kind.startsWith('player')){ const team=kind.split('-')[1]||'away', col=TEAM[team]||TEAM.away; return {t:'player',id,x,y,num:this.nextNum(),name:'',fill:col.fill,stroke:col.stroke,txt:col.txt,r:17,ns:12,badges:[],team}; }
+      if(kind.startsWith('player')){
+        const team=kind.split('-')[1]||'away', col=TEAM[team]||TEAM.away;
+        const e={t:'player',id,x,y,num:this.nextNum(),name:'',fill:col.fill,stroke:col.stroke,txt:col.txt,r:17,ns:12,badges:[],team};
+        // En la página del Posible 11, a partir del doceavo jugador se viste
+        // con la segunda equipación: así el campo es el mapa de la plantilla.
+        if(this.opts.p11 && typeof onceVisteNuevo==='function') onceVisteNuevo(this,e,this.opts.p11);
+        return e;
+      }
       if(kind==='zone') return {t:'zone',id,x,y,w:160,h:120,shape:'rect',fill:'#ffe600',alpha:0.4,stroke:'#111111',sw:2,dash:'',rot:0,label:''};
       if(kind==='ellipse') return {t:'zone',id,x,y,w:160,h:110,shape:'ellipse',fill:'#00c8ff',alpha:0.35,stroke:'#ffffff',sw:2,dash:'',rot:0,label:''};
       if(kind==='text') return {t:'text',id,x,y,text:'Texto',size:16,color:'#ffffff',bold:true,bg:'',bgAlpha:0.9};
@@ -2759,6 +2766,9 @@ const FE = (function(){
     if(e.t==='player'){
       h+=row('Dorsal',`<input type="text" data-k="num" value="${escA(e.num)}" data-focus maxlength="3">`);
       h+=row('Nombre',`<input type="text" data-k="name" value="${escA(e.name)}" placeholder="Nombre (↵ = salto)">`);
+      if(ed.opts && ed.opts.p11){
+        h+=row('Grupo',`<select data-k="supl"><option value="0"${e.supl?'':' selected'}>Del posible once</option><option value="1"${e.supl?' selected':''}>Resto de la plantilla</option></select>`);
+      }
       h+=row('Equipo',`<select data-k="team"><option value="away"${e.team==='away'?' selected':''}>Rival</option><option value="home"${e.team==='home'?' selected':''}>Propio</option><option value="gk"${e.team==='gk'?' selected':''}>Portero</option><option value="custom"${e.team==='custom'?' selected':''}>Personalizado</option></select>`);
       h+=row('Relleno',color('fill',e.fill,'Color del círculo'))+sw('fill');
       h+=row('Borde',color('stroke',e.stroke,'Color del borde del círculo'))+sw('stroke');
@@ -2819,6 +2829,7 @@ const FE = (function(){
       else if(k==='bold') v=v==='1';
       else if(k==='head') v=v==='__'?null:v==='1';
       else if(k==='dash'&&e.t==='arrow') v=v==='__'?null:v;
+      if(k==='supl'){ if(typeof onceGrupo==='function') onceGrupo(ed,e,v==='1'); ed.render(); ed.changed(); openProps(ed); return; }
       if(k==='team'){ e.team=v; if(TEAM[v]){ e.fill=TEAM[v].fill; e.stroke=TEAM[v].stroke; e.txt=TEAM[v].txt; } ed.render(); openProps(ed); return; }
       if(k==='num'&&e.t==='player'){ e.num=v; if(!e.name&&ed.opts.lookupName){ const n=ed.opts.lookupName(v); if(n){ e.name=n; const ni=body.querySelector('[data-k="name"]'); if(ni) ni.value=n; } } ed.render(); return; }
       if(k==='name') v=v.replace(/\\n/g,'\n');
@@ -3138,6 +3149,72 @@ function onceColorDeImagen(src){
   });
 }
 
+// ══ DOS GRUPOS EN EL POSIBLE 11 ═══════════════════════════════════
+//   Los once primeros van con el color de la primera equipación. Del
+//   doceavo en adelante, con el de la segunda: así en una sola hoja se
+//   ve quién se piensa titular y quién es el resto de la plantilla.
+//   Un jugador del segundo grupo lleva `supl:true`, que es lo que manda
+//   (no el color), para que colocar otra vez el once no se los lleve.
+// ══════════════════════════════════════════════════════════════════
+const ONCE_SUPL_DEF = '#f2f0e8';   // segunda equipación por defecto
+
+function onceColorTit(p){ return (p && p.onceColor) || FE.TEAM.away.fill; }
+function onceColorSupl(p){ return (p && p.onceColor2) || ONCE_SUPL_DEF; }
+function esSuplente(e){ return !!(e && e.t==='player' && e.supl); }
+function onceCuentaTitulares(ed){
+  return ed ? ed.data.els.filter(e=>e.t==='player' && !e.supl).length : 0;
+}
+// Vestir a un jugador con el color de un grupo.
+function onceViste(e, col){
+  e.fill=col; e.stroke=onceBordeSobre(col); e.txt=onceTextoSobre(col); e.team='custom';
+}
+// Un jugador nuevo: si ya hay once sin contar suplentes, es del resto.
+function onceVisteNuevo(ed, e, p){
+  if(onceCuentaTitulares(ed) < 11) return;
+  e.supl=true; onceViste(e, onceColorSupl(p));
+}
+// Cambiar de grupo a mano desde el panel de propiedades.
+function onceGrupo(ed, e, aSuplente){
+  const p = ed.opts && ed.opts.p11;
+  const eraPortero = e.team==='gk' || String(e.num).trim()==='1';
+  if(aSuplente){ e.supl=true; onceViste(e, onceColorSupl(p)); }
+  else {
+    delete e.supl;
+    if(eraPortero){ e.fill=FE.TEAM.gk.fill; e.stroke=FE.TEAM.gk.stroke; e.txt=FE.TEAM.gk.txt; e.team='gk'; }
+    else onceViste(e, onceColorTit(p));
+  }
+}
+// Reasignar los grupos por el orden en que están puestos: los once
+// primeros al once, el resto al segundo grupo. Útil tras borrar gente.
+function onceRecolorea(ed, p){
+  if(!ed) return 0;
+  ed.snap();
+  let n=0, movidos=0;
+  ed.data.els.forEach(e=>{
+    if(e.t!=='player') return;
+    n++;
+    const debeSupl = n>11;
+    if(!!e.supl !== debeSupl) movidos++;
+    if(debeSupl){ e.supl=true; onceViste(e, onceColorSupl(p)); }
+    else { delete e.supl; if(e.team!=='gk') onceViste(e, onceColorTit(p)); }
+  });
+  ed.sel=null; ed.render(); ed.changed();
+  return movidos;
+}
+// Volver a pintar a los del segundo grupo cuando se cambia su color.
+function onceRepintaSupl(ed, p){
+  if(!ed) return 0;
+  let n=0;
+  ed.data.els.forEach(e=>{ if(esSuplente(e)){ onceViste(e, onceColorSupl(p)); n++; } });
+  if(n){ ed.render(); ed.changed(); }
+  return n;
+}
+
+// Un borde que se vea: claro sobre oscuro y oscuro sobre claro.
+function onceBordeSobre(hex){
+  return onceTextoSobre(hex)==='#111111' ? '#111111' : '#ffffff';
+}
+
 // Blanco o negro, el que se lea mejor encima de ese color.
 function onceTextoSobre(hex){
   const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||''));
@@ -3153,8 +3230,9 @@ function onceColoca(ed, lineas, color){
   const col = color || FE.TEAM.away.fill;
   const txt = onceTextoSobre(col);
   ed.snap();
-  // fuera los jugadores que hubiera; flechas, zonas y textos se quedan
-  ed.data.els = ed.data.els.filter(e=>e.t!=='player');
+  // Fuera los once que hubiera; flechas, zonas, textos y el resto de la
+  // plantilla (los del segundo grupo) se quedan donde están.
+  ed.data.els = ed.data.els.filter(e=>e.t!=='player' || e.supl);
   oncePosiciones(lineas).forEach(p=>{
     const t = p.gk ? FE.TEAM.gk : {fill:col, stroke:'#ffffff', txt:txt};
     ed.data.els.push({t:'player', id:uid('e'), x:p.x, y:p.y, num:String(p.num),
@@ -3187,11 +3265,13 @@ function onceCierra(){ const o=document.getElementById('once-modal-overlay'); if
 function oncePinta(){
   const b=document.getElementById('once-modal-body'); if(!b) return;
   const actual = (oncePag && oncePag.sistema) || '';
-  const hay = onceEd ? onceEd.data.els.filter(e=>e.t==='player').length : 0;
+  const hay = onceCuentaTitulares(onceEd);
+  const haySupl = onceEd ? onceEd.data.els.filter(esSuplente).length : 0;
   let h='';
   h+='<div class="esp-nota" style="margin-top:0;">Elige el sistema y se colocan los once sobre el campo: '+
      'el portero con su color y los diez de campo con el color de abajo. '+
-     (hay? '<b style="color:#ffb862;">Los '+hay+' jugadores que ya hay se reemplazan.</b> Las flechas, zonas y textos se quedan.' : '')+
+     (hay? '<b style="color:#ffb862;">Los '+hay+' del once que ya hay se reemplazan.</b> Las flechas, zonas y textos se quedan.' : '')+
+     (haySupl? ' <b style="color:#8fd18f;">Los '+haySupl+' del resto de la plantilla no se tocan.</b>' : '')+
      '</div>';
 
   h+='<div class="pick-sec">Color de los diez de campo</div>';
@@ -3199,6 +3279,17 @@ function oncePinta(){
      '<input type="color" id="once-color" value="'+escapeHtml(onceColor.hex)+'">'+
      '<span>'+(onceColor.auto?'Sacado del escudo del rival. Si no acierta, cámbialo.':'Elegido por ti.')+'</span>'+
      '</div>';
+
+  h+='<div class="pick-sec">Color del resto de la plantilla (2ª equipación)</div>';
+  h+='<div class="once-col">'+
+     '<input type="color" id="once-color2" value="'+escapeHtml(onceColorSupl(oncePag))+'">'+
+     '<span>Del doceavo jugador en adelante se coloca con este color. '+
+     (haySupl? 'Al cambiarlo se repintan los '+haySupl+' que ya hay.' : 'Elígelo tú con la segunda equipación del equipo.')+
+     '</span></div>';
+  h+='<div class="once-col" style="margin-top:6px;">'+
+     '<button class="mini-btn" id="once-recolor">↺ Reasignar grupos por orden</button>'+
+     '<span>Los once primeros al once, el resto al segundo grupo. '+
+     'Viene bien si has borrado o añadido gente por el medio.</span></div>';
 
   h+='<div class="pick-sec">Sistema</div><div class="once-sis">';
   // si ha escrito uno a mano que vale y no está en la lista, va primero
@@ -3216,8 +3307,10 @@ function oncePinta(){
       const s=el.dataset.sis, l=onceLineas(s);
       if(!l){ toast('Ese sistema no suma diez jugadores de campo'); return; }
       const c=document.getElementById('once-color').value;
+      const c2b=document.getElementById('once-color2');
       oncePag.sistema=s;
       oncePag.onceColor=c;
+      if(c2b) oncePag.onceColor2=c2b.value;
       onceColor={para:onceInf&&onceInf.id, hex:c, auto:false};
       onceColoca(onceEd,l,c);
       saveReports(); renderReport();
@@ -3227,6 +3320,23 @@ function oncePinta(){
   });
   const ci=document.getElementById('once-color');
   if(ci) ci.oninput=()=>{ onceColor={para:onceInf&&onceInf.id, hex:ci.value, auto:false}; };
+  const c2=document.getElementById('once-color2');
+  if(c2) c2.onchange=()=>{
+    if(!oncePag) return;
+    oncePag.onceColor2=c2.value;
+    const n=onceRepintaSupl(onceEd, oncePag);
+    saveReports();
+    if(n){ renderReport(); oncePinta(); toast(n+(n===1?' jugador repintado':' jugadores repintados')); }
+  };
+  const rc=document.getElementById('once-recolor');
+  if(rc) rc.onclick=()=>{
+    if(!oncePag) return;
+    const c=document.getElementById('once-color'); if(c) oncePag.onceColor=c.value;
+    if(c2) oncePag.onceColor2=c2.value;
+    const m=onceRecolorea(onceEd, oncePag);
+    saveReports(); renderReport(); onceCierra();
+    toast(m? m+(m===1?' jugador cambia de grupo':' jugadores cambian de grupo') : 'Los grupos ya estaban bien');
+  };
 }
 
 // ── Campo a pantalla completa ──────────────────────────────────────
@@ -3607,6 +3717,7 @@ function renderReport(){
   const root=document.getElementById('pages-root'); root.innerHTML=''; FE.closeProps();
   if(!curRep){ document.getElementById('rep-main-empty').style.display=''; return; }
   document.getElementById('rep-main-empty').style.display='none';
+  sincroPlantilla(curRep);
   curRep.pages.forEach((p,i)=>{ root.appendChild(buildPage(p,curRep,i)); });
   fitPages();
 }
@@ -3735,7 +3846,14 @@ function buildP11(page,p,r){
   page.appendChild(pageHead(p,p.title,sysNode,r.crestRival));
   const body=elx('div','p11-body');
   const fw=elx('div','p11-field'); body.appendChild(fw);
-  const edCampo=mkField(fw,p.field,{lookupName:num=>lookupSquadName(r,num)});
+  const edCampo=mkField(fw,p.field,{
+    lookupName:num=>lookupSquadName(r,num),
+    p11:p,
+    // Cada vez que cambia el campo se mira si hay dorsales o nombres
+    // nuevos que llevar a la Plantilla. Si hay, se repinta SÓLO esa
+    // página: así no se cierra el panel de propiedades que acabas de abrir.
+    onChange:()=>{ scheduleSave(); if(sincroPlantilla(r)) repintaPlantilla(r); }
+  });
   mas.onclick=()=>onceAbre(edCampo,p,r);
   feBotonFull(edCampo);
   const lg=elx('div','legend');
@@ -3744,6 +3862,79 @@ function buildP11(page,p,r){
   body.appendChild(lg);
   page.appendChild(body);
 }
+// ══ DEL POSIBLE 11 A LA PLANTILLA ═════════════════════════════════
+//   Todo el que se pone en el Posible 11 aparece en la Plantilla, por
+//   orden de dorsal. Nunca se borra ni se pisa nada de lo que ya hay
+//   escrito ahí: la Plantilla es la hoja buena, el campo sólo propone.
+// ══════════════════════════════════════════════════════════════════
+function p11Jugadores(r){
+  const out=[];
+  ((r&&r.pages)||[]).forEach(pg=>{
+    if(pg.type!=='posible11') return;
+    (((pg.field||{}).els)||[]).forEach(e=>{
+      if(e.t!=='player') return;
+      const num=String(e.num==null?'':e.num).trim();
+      if(!num) return;
+      out.push({num:num, name:String(e.name||'').replace(/\s+/g,' ').trim()});
+    });
+  });
+  return out;
+}
+// Dorsales de menor a mayor; los que no tienen número, al final.
+function ordenaPorDorsal(rows){
+  if(!Array.isArray(rows)) return;
+  rows.forEach((x,i)=>{ x.__i=i; });
+  rows.sort((a,b)=>{
+    const na=parseInt(a.num,10), nb=parseInt(b.num,10);
+    const va=isNaN(na), vb=isNaN(nb);
+    if(va!==vb) return va?1:-1;
+    if(!va && na!==nb) return na-nb;
+    return a.__i-b.__i;
+  });
+  rows.forEach(x=>{ delete x.__i; });
+}
+function filaVacia(x){
+  return !['num','name','pos','age','h','note'].some(k=>String(x[k]||'').trim());
+}
+function sincroPlantilla(r){
+  if(!r||!Array.isArray(r.pages)) return false;
+  const pgs=r.pages.filter(pg=>pg.type==='plantilla');
+  if(!pgs.length) return false;                 // sin hoja de plantilla, nada que hacer
+  pgs.forEach(pg=>{ if(!Array.isArray(pg.rows)) pg.rows=[]; });
+  const dest=pgs[0];
+  const huella=()=>JSON.stringify(pgs.map(pg=>pg.rows.map(x=>[x.num,x.name])));
+  const antes=huella();
+
+  p11Jugadores(r).forEach(j=>{
+    let fila=null;
+    for(const pg of pgs){ fila=pg.rows.find(x=>String(x.num).trim()===j.num); if(fila) break; }
+    if(!fila){
+      // se reutiliza una fila del todo vacía antes de añadir otra
+      fila=dest.rows.find(filaVacia);
+      if(!fila){ fila={num:'',name:'',pos:'',age:'',h:'',note:''}; dest.rows.push(fila); }
+      fila.num=j.num;
+    }
+    // el nombre sólo se escribe si el hueco está en blanco
+    if(j.name && !String(fila.name||'').trim()) fila.name=j.name;
+  });
+
+  pgs.forEach(pg=>ordenaPorDorsal(pg.rows));
+  return huella()!==antes;
+}
+// Repintar sólo las páginas de plantilla, sin tocar el resto del informe.
+function repintaPlantilla(r){
+  if(r!==curRep) return;
+  const root=document.getElementById('pages-root'); if(!root) return;
+  let algo=false;
+  r.pages.forEach((pg,i)=>{
+    if(pg.type!=='plantilla') return;
+    const viejo=root.children[i]; if(!viejo) return;
+    root.replaceChild(buildPage(pg,r,i), viejo);
+    algo=true;
+  });
+  if(algo && typeof fitPages==='function') fitPages();
+}
+
 function lookupSquadName(r,num){
   if(!r||!r.pages) return '';
   for(const pg of r.pages){ if(pg.type==='plantilla'){ const row=(pg.rows||[]).find(x=>String(x.num).trim()===String(num).trim()&&x.name); if(row) return row.name; } }
@@ -3851,7 +4042,19 @@ function buildSquad(page,p,r){
     cap.title=capFind(row.name)?'Ya está en Captación — actualizar ficha':'Añadir este jugador a Captación';
     cap.onclick=()=>sendSquadRowToCaptacion(row);
     d.appendChild(cap);
-    const del=elx('button','sq-del no-print','×'); del.onclick=()=>{ p.rows.splice(i,1); saveReports(); renderReport(); }; d.appendChild(del);
+    const del=elx('button','sq-del no-print','×');
+    del.onclick=()=>{
+      // Si ese dorsal está puesto en el Posible 11, volvería a aparecer solo:
+      // se avisa en vez de dejar que parezca que la fila no se borra.
+      const num=String(row.num||'').trim();
+      const enCampo = num && typeof p11Jugadores==='function' &&
+                      p11Jugadores(r).some(j=>j.num===num);
+      if(enCampo && !confirm('El dorsal '+num+' está puesto en el Posible 11, así que esta fila '+
+         'volverá a aparecer sola.\n\nPara quitarlo de la plantilla, bórralo primero del campo.\n\n'+
+         '¿Borrar la fila de todas formas?')) return;
+      p.rows.splice(i,1); saveReports(); renderReport();
+    };
+    d.appendChild(del);
     (i<Math.ceil(p.rows.length/2)?c1:c2).appendChild(d);
   });
   g.appendChild(c1); g.appendChild(c2); page.appendChild(g);
