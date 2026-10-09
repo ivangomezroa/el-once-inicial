@@ -323,7 +323,14 @@ function cgNuevo(nombre){
   return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3', asign:{}};
 }
 function cgGuardar(){
-  try{ localStorage.setItem(K_CG, JSON.stringify({activo:cgAct, lista:CGS})); }catch(e){}
+  try{
+    localStorage.setItem(K_CG, JSON.stringify({activo:cgAct, lista:CGS}));
+    return true;
+  }catch(e){
+    // Callarse aquí sería lo peor: parecería guardado y no lo estaría.
+    shT('No se ha podido guardar: no queda sitio en este navegador','err');
+    return false;
+  }
 }
 function cgCargar(){
   try{

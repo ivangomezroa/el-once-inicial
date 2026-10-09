@@ -815,7 +815,7 @@ pzFoto();
 // encarga; para las de pizarra y sesión, este fichero las sube él mismo.
 (function vigila(){
   var CLAVES = {'oi_informes_v3':1,'oi_jug_informes_v1':1,'oi_jugadores_v1':1,
-                'oi_rivals_v1':1,'oi_cal_v2':1};
+                'oi_rivals_v1':1,'oi_cal_v2':1,'oi_campogramas_v1':1};
   var guardar = Storage.prototype.setItem;
   var leer = Storage.prototype.getItem;
   Storage.prototype.setItem = function(k,v){

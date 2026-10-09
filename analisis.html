@@ -1122,7 +1122,16 @@ function nubeRecopila(){
     });
   });
 
-  return {informes, jugadores, rivales:rivalesFull, eventos};
+  // Los campogramas de Captación. Se guardan enteros en `datos` y, en
+  // columnas sueltas, lo justo para poder mirarlos desde el panel.
+  const cgCrudo = nubeLee('oi_campogramas_v1', null) || {};
+  const campogramas = (Array.isArray(cgCrudo.lista) ? cgCrudo.lista : [])
+    .filter(c => c && c.id)
+    .map(c => ({espacio_id:esp, id_local:'cg:'+String(c.id),
+      nombre:String(c.nombre||''), categoria:String(c.cat||''),
+      sistema:String(c.sistema||''), datos:c}));
+
+  return {informes, jugadores, rivales:rivalesFull, eventos, campogramas};
 }
 
 // Sube por trozos para no mandar peticiones gigantes.
@@ -1157,6 +1166,7 @@ async function nubeSubirTodo(aviso){
   res.jugadores = await nubeSubeTabla('jugadores', d.jugadores, aviso);
   res.rivales   = await nubeSubeTabla('rivales',   d.rivales,   aviso);
   res.eventos   = await nubeSubeTabla('eventos',   d.eventos,   aviso);
+  res.campogramas = await nubeSubeTabla('campogramas', d.campogramas, aviso);
   try{ localStorage.setItem(NK_ULTIMA, new Date().toISOString()); }catch(e){}
   return res;
 }
@@ -1171,6 +1181,10 @@ async function nubeBajarTodo(){
   const jugs = await sel('jugadores','&select=datos');
   const rivs = await sel('rivales','&select=nombre,escudo_url');
   const evs  = await sel('eventos','&select=fecha,datos');
+  // Si la tabla todavía no existe en este proyecto, no se rompe la bajada
+  // del resto: se deja la lista vacía y los campogramas se quedan como están.
+  let cgs = [];
+  try{ cgs = await sel('campogramas','&select=datos'); }catch(e){ cgs = []; }
 
   const repsEquipo = infs.filter(x=>x.tipo==='equipo').map(x=>x.datos).filter(Boolean);
   const repsJug    = infs.filter(x=>x.tipo==='jugador').map(x=>x.datos).filter(Boolean);
@@ -1187,8 +1201,16 @@ async function nubeBajarTodo(){
   if(rivales.length   && !guarda('oi_rivals_v1', rivales))       fallos.push('rivales');
   if(Object.keys(cal).length && !guarda('oi_cal_v2', cal))       fallos.push('calendario');
 
+  // Campogramas: se respeta cuál tenías abierto si sigue existiendo.
+  const listaCg = cgs.map(x=>x.datos).filter(c=>c && c.id);
+  if(listaCg.length){
+    let previo={}; try{ previo=JSON.parse(localStorage.getItem('oi_campogramas_v1')||'{}')||{}; }catch(e){ previo={}; }
+    const activo = (previo.activo && listaCg.some(c=>c.id===previo.activo)) ? previo.activo : listaCg[0].id;
+    if(!guarda('oi_campogramas_v1', {activo:activo, lista:listaCg})) fallos.push('campogramas');
+  }
+
   return {informes:repsEquipo.length, fichas:repsJug.length, jugadores:captacion.length,
-          rivales:rivales.length, partidos:evs.length, fallos};
+          rivales:rivales.length, partidos:evs.length, campogramas:listaCg.length, fallos};
 }
 
 // ── Invitación por enlace ──
@@ -1735,7 +1757,7 @@ function imgHuellasEnUso(){
   // OJO: también hay que mirar el calendario y los rivales. Si no, sus
   // escudos se ven como "no usados" y el botón de limpiar los borraría,
   // dejando el calendario de Planificación sin escudos.
-  ['oi_cal_v2','oi_rivals_v1'].forEach(k=>{
+  ['oi_cal_v2','oi_rivals_v1','oi_campogramas_v1'].forEach(k=>{
     const raw=localStorage.getItem(k);
     if(!raw) return;
     const m=raw.match(/img:[0-9a-z]+-[0-9a-z]+-[0-9a-z]+/g);
