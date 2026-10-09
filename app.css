@@ -260,11 +260,15 @@ body {
   align-items: flex-start;
   gap: 3px;
   justify-content: space-between;
+  /* El nombre ocupa su propia línea y el estado va debajo: las columnas
+     del campograma son estrechas y, en una sola línea, los apellidos se
+     cortaban ("LOREN FERNÁ..." o partidos por la mitad). */
+  flex-wrap: wrap;
 }
-.jr-info { flex: 1; min-width: 0; }
-.jn { font-size: 10px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jr-info { flex: 1 1 100%; min-width: 0; }
+.jn { font-size: 10px; font-weight: 500; color: #fff; line-height: 1.15; overflow-wrap: break-word; }
 .je { font-size: 8px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.jr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.jr-right { display: flex; flex-direction: row; align-items: center; gap: 4px; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
 
 .ap { background: rgba(255,255,255,0.04); padding: 5px 7px; max-height: 160px; overflow-y: auto; }
 .at { font-size: 8px; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 3px; }

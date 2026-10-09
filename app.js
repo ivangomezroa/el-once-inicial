@@ -64,6 +64,12 @@ const pt = p => { const b=(p||"").split(/[,/]/)[0].trim(); return PCT[b]||"#fff"
 const jugPos = j => (j.pos||"").split(/[,/]/).map(p=>p.trim()).filter(Boolean);
 
 const SECS = ["PORTEROS","CENTRALES","LATERALES","MC / PIVOTES","INTERIORES","INT. MEDIA PUNTAS","EXTREMOS","DELANTEROS"];
+// Para los jugadores que se crean desde un campograma: el puesto dice en
+// qué grupo de la Base de datos tienen que salir.
+const SEC_POS = {P1:"PORTEROS",P2:"LATERALES",P3:"LATERALES",P4:"CENTRALES",P5:"CENTRALES",
+                 P6:"MC / PIVOTES",P8:"INTERIORES",P10:"INT. MEDIA PUNTAS",
+                 P7:"EXTREMOS",P11:"EXTREMOS",P9:"DELANTEROS"};
+const secDePos = p => SEC_POS[(p||"").split(/[,\/]/)[0].trim()] || "MC / PIVOTES";
 
 // ── SISTEMAS DE JUEGO ─────────────────────────────────────────────
 const SISTEMAS = {
@@ -119,10 +125,165 @@ const SISTEMAS = {
      {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
     [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
   ],
+  // ── Los ocho de abajo son nuevos. Mismos dorsales de siempre:
+  //    lateral dcho 2, central dcho 4, central izq 5, lateral izq 3;
+  //    con línea de 3, carriles 2 y 11; extremos 7 y 11; dos MC 6 y 8;
+  //    tres MC 6 de pivote con 8 y 10 por delante; y cuando hay dos
+  //    puntas con tres MC, los puntas son el 7 y el 9 porque el 10 es
+  //    uno de los medios.
+  "1-4-2-3-1": [
+    [{k:"P9", lb:"9 · Delantero",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Ext. izq",  bg:"#E74C3C",tx:"#fff"},
+     {k:"P10",lb:"10 · Media pta", bg:"#E74C3C",tx:"#fff"},
+     {k:"P7", lb:"7 · Ext. dcho",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P6", lb:"6 · Pivote izq", bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · Pivote dcho",bg:"#27AE60",tx:"#fff"}],
+    [{k:"P3", lb:"3 · Lat. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Lat. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-4-1-4-1": [
+    [{k:"P9", lb:"9 · Delantero",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Ext. izq",  bg:"#27AE60",tx:"#fff"},
+     {k:"P10",lb:"10 · MC izq",    bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · MC dcho",    bg:"#27AE60",tx:"#fff"},
+     {k:"P7", lb:"7 · Ext. dcho",  bg:"#27AE60",tx:"#fff"}],
+    [{k:"P6", lb:"6 · MC Pivote",  bg:"#27AE60",tx:"#fff"}],
+    [{k:"P3", lb:"3 · Lat. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Lat. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-4-4-1-1": [
+    [{k:"P9", lb:"9 · Delantero",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P10",lb:"10 · Segunda pta",bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Ext. izq",  bg:"#27AE60",tx:"#fff"},
+     {k:"P6", lb:"6 · MC izq",     bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · MC dcho",    bg:"#27AE60",tx:"#fff"},
+     {k:"P7", lb:"7 · Ext. dcho",  bg:"#27AE60",tx:"#fff"}],
+    [{k:"P3", lb:"3 · Lat. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Lat. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-4-3-1-2": [
+    [{k:"P9", lb:"9 · Del. izq",   bg:"#E74C3C",tx:"#fff"},
+     {k:"P7", lb:"7 · Del. dcho",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P10",lb:"10 · Media pta", bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P11",lb:"11 · MC izq",    bg:"#27AE60",tx:"#fff"},
+     {k:"P6", lb:"6 · MC Pivote",  bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · MC dcho",    bg:"#27AE60",tx:"#fff"}],
+    [{k:"P3", lb:"3 · Lat. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Lat. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-5-3-2": [
+    [{k:"P9", lb:"9 · Del. izq",   bg:"#E74C3C",tx:"#fff"},
+     {k:"P7", lb:"7 · Del. dcho",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P10",lb:"10 · Int. izq",  bg:"#27AE60",tx:"#fff"},
+     {k:"P6", lb:"6 · MC Pivote",  bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · Int. dcho",  bg:"#27AE60",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Carril izq",bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P3", lb:"3 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. cen.",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Carril dcho",bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-5-4-1": [
+    [{k:"P9", lb:"9 · Delantero",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P10",lb:"10 · MC izq",    bg:"#27AE60",tx:"#fff"},
+     {k:"P6", lb:"6 · MC Pivote",  bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · MC dcho",    bg:"#27AE60",tx:"#fff"},
+     {k:"P7", lb:"7 · Ext. dcho",  bg:"#27AE60",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Carril izq",bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P3", lb:"3 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. cen.",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Carril dcho",bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-4-5-1": [
+    [{k:"P9", lb:"9 · Delantero",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Ext. izq",  bg:"#27AE60",tx:"#fff"},
+     {k:"P10",lb:"10 · Int. izq",  bg:"#27AE60",tx:"#fff"},
+     {k:"P6", lb:"6 · MC Pivote",  bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · Int. dcho",  bg:"#27AE60",tx:"#fff"},
+     {k:"P7", lb:"7 · Ext. dcho",  bg:"#27AE60",tx:"#fff"}],
+    [{k:"P3", lb:"3 · Lat. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P2", lb:"2 · Lat. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
+  "1-3-4-2-1": [
+    [{k:"P9", lb:"9 · Delantero",  bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P10",lb:"10 · Media pta izq",bg:"#E74C3C",tx:"#fff"},
+     {k:"P7", lb:"7 · Media pta dcha",bg:"#E74C3C",tx:"#fff"}],
+    [{k:"P11",lb:"11 · Carril izq",bg:"#27AE60",tx:"#fff"},
+     {k:"P6", lb:"6 · MC izq",     bg:"#27AE60",tx:"#fff"},
+     {k:"P8", lb:"8 · MC dcho",    bg:"#27AE60",tx:"#fff"},
+     {k:"P2", lb:"2 · Carril dcho",bg:"#27AE60",tx:"#fff"}],
+    [{k:"P3", lb:"3 · Cen. izq",   bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P5", lb:"5 · Cen. cen.",  bg:"#00B0F0",tx:"#1B2A6B"},
+     {k:"P4", lb:"4 · Cen. dcho",  bg:"#00B0F0",tx:"#1B2A6B"}],
+    [{k:"P1", lb:"1 · Portero",    bg:"#C8A84B",tx:"#1B2A6B"}],
+  ],
 };
 
 // ── ESTADO GLOBAL ─────────────────────────────────────────────────
 let jug=[], plant=[], view="campo", sistema="1-4-3-3";
+
+// ══ CAMPOGRAMAS ══════════════════════════════════════════════════
+//   Antes había un solo campograma y el puesto de cada jugador vivía
+//   dentro del propio jugador (_enPlantilla + pos_campo): o estabas en
+//   el campo o no, y en un único sitio. Ahora cada campograma es un
+//   equipo con su sistema y sus asignaciones, y un mismo jugador puede
+//   estar en varios a la vez sin pisarse.
+//   Forma: {id, nombre, cat, sistema, asign:{ idJugador: "P7" }}
+const K_CG = 'oi_campogramas_v1';
+let CGS=[], cgAct=null;
+
+function cgId(){ return 'cg'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function cgNuevo(nombre){
+  return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', sistema:'1-4-3-3', asign:{}};
+}
+function cgGuardar(){
+  try{ localStorage.setItem(K_CG, JSON.stringify({activo:cgAct, lista:CGS})); }catch(e){}
+}
+function cgCargar(){
+  try{
+    const d=JSON.parse(localStorage.getItem(K_CG)||'null');
+    if(d && Array.isArray(d.lista) && d.lista.length){
+      CGS=d.lista;
+      cgAct = (d.activo && CGS.some(c=>c.id===d.activo)) ? d.activo : CGS[0].id;
+      return;
+    }
+  }catch(e){}
+  // Primera vez: lo que ya estuviera en el campo pasa a ser el primer
+  // campograma, para no perder nada de lo que ya tenía montado.
+  const c=cgNuevo('Mi plantilla');
+  c.sistema = SISTEMAS[sistema] ? sistema : '1-4-3-3';
+  jug.forEach(function(j){ if(j && j._enPlantilla) c.asign[j.id]=j.pos_campo||jugPos(j)[0]||'P1'; });
+  CGS=[c]; cgAct=c.id; cgGuardar();
+}
+function cg(){ return CGS.find(c=>c.id===cgAct) || CGS[0] || null; }
+// Los jugadores del campograma activo, con su puesto.
+function cgPlant(){
+  const c=cg(); if(!c) return [];
+  return Object.keys(c.asign).map(function(id){
+    const j=jug.find(x=>String(x.id)===String(id));
+    return j ? Object.assign({},j,{_posAsignada:c.asign[id]}) : null;
+  }).filter(Boolean);
+}
+function cgSync(){ plant = cgPlant(); if(cg()) sistema = cg().sistema; }
+
 let selPos=null, editJid=null, editCid=null, movJid=null;
 let posExpanded={}; // {P1: true, P3: true, ...} — posiciones con lista desplegada
 let flt={txt:"",sec:"",est:""};
@@ -141,10 +302,7 @@ async function loadData() {
     // Cada jugador guarda si está en plantilla (_enPlantilla) y en qué puesto
     // (pos_campo), pero antes nadie lo volvía a leer: al recargar la pantalla
     // la plantilla salía vacía aunque el dato estuviera guardado.
-    plant = jug.filter(function(j){ return j && j._enPlantilla; })
-               .map(function(j){
-                 return Object.assign({}, j, {_posAsignada: j.pos_campo || jugPos(j)[0]});
-               });
+    cgCargar(); cgSync();
     syncStatus="ok"; render(); shT(jug.length + " jugadores ✓");
   } catch(e) {
     syncStatus="error"; shT("Error: "+e.message,"err"); render();
@@ -171,27 +329,16 @@ async function delJug(id) {
   localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
 }
 async function addPlant(id, posAsignada) {
-  const j=jug.find(x=>x.id===id);
-  if(!j) return;
-  // Si ya está en plantilla, solo actualizar su posición asignada
-  if(plant.find(p=>p.id===id)){
-    plant=plant.map(p=>p.id===id?{...p,_posAsignada:posAsignada||jugPos(j)[0]}:p);
-    render(); return;
-  }
-  const pa = posAsignada || jugPos(j)[0];
-  plant=[...plant,{...j,_posAsignada:pa}]; render(); shT(`${j.n} → ${pa}`);
-  try {
-    // Guardar posición asignada en el jugador
-    j._enPlantilla=true; j.pos_campo=pa;
-    localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
-    render();
-  } catch(e){shT("Error: "+e.message,"err");}
+  const j=jug.find(x=>x.id===id); const c=cg();
+  if(!j||!c) return;
+  const yaEstaba = c.asign[id]!=null;
+  const pa = posAsignada || jugPos(j)[0] || 'P1';
+  c.asign[id]=pa; cgGuardar(); cgSync(); render();
+  if(!yaEstaba) shT(`${j.n} → ${pa}`);
 }
 async function remPlant(id) {
-  plant=plant.filter(p=>p.id!==id); render();
-  const jj=jug.find(function(x){ return x.id===id; });
-  if(jj){ jj._enPlantilla=false; }
-  localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
+  const c=cg(); if(!c) return;
+  delete c.asign[id]; cgGuardar(); cgSync(); render();
 }
 async function addJug() {
   const n=(document.getElementById("rn")?.value||"").trim();
@@ -257,7 +404,7 @@ function render(){
   const app=document.getElementById("app"); if(!app) return;
   const logoSrc = window.LOGO_SRC || '/logo.png';
   const NAV=[
-    {id:"campo",  ic:"ti-layout-dashboard", lb:"Campograma"},
+    {id:"campo",  ic:"ti-layout-dashboard", lb:"Campogramas"},
     {id:"bd",     ic:"ti-database",         lb:"Base de datos"},
     {id:"reg",    ic:"ti-plus",             lb:"Registro"},
     {id:"plant",  ic:"ti-layout-list",      lb:"Plantilla"},
@@ -305,7 +452,12 @@ function rCampo(){
   const campo=SISTEMAS[sistema];
   const rows=campo.map(row=>`<div class="crow">${row.map(pos=>{
     // candidatos: todos los jugadores que pueden jugar en esta posición (en o fuera de plantilla)
-    const candidatos=jug.filter(j=>jugPos(j).includes(pos.k));
+    // Los candidatos se parten en dos: los que ya son de este equipo y
+    // los del resto de la base, que son las posibles incorporaciones.
+    const eqCG=(cg()&&cg().nombre||'').trim().toLowerCase();
+    const esDeEsteEquipo=j=>eqCG && (j.eq||'').trim().toLowerCase()===eqCG;
+    const todos=jug.filter(j=>jugPos(j).includes(pos.k));
+    const candidatos=todos.slice().sort((a,b)=>(esDeEsteEquipo(b)?1:0)-(esDeEsteEquipo(a)?1:0));
     // visibles: los primeros 8 (o todos si está expandida la posición)
     const isExpanded=!!posExpanded[pos.k];
     const visibles=isExpanded?candidatos:candidatos.slice(0,8);
@@ -334,7 +486,7 @@ function rCampo(){
       return`<div class="jr">
         <div class="jr-info" onclick="tMov(${j.id})" style="cursor:pointer;flex:1">
           <div class="jn">${j.n} ${isMov?'':'<span style="font-size:8px;opacity:.35">⇄</span>'}</div>
-          <div class="je">${j.eq}</div>
+          ${esDeEsteEquipo(j)?'':`<div class="je">${j.eq}</div>`}
         </div>
         <div class="jr-right">
           <span class="eb" style="background:${bg};color:${tx};${b}">${j.est||""}</span>
@@ -367,10 +519,15 @@ function rCampo(){
         Mostrar menos ▲
       </div>`:""
     ;
-    const addPanel=(candidatosHTML||masBtn)?`<div class="ap">
-      <div class="at">${candidatos.length} candidatos${enc.length?` · ${enc.length} en campo`:""}:</div>
-      ${candidatosHTML}${masBtn}
-    </div>`:"";
+    const nDeEquipo=candidatos.filter(esDeEsteEquipo).length;
+    const nuevoBtn=`<div class="ai" onclick="cgNuevoJug('${pos.k}')" style="border-top:.5px solid rgba(255,255,255,.08);color:var(--gold)">
+        <span style="font-size:9px;flex:1;color:var(--gold)">+ Jugador nuevo de ${(cg()&&cg().nombre)||'este equipo'}</span>
+        <span style="font-size:10px;opacity:.7">✎</span>
+      </div>`;
+    const addPanel=`<div class="ap">
+      <div class="at">${candidatos.length} candidatos${nDeEquipo?` · ${nDeEquipo} de la plantilla`:""}${enc.length?` · ${enc.length} en campo`:""}:</div>
+      ${candidatosHTML}${masBtn}${nuevoBtn}
+    </div>`;
     const nA=!enc.length?`<div class="na" onclick="tPos('${pos.k}')">+ añadir candidatos</div>`:""; 
     return`<div class="pc ${isSel?'sel':''}">
       <div class="ph" style="background:${pos.bg};color:${pos.tx}" onclick="tPos('${pos.k}')">
@@ -383,13 +540,34 @@ function rCampo(){
 
   const lE=Object.entries(EST).map(([e,{bg,tx,bd}])=>{const b=bd?`border:1px solid ${bd};`:"";return`<span class="eb" style="background:${bg};color:${tx};${b}">${e}</span>`;}).join("");
   const lI=ICO.map(ic=>`<span title="${ic.l}" style="font-size:12px;white-space:nowrap;margin-right:6px">${ic.e}<span style="font-size:9px;color:var(--muted);margin-left:2px">${ic.l}</span></span>`).join("");
+  const c=cg();
+  const tabs=CGS.map(x=>{
+    const act=x.id===cgAct, n=Object.keys(x.asign).length;
+    return`<button onclick="cgSel('${x.id}')" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px 7px 0 0;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;
+      border:1px solid ${act?'var(--border2)':'transparent'};border-bottom:none;
+      background:${act?'var(--card)':'rgba(255,255,255,.04)'};color:${act?'var(--gold)':'var(--muted)'}">
+      ${x.nombre||'Sin nombre'}
+      <span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;background:${act?'var(--gold)':'rgba(255,255,255,.12)'};color:${act?'#1B2A6B':'var(--muted)'}">${n}</span>
+    </button>`;
+  }).join("");
   return`
-    <div class="sis-sel">
+    <div style="display:flex;align-items:flex-end;gap:3px;overflow-x:auto;border-bottom:1px solid var(--border2);margin-bottom:10px;padding-bottom:0;min-width:0">
+      ${tabs}
+      <button onclick="cgAdd()" title="Nuevo campograma" style="flex:0 0 auto;padding:6px 11px;margin-left:4px;border:1px dashed var(--border2);border-bottom:none;border-radius:7px 7px 0 0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700">＋</button>
+    </div>
+    <div class="sis-sel" style="flex-wrap:wrap">
+      <span onclick="cgRen()" title="Cambiar el nombre del equipo" style="font-size:14px;font-weight:700;color:var(--text);cursor:pointer">${(c&&c.nombre)||'Sin nombre'} <span style="font-size:10px;opacity:.4">✎</span></span>
+      <span onclick="cgCat()" title="Cambiar la categoría" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:2px 8px">${(c&&c.cat)||'+ categoría'}</span>
+      <span style="width:1px;height:16px;background:var(--border)"></span>
       <label>⚽ Sistema:</label>
       <select onchange="setSistema(this.value)">
         ${Object.keys(SISTEMAS).map(s=>`<option ${sistema===s?'selected':''} value="${s}">${s}</option>`).join("")}
       </select>
       <span style="font-size:11px;color:var(--muted)">← Izquierda &nbsp; Derecha →</span>
+      <span style="margin-left:auto;display:flex;gap:5px">
+        <button onclick="cgDup()" title="Duplicar este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted)">⧉ Duplicar</button>
+        <button onclick="cgDel()" title="Eliminar este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:#E74C3C">🗑</button>
+      </span>
     </div>
     <div class="campo">
       ${rows}
@@ -515,7 +693,7 @@ function rBD(){
         ${telL}${tmL}${bsL}
         <div style="display:flex;gap:2px;margin-left:auto">
           <button class="bi" onclick="sEJ(${j.id})" title="Editar"><i class="ti ti-edit"></i></button>
-          <button class="bi g" onclick="addP(${j.id})" title="+ Plantilla"><i class="ti ti-plus"></i></button>
+          <button class="bi g" onclick="addP(${j.id})" title="Añadir al campograma ${(cg()&&cg().nombre)||''}"><i class="ti ti-plus"></i></button>
           <button class="bi" onclick="delJug(${j.id})" title="Eliminar"><i class="ti ti-trash"></i></button>
         </div>
       </div>${eH}
@@ -715,15 +893,20 @@ function rReg(){
 
 // ── PLANTILLA ─────────────────────────────────────────────────────
 function rPlant(){
-  if(!plant.length) return`<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--border);border-radius:10px">
-    Sin jugadores en plantilla.<br>Añade desde el Campograma o Base de datos.
+  // La Plantilla es la del campograma que esté abierto.
+  const lista = plant, c = cg();
+  if(!lista.length) return`<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--border);border-radius:10px">
+    El campograma «${(c&&c.nombre)||''}» todavía no tiene jugadores.<br>Colócalos desde la pestaña Campogramas.
   </div>`;
   return`
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <span style="font-size:14px;font-weight:700;color:var(--text)">Plantilla activa</span>
-      <span style="background:var(--gold);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px">${plant.length}</span>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:14px;font-weight:700;color:var(--text)">${(c&&c.nombre)||''}</span>
+      ${c&&c.cat?`<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:2px 8px">${c.cat}</span>`:''}
+      <span style="font-size:10px;color:var(--muted)">· ${(c&&c.sistema)||''}</span>
+      <span style="background:var(--gold);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px">${lista.length}</span>
+      <span style="font-size:10px;color:var(--muted);margin-left:auto">Sigue al campograma que tengas abierto</span>
     </div>
-    <div class="pgd">${plant.map(j=>{
+    <div class="pgd">${lista.map(j=>{
       const{bg,tx,bd}=es(j.est);const b=bd?`border:1px solid ${bd};`:"";const isE=editCid===j.id;
       const posHtml=jugPos(j).map(p=>`<span class="pb" style="background:${PCC[p]||'#555'};color:${PCT[p]||'#fff'};margin-right:2px">${p}</span>`).join("");
       const telL=j.tel?`<a href="tel:${j.tel}" class="tel-link" style="display:block;margin-top:4px">📞 ${j.tel}</a>`:"";
@@ -771,20 +954,52 @@ function rClaude(){
 
 // ── EVENTOS ───────────────────────────────────────────────────────
 window.sv_ = v => { view=v; selPos=null; editJid=null; editCid=null; render(); };
-window.setSistema = s => { sistema=s; selPos=null; render(); };
+window.setSistema = s => {
+  const c=cg(); if(c){ c.sistema=s; cgGuardar(); }
+  sistema=s; selPos=null; render();
+};
+
+// ── Pestañas de campogramas ──────────────────────────────────────
+window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; cgGuardar(); cgSync(); render(); };
+window.cgAdd = () => {
+  const n=(prompt('Nombre del equipo para el nuevo campograma:','')||'').replace(/\s+/g,' ').trim();
+  if(n===null) return;
+  const c=cgNuevo(n||'Equipo nuevo'); CGS.push(c); cgAct=c.id;
+  selPos=null; posExpanded={}; cgGuardar(); cgSync(); render(); shT('Campograma «'+c.nombre+'» creado');
+};
+window.cgRen = () => {
+  const c=cg(); if(!c) return;
+  const n=prompt('Nombre del equipo:', c.nombre); if(n===null) return;
+  c.nombre=(n||'').replace(/\s+/g,' ').trim()||c.nombre; cgGuardar(); render();
+};
+window.cgCat = () => {
+  const c=cg(); if(!c) return;
+  const v=prompt('Categoría (1ª RFEF, 2ª RFEF, 3ª...):', c.cat||''); if(v===null) return;
+  c.cat=(v||'').trim(); cgGuardar(); render();
+};
+window.cgDup = () => {
+  const c=cg(); if(!c) return;
+  const copia=JSON.parse(JSON.stringify(c));
+  copia.id=cgId(); copia.nombre=c.nombre+' (copia)';
+  CGS.splice(CGS.indexOf(c)+1,0,copia); cgAct=copia.id;
+  cgGuardar(); cgSync(); render(); shT('Copiado');
+};
+window.cgDel = () => {
+  const c=cg(); if(!c) return;
+  if(CGS.length<=1){ shT('Tiene que quedar al menos un campograma','err'); return; }
+  const n=Object.keys(c.asign).length;
+  if(!confirm('¿Eliminar el campograma «'+c.nombre+'»'+(n?' con sus '+n+' jugadores colocados':'')+'?\n\nLas fichas de los jugadores NO se borran: siguen en la base de datos.')) return;
+  CGS=CGS.filter(x=>x.id!==c.id); cgAct=CGS[0].id;
+  selPos=null; posExpanded={}; cgGuardar(); cgSync(); render(); shT('Campograma eliminado');
+};
 window.tPos = k => { selPos=selPos===k?null:k; editCid=null; render(); };
 window.tExp = k => { posExpanded={...posExpanded,[k]:!posExpanded[k]}; render(); };
 window.moverPos = async (id, nuevaPos) => {
   if(!id) { movJid=null; render(); return; }
-  plant = plant.map(j => j.id===id ? {...j, _posAsignada: nuevaPos, pos_campo: nuevaPos} : j);
-  jug   = jug.map(j => j.id===id ? {...j, pos_campo: nuevaPos} : j);
+  const c=cg(); if(c){ c.asign[id]=nuevaPos; cgGuardar(); cgSync(); }
   movJid = null;
   render();
   shT('Movido a ' + nuevaPos);
-  // Persistir en Supabase
-  try {
-    // pos_campo ya actualizado en memoria — guardar
-  } catch(e) { shT("Error al guardar posición: "+e.message,"err"); }
 };
 window.tEC  = id => { editCid=editCid===id?null:id; render(); };
 window.tMov = id => { movJid=movJid===id?null:id; render(); };
@@ -852,6 +1067,24 @@ function reconectarBuscador() {
   }
 }
 window.cf  = () => { flt={txt:"",sec:"",est:""}; render(); };
+// Un jugador de la plantilla del equipo que todavía no está en la base.
+// Se crea con el equipo del campograma y entra directo al puesto.
+window.cgNuevoJug = (pos) => {
+  const c=cg(); if(!c) return;
+  // Se limpian los espacios de más: escribiendo deprisa en el móvil salen
+  // dobles y luego el nombre no casa con el de la base de datos.
+  const n=(prompt('Nombre del jugador (equipo: '+c.nombre+'):','')||'').replace(/\s+/g,' ').trim();
+  if(!n) return;
+  const maxId = jug.length ? Math.max(...jug.map(j=>Number(j.id)||0)) : 300;
+  const nuevo = {id:maxId+1, n:n.toUpperCase(), eq:c.nombre, cat:c.cat||'', pos:pos,
+                 s:secDePos(pos), est:'EN PLANTILLA', ico:[], obs:'', tel:'', tm:'', bs:'',
+                 repre:null, contacto:null, perfil:null, notas:null, pos_campo:'',
+                 _deCampograma:c.id, updated_at:new Date().toISOString()};
+  jug=[...jug,nuevo];
+  try{ localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug)); }catch(e){}
+  c.asign[nuevo.id]=pos; cgGuardar(); cgSync(); render();
+  shT(nuevo.n+' → '+pos);
+};
 window.addP = (id, pos) => addPlant(id, pos);
 window.remP = remPlant;
 window.delJug = delJug;
