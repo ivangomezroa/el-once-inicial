@@ -250,9 +250,77 @@ let jug=[], plant=[], view="campo", sistema="1-4-3-3";
 const K_CG = 'oi_campogramas_v1';
 let CGS=[], cgAct=null;
 
+// ── BANCO DE IMÁGENES ────────────────────────────────────────────
+//   Los escudos no viven dentro de cada sitio: se guardan una sola vez
+//   en `oi_img_<huella>` y lo demás apunta con `img:<huella>`. Es el
+//   mismo sistema que usa la pantalla de Análisis, con la misma huella,
+//   así que un escudo que ya esté guardado no se duplica.
+const IMG_PREFIJO='oi_img_', IMG_REF='img:';
+const IMG_VACIA='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+function imgHuella(str){
+  let h1=0x811c9dc5, h2=0;
+  for(let i=0;i<str.length;i++){
+    const c=str.charCodeAt(i);
+    h1=((h1^c)*0x01000193)>>>0;
+    h2=(c + (h2<<6) + (h2<<16) - h2)>>>0;
+  }
+  return str.length.toString(36)+'-'+h1.toString(36)+'-'+h2.toString(36);
+}
+function esRefImg(v){ return typeof v==='string' && v.slice(0,4)===IMG_REF; }
+function imgLee(ref){
+  if(!esRefImg(ref)) return null;
+  try{ return localStorage.getItem(IMG_PREFIJO+ref.slice(4)); }catch(e){ return null; }
+}
+function imgGuarda(dataUrl){
+  const h=imgHuella(dataUrl), k=IMG_PREFIJO+h;
+  try{ if(localStorage.getItem(k)===null) localStorage.setItem(k,dataUrl); }
+  catch(e){ return dataUrl; }      // si no cabe, mejor el dato suelto que perderlo
+  return IMG_REF+h;
+}
+function imgSrc(v){ if(!v) return ''; if(!esRefImg(v)) return v; return imgLee(v)||IMG_VACIA; }
+function imgHay(v){ return !!v && (!esRefImg(v) || !!imgLee(v)); }
+
+// Un escudo pequeño listo para pintar, o nada.
+function escudoHTML(v, px, extra){
+  if(!imgHay(v)) return '';
+  return '<img src="'+imgSrc(v)+'" alt="" style="width:'+px+'px;height:'+px+'px;object-fit:contain;'+
+         'flex:0 0 '+px+'px;border-radius:2px;'+(extra||'')+'">';
+}
+
+// ── CLUBES YA REGISTRADOS ────────────────────────────────────────
+//   Se juntan de todos los sitios donde ya hay equipos: los rivales
+//   guardados, los partidos del calendario, los informes, los propios
+//   campogramas y los equipos de las fichas de jugador. Si el mismo
+//   club aparece en varios, se queda con el que trae escudo.
+function leeJSON(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
+function clubesConocidos(){
+  const m=new Map();
+  const add=(nom,esc)=>{
+    const n=String(nom||'').replace(/\s+/g,' ').trim();
+    if(!n) return;
+    const k=n.toLowerCase();
+    const prev=m.get(k);
+    if(!prev) m.set(k,{nombre:n, escudo:imgHay(esc)?esc:''});
+    else if(!prev.escudo && imgHay(esc)) prev.escudo=esc;
+  };
+  (leeJSON('oi_rivals_v1')||[]).forEach(r=>add(r&&r.name, r&&r.crest));
+  const cal=leeJSON('oi_cal_v2')||{};
+  Object.keys(cal).forEach(d=>(cal[d]||[]).forEach(ev=>{
+    if(!ev) return; add(ev.localName,ev.localCrest); add(ev.rival,ev.rivalCrest);
+  }));
+  (leeJSON('oi_informes_v3')||[]).forEach(r=>add(r&&r.rival, r&&r.crestRival));
+  CGS.forEach(c=>add(c.nombre,c.escudo));
+  jug.forEach(j=>add(j&&j.eq,''));
+  return [...m.values()].sort((a,b)=>{
+    const ea=a.escudo?0:1, eb=b.escudo?0:1;
+    if(ea!==eb) return ea-eb;                       // los que traen escudo, primero
+    return a.nombre.localeCompare(b.nombre,'es');
+  });
+}
+
 function cgId(){ return 'cg'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function cgNuevo(nombre){
-  return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', sistema:'1-4-3-3', asign:{}};
+  return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3', asign:{}};
 }
 function cgGuardar(){
   try{ localStorage.setItem(K_CG, JSON.stringify({activo:cgAct, lista:CGS})); }catch(e){}
@@ -546,6 +614,7 @@ function rCampo(){
     return`<button onclick="cgSel('${x.id}')" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px 7px 0 0;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;
       border:1px solid ${act?'var(--border2)':'transparent'};border-bottom:none;
       background:${act?'var(--card)':'rgba(255,255,255,.04)'};color:${act?'var(--gold)':'var(--muted)'}">
+      ${escudoHTML(x.escudo,16)}
       ${x.nombre||'Sin nombre'}
       <span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;background:${act?'var(--gold)':'rgba(255,255,255,.12)'};color:${act?'#1B2A6B':'var(--muted)'}">${n}</span>
     </button>`;
@@ -556,8 +625,9 @@ function rCampo(){
       <button onclick="cgAdd()" title="Nuevo campograma" style="flex:0 0 auto;padding:6px 11px;margin-left:4px;border:1px dashed var(--border2);border-bottom:none;border-radius:7px 7px 0 0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700">＋</button>
     </div>
     <div class="sis-sel" style="flex-wrap:wrap">
-      <span onclick="cgRen()" title="Cambiar el nombre del equipo" style="font-size:14px;font-weight:700;color:var(--text);cursor:pointer">${(c&&c.nombre)||'Sin nombre'} <span style="font-size:10px;opacity:.4">✎</span></span>
-      <span onclick="cgCat()" title="Cambiar la categoría" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:2px 8px">${(c&&c.cat)||'+ categoría'}</span>
+      ${escudoHTML(c&&c.escudo,26,'cursor:pointer;')}
+      <span onclick="cgHoja(cgAct)" title="Equipo, escudo, categoría y sistema" style="font-size:14px;font-weight:700;color:var(--text);cursor:pointer">${(c&&c.nombre)||'Sin nombre'} <span style="font-size:10px;opacity:.4">✎</span></span>
+      <span onclick="cgHoja(cgAct)" title="Equipo, escudo, categoría y sistema" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:2px 8px">${(c&&c.cat)||'+ categoría'}</span>${(c&&!imgHay(c.escudo))?`<span onclick="cgHoja(cgAct)" title="Poner el escudo del club" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px dashed var(--border2);border-radius:9px;padding:2px 8px">+ escudo</span>`:''}
       <span style="width:1px;height:16px;background:var(--border)"></span>
       <label>⚽ Sistema:</label>
       <select onchange="setSistema(this.value)">
@@ -900,6 +970,7 @@ function rPlant(){
   </div>`;
   return`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      ${escudoHTML(c&&c.escudo,24)}
       <span style="font-size:14px;font-weight:700;color:var(--text)">${(c&&c.nombre)||''}</span>
       ${c&&c.cat?`<span style="font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:2px 8px">${c.cat}</span>`:''}
       <span style="font-size:10px;color:var(--muted)">· ${(c&&c.sistema)||''}</span>
@@ -961,22 +1032,174 @@ window.setSistema = s => {
 
 // ── Pestañas de campogramas ──────────────────────────────────────
 window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; cgGuardar(); cgSync(); render(); };
-window.cgAdd = () => {
-  const n=(prompt('Nombre del equipo para el nuevo campograma:','')||'').replace(/\s+/g,' ').trim();
-  if(n===null) return;
-  const c=cgNuevo(n||'Equipo nuevo'); CGS.push(c); cgAct=c.id;
-  selPos=null; posExpanded={}; cgGuardar(); cgSync(); render(); shT('Campograma «'+c.nombre+'» creado');
+// ── LA HOJA DE CREAR / EDITAR UN CAMPOGRAMA ──────────────────────
+//   Vive fuera de render(): si se repintara toda la pantalla con cada
+//   tecla, el cursor se saldría del campo de texto a media palabra.
+let cgDraft=null;
+
+window.cgAdd = () => cgHoja(null);
+window.cgRen = () => cgHoja(cgAct);
+window.cgCat = () => cgHoja(cgAct);
+window.cgHoja = (id) => {
+  const base = id ? CGS.find(c=>c.id===id) : null;
+  cgDraft = base
+    ? {id:base.id, nombre:base.nombre||'', cat:base.cat||'', escudo:base.escudo||'', sistema:base.sistema||'1-4-3-3'}
+    : {id:null, nombre:'', cat:'', escudo:'', sistema:'1-4-3-3'};
+  cgPintaHoja();
 };
-window.cgRen = () => {
-  const c=cg(); if(!c) return;
-  const n=prompt('Nombre del equipo:', c.nombre); if(n===null) return;
-  c.nombre=(n||'').replace(/\s+/g,' ').trim()||c.nombre; cgGuardar(); render();
-};
-window.cgCat = () => {
-  const c=cg(); if(!c) return;
-  const v=prompt('Categoría (1ª RFEF, 2ª RFEF, 3ª...):', c.cat||''); if(v===null) return;
-  c.cat=(v||'').trim(); cgGuardar(); render();
-};
+window.cgCierraHoja = () => { const m=document.getElementById('cg-hoja'); if(m) m.remove(); cgDraft=null; };
+
+function cgPintaHoja(){
+  let m=document.getElementById('cg-hoja');
+  if(!m){ m=document.createElement('div'); m.id='cg-hoja'; document.body.appendChild(m); }
+  m.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(8,12,22,.82);'+
+    'display:flex;align-items:center;justify-content:center;padding:14px;';
+  const d=cgDraft;
+  m.innerHTML=`
+    <div style="background:var(--card);border:1px solid var(--border2);border-radius:12px;
+         width:min(560px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)">
+        <span style="font-size:14px;font-weight:700;color:var(--gold);flex:1">${d.id?'Editar campograma':'Nuevo campograma'}</span>
+        <button id="cg-x" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div id="cg-esc" title="Poner o cambiar el escudo"
+               style="width:62px;height:62px;flex:0 0 62px;border:1.5px dashed var(--border2);border-radius:9px;
+                      display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;
+                      background:var(--bg)"></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+            <input id="cg-nombre" value="${(d.nombre||'').replace(/"/g,'&quot;')}" placeholder="Nombre del equipo"
+                   style="width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border2);
+                          background:var(--bg);color:var(--text);font-size:14px;font-weight:700">
+            <div style="display:flex;gap:8px">
+              <input id="cg-cat" value="${(d.cat||'').replace(/"/g,'&quot;')}" placeholder="Categoría"
+                     style="flex:1;min-width:0;padding:6px 9px;border-radius:7px;border:1px solid var(--border);
+                            background:var(--bg);color:var(--text);font-size:12px">
+              <select id="cg-sis" style="flex:0 0 auto;padding:6px 9px;border-radius:7px;border:1px solid var(--border);
+                            background:var(--bg);color:var(--text);font-size:12px">
+                ${Object.keys(SISTEMAS).map(x=>`<option value="${x}"${x===d.sistema?' selected':''}>${x}</option>`).join('')}
+              </select>
+            </div>
+            <button id="cg-quita-esc" style="align-self:flex-start;font-size:10px;padding:2px 8px;border-radius:5px;
+                    border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;
+                    display:${d.escudo?'block':'none'}">Quitar escudo</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">
+            Clubes ya registrados
+          </div>
+          <input id="cg-busca" placeholder="Buscar club..."
+                 style="width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);
+                        background:var(--bg);color:var(--text);font-size:12px;margin-bottom:7px">
+          <div id="cg-lista" style="max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;padding:11px 14px;border-top:1px solid var(--border)">
+        <button id="cg-cancel" style="padding:7px 14px;border-radius:7px;border:1px solid var(--border);
+                background:transparent;color:var(--muted);cursor:pointer;font-size:12px">Cancelar</button>
+        <button id="cg-ok" style="padding:7px 18px;border-radius:7px;border:none;background:var(--gold);
+                color:#1B2A6B;font-weight:700;cursor:pointer;font-size:12px">Guardar</button>
+      </div>
+    </div>
+    <input type="file" id="cg-file" accept="image/*" style="display:none">`;
+
+  const $=i=>document.getElementById(i);
+  cgPintaEscudoHoja();
+  cgPintaClubes('');
+
+  $('cg-x').onclick = $('cg-cancel').onclick = cgCierraHoja;
+  m.onclick = e => { if(e.target===m) cgCierraHoja(); };
+  $('cg-nombre').oninput = e => { cgDraft.nombre=e.target.value; };
+  $('cg-cat').oninput    = e => { cgDraft.cat=e.target.value; };
+  $('cg-sis').onchange   = e => { cgDraft.sistema=e.target.value; };
+  $('cg-busca').oninput  = e => cgPintaClubes(e.target.value);
+  $('cg-esc').onclick    = () => $('cg-file').click();
+  $('cg-file').onchange  = cgEscudoElegido;
+  $('cg-quita-esc').onclick = () => { cgDraft.escudo=''; cgPintaEscudoHoja(); };
+  $('cg-ok').onclick     = cgGuardaHoja;
+  $('cg-nombre').focus();
+}
+
+function cgPintaEscudoHoja(){
+  const e=document.getElementById('cg-esc'); if(!e) return;
+  e.innerHTML = imgHay(cgDraft.escudo)
+    ? '<img src="'+imgSrc(cgDraft.escudo)+'" alt="" style="width:100%;height:100%;object-fit:contain">'
+    : '<span style="font-size:10px;color:var(--muted);text-align:center;line-height:1.2">+<br>escudo</span>';
+  const q=document.getElementById('cg-quita-esc');
+  if(q) q.style.display = cgDraft.escudo ? 'block' : 'none';
+}
+
+function cgPintaClubes(filtro){
+  const cont=document.getElementById('cg-lista'); if(!cont) return;
+  const f=String(filtro||'').trim().toLowerCase();
+  let lista=clubesConocidos();
+  if(f) lista=lista.filter(c=>c.nombre.toLowerCase().includes(f));
+  const total=lista.length;
+  const corta = !f && total>60;
+  if(corta) lista=lista.slice(0,60);
+  if(!total){
+    cont.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--muted)">'+
+      (f?'Ningún club con ese nombre. Escríbelo arriba y se crea igualmente.':'Todavía no hay clubes registrados.')+'</div>';
+    return;
+  }
+  cont.innerHTML = lista.map((c,i)=>
+    '<div class="cg-club" data-i="'+i+'" style="display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;'+
+    'border-bottom:.5px solid var(--border)">'+
+      (c.escudo?escudoHTML(c.escudo,22):'<span style="width:22px;height:22px;flex:0 0 22px;border-radius:3px;'+
+        'background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted)">⚽</span>')+
+      '<span style="flex:1;min-width:0;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.nombre+'</span>'+
+    '</div>').join('') +
+    (corta?'<div style="padding:7px;text-align:center;font-size:10px;color:var(--muted)">'+
+      'y '+(total-60)+' más · usa el buscador</div>':'');
+  cont.querySelectorAll('.cg-club').forEach(el=>{
+    el.onclick=()=>{
+      const c=lista[+el.dataset.i];
+      cgDraft.nombre=c.nombre;
+      if(c.escudo) cgDraft.escudo=c.escudo;
+      const n=document.getElementById('cg-nombre'); if(n) n.value=c.nombre;
+      cgPintaEscudoHoja();
+    };
+  });
+}
+
+function cgEscudoElegido(e){
+  const file=e.target.files && e.target.files[0];
+  e.target.value='';
+  if(!file || !/^image\//.test(file.type)) return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const im=new Image();
+    im.onload=()=>{
+      const MAX=160, c=document.createElement('canvas');
+      let w=im.width, h=im.height;
+      if(w>MAX||h>MAX){ const k=Math.min(MAX/w,MAX/h); w=Math.round(w*k); h=Math.round(h*k); }
+      c.width=w; c.height=h; c.getContext('2d').drawImage(im,0,0,w,h);
+      cgDraft.escudo = imgGuarda(c.toDataURL('image/png'));
+      cgPintaEscudoHoja();
+    };
+    im.src=ev.target.result;
+  };
+  rd.readAsDataURL(file);
+}
+
+function cgGuardaHoja(){
+  const d=cgDraft; if(!d) return;
+  const nombre=String(d.nombre||'').replace(/\s+/g,' ').trim();
+  if(!nombre){ shT('Ponle nombre al equipo','err'); const n=document.getElementById('cg-nombre'); if(n) n.focus(); return; }
+  const cat=String(d.cat||'').replace(/\s+/g,' ').trim();
+  if(d.id){
+    const c=CGS.find(x=>x.id===d.id); if(!c) return cgCierraHoja();
+    c.nombre=nombre; c.cat=cat; c.escudo=d.escudo||''; c.sistema=SISTEMAS[d.sistema]?d.sistema:c.sistema;
+    cgGuardar(); cgSync(); cgCierraHoja(); render(); shT('Campograma actualizado');
+  } else {
+    const c=cgNuevo(nombre);
+    c.cat=cat; c.escudo=d.escudo||''; c.sistema=SISTEMAS[d.sistema]?d.sistema:'1-4-3-3';
+    CGS.push(c); cgAct=c.id; selPos=null; posExpanded={};
+    cgGuardar(); cgSync(); cgCierraHoja(); render(); shT('Campograma «'+c.nombre+'» creado');
+  }
+}
 window.cgDup = () => {
   const c=cg(); if(!c) return;
   const copia=JSON.parse(JSON.stringify(c));

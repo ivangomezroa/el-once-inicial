@@ -559,3 +559,8 @@ input[list] { cursor: text; }
   transition: background 0.15s;
 }
 .leyenda-perfiles-toggle:hover { background: var(--card); color: var(--text); }
+
+/* ── HOJA DE CAMPOGRAMA ─────────────────────────────────────────── */
+#cg-hoja .cg-club:hover { background: var(--bg); }
+#cg-hoja .cg-club:active { background: var(--border); }
+#cg-hoja input::placeholder { color: var(--muted); opacity: .8; }
