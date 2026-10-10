@@ -318,6 +318,122 @@ function clubesConocidos(){
   });
 }
 
+// ══ BUSCADOR DE JUGADORES POR PUESTO ═════════════════════════════
+//   Al abrir un puesto no hay que bajar por una lista de 300: se
+//   escribe el nombre y aparece. Se busca sin tildes y por trozos,
+//   así "carb pab" encuentra a PABLO CARBONELL.
+//
+//   OJO con el foco: la pantalla se repinta entera con cada cambio,
+//   así que el filtro vive aquí fuera y solo se repinta la lista
+//   (`#cand-<puesto>`). Si esto se metiera dentro de render(), el
+//   cursor se saldría de la caja a media palabra.
+// ═════════════════════════════════════════════════════════════════
+function escHtml(t){
+  return String(t==null?'':t).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function sinTildes(t){
+  return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+
+// Los candidatos de un puesto, ya filtrados por lo escrito.
+//   · dentro: los que tienen ese puesto entre sus posiciones
+//   · fuera : el resto de la base que coincide con la búsqueda. Sirve
+//             para colocar a alguien en un puesto que no tiene marcado
+//             (un central que hoy juega de lateral, por ejemplo).
+function candidatosPos(pk){
+  const f = sinTildes(posFiltro[pk]||'').trim();
+  const trozos = f ? f.split(/\s+/) : [];
+  const casa = j => { if(!f) return true;
+    const t = sinTildes((j.n||'')+' '+(j.eq||'')+' '+(j.pos||'')+' '+(j.cat||''));
+    return trozos.every(x=>t.includes(x)); };
+  const eqCG = ((cg()&&cg().nombre)||'').trim().toLowerCase();
+  const esDeEste = j => !!eqCG && String(j.eq||'').trim().toLowerCase()===eqCG;
+  const yaAqui = j => {
+    const p = plant.find(x=>x.id===j.id);
+    return !!p && (p._posAsignada||jugPos(p)[0])===pk;
+  };
+  const dentro = jug.filter(j=>jugPos(j).includes(pk) && casa(j))
+                    .sort((a,b)=>(esDeEste(b)?1:0)-(esDeEste(a)?1:0));
+  const lista  = dentro.filter(j=>!yaAqui(j));          // los de la tarjeta no se repiten
+  const fuera  = f ? jug.filter(j=>!jugPos(j).includes(pk) && casa(j) && !yaAqui(j)) : [];
+  return {dentro, lista, fuera, filtro:f, esDeEste};
+}
+
+// Una fila de la lista. `otraPos` marca a los que vienen de otro puesto.
+function filaCandidato(j, pk, otraPos){
+  const enCampo = plant.find(p=>p.id===j.id);
+  if(enCampo && (enCampo._posAsignada||jugPos(enCampo)[0])===pk) return '';  // ya está en esta tarjeta
+  const {bg,tx,bd} = es(j.est); const b = bd?`border:1px solid ${bd};`:'';
+  const acc = enCampo ? `moverPos(${j.id},'${pk}')` : `addP(${j.id},'${pk}')`;
+  const tit = enCampo ? 'Mover a esta posición' : (otraPos?'Colocarlo aquí aunque no sea su puesto':'Añadir al campo');
+  // El nombre va en su propia línea y el estado debajo: la columna es
+  // estrecha y, compartiendo línea, los apellidos salían como "ALP…".
+  return `<div class="ai" data-jug="${j.id}" onclick="${acc}" style="opacity:${enCampo?0.6:1}" title="${tit}">
+    <span class="ai-n">${escHtml(j.n)}${otraPos&&j.pos?` <span style="opacity:.45">· ${escHtml(j.pos)}</span>`:''}</span>
+    <span class="ai-b">
+      <span class="eb" style="background:${bg};color:${tx};${b}">${escHtml(j.est||'')}</span>
+      ${enCampo?`<span style="font-size:8px;color:rgba(255,255,255,.35)">en ${enCampo._posAsignada||jugPos(enCampo)[0]}</span>`:''}
+      <span style="font-size:11px;margin-left:auto;opacity:.55">${enCampo?'⇄':'+'}</span>
+    </span>
+  </div>`;
+}
+
+// Repinta SOLO la lista de un puesto. Nada más de la pantalla se toca,
+// y por eso el buscador conserva el foco mientras escribes.
+function cgPintaCandidatos(pk){
+  const cont=document.getElementById('cand-'+pk); if(!cont) return;
+  const {dentro, lista, fuera, filtro, esDeEste} = candidatosPos(pk);
+  const exp = !!posExpanded[pk];
+  // Buscando se enseñan todos los que coinciden; sin buscar, los 8 primeros.
+  const visibles = (filtro||exp) ? lista : lista.slice(0,8);
+  let h = visibles.map(j=>filaCandidato(j,pk,false)).join('');
+
+  if(!filtro && lista.length>8){
+    h += `<div onclick="tExp('${pk}')" style="font-size:8px;color:rgba(255,255,255,.35);text-align:center;padding:4px;cursor:pointer;border-top:.5px solid rgba(255,255,255,.06)">`+
+         (exp ? 'Mostrar menos ▲' : 'Ver todos ('+lista.length+') ▼')+'</div>';
+  }
+  if(fuera.length){
+    h += `<div style="font-size:8px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.4px;padding:5px 4px 3px;border-top:.5px solid rgba(255,255,255,.08)">De otras posiciones (${fuera.length})</div>`+
+         fuera.slice(0,15).map(j=>filaCandidato(j,pk,true)).join('')+
+         (fuera.length>15?`<div style="font-size:8px;color:rgba(255,255,255,.3);text-align:center;padding:3px">y ${fuera.length-15} más · afina la búsqueda</div>`:'');
+  }
+  if(!lista.length && !fuera.length){
+    h = `<div style="font-size:9px;color:rgba(255,255,255,.4);text-align:center;padding:10px 6px;font-style:italic">`+
+        (filtro ? 'Ningún jugador se llama así. Puedes crearlo abajo.' : 'Ningún candidato para este puesto todavía.')+'</div>';
+  }
+  cont.innerHTML = h;
+
+  const at=document.getElementById('at-'+pk);
+  if(at){
+    const nEq = dentro.filter(esDeEste).length;
+    at.textContent = filtro
+      ? (lista.length+fuera.length)+' encontrados'
+      : dentro.length+' candidatos'+(nEq?' · '+nEq+' de la plantilla':'');
+  }
+}
+
+// Lo que se escribe en la caja. Solo repinta la lista.
+window.cgBuscaPos = (pk, v) => { posFiltro[pk]=v; cgPintaCandidatos(pk); };
+
+// Intro con un solo resultado = añadirlo, sin tocar el ratón.
+window.cgBuscaTecla = (ev, pk) => {
+  if(ev.key==='Escape'){ posFiltro[pk]=''; const i=document.getElementById('busca-'+pk); if(i) i.value=''; cgPintaCandidatos(pk); return; }
+  if(ev.key!=='Enter') return;
+  const cont=document.getElementById('cand-'+pk); if(!cont) return;
+  const filas=cont.querySelectorAll('.ai[data-jug]');
+  if(filas.length===1){ ev.preventDefault(); filas[0].click(); }
+};
+
+// Al abrir un puesto, el cursor ya está en la caja — pero solo con ratón:
+// en el móvil abrir el teclado solo tapa media pantalla.
+function cgFocoBusca(pk){
+  if(!window.matchMedia || !window.matchMedia('(pointer:fine)').matches) return;
+  const i=document.getElementById('busca-'+pk); if(!i) return;
+  i.focus();
+  try{ i.setSelectionRange(i.value.length, i.value.length); }catch(e){}
+}
+
 function cgId(){ return 'cg'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function cgNuevo(nombre){
   return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3', asign:{}};
@@ -361,6 +477,7 @@ function cgSync(){ plant = cgPlant(); if(cg()) sistema = cg().sistema; }
 
 let selPos=null, editJid=null, editCid=null, movJid=null;
 let posExpanded={}; // {P1: true, P3: true, ...} — posiciones con lista desplegada
+let posFiltro={};   // {P7: "car"} — lo escrito en el buscador de cada puesto
 let flt={txt:"",sec:"",est:""};
 let fd={s:"PORTEROS",pos:"P1",n:"",eq:"",cat:"",est:"INTERESA",ico:[],repre:"",contacto:"",tel:"",tm:"",bs:"",obs:"",perfil:""};
 let toast=null, tTmr=null, searchTmr=null;
@@ -520,26 +637,23 @@ function render(){
       </button>`).join("")}
     </nav>`;
   rtT();
+  // El panel del puesto abierto se rellena aquí: su HTML sale de
+  // cgPintaCandidatos(), que es la misma función que usa el buscador.
+  if(view==='campo' && selPos){ cgPintaCandidatos(selPos); cgFocoBusca(selPos); }
 }
 
 // ── CAMPOGRAMA ────────────────────────────────────────────────────
 function rCampo(){
   const campo=SISTEMAS[sistema];
   const rows=campo.map(row=>`<div class="crow">${row.map(pos=>{
-    // candidatos: todos los jugadores que pueden jugar en esta posición (en o fuera de plantilla)
-    // Los candidatos se parten en dos: los que ya son de este equipo y
-    // los del resto de la base, que son las posibles incorporaciones.
+    // candidatos: todos los que pueden jugar en esta posición. El reparto
+    // entre plantilla del equipo y posibles incorporaciones, y el filtrado
+    // del buscador, los hace candidatosPos() al pintar la lista.
     const eqCG=(cg()&&cg().nombre||'').trim().toLowerCase();
     const esDeEsteEquipo=j=>eqCG && (j.eq||'').trim().toLowerCase()===eqCG;
-    const todos=jug.filter(j=>jugPos(j).includes(pos.k));
-    const candidatos=todos.slice().sort((a,b)=>(esDeEsteEquipo(b)?1:0)-(esDeEsteEquipo(a)?1:0));
-    // visibles: los primeros 8 (o todos si está expandida la posición)
-    const isExpanded=!!posExpanded[pos.k];
-    const visibles=isExpanded?candidatos:candidatos.slice(0,8);
+    const candidatos=jug.filter(j=>jugPos(j).includes(pos.k));
     // enc: jugadores cuya posición asignada (o primera posición natural) es esta
     const enc=plant.filter(j=>(j._posAsignada||jugPos(j)[0])===pos.k);
-    // dis: candidatos no asignados a ninguna posición del campo todavía
-    const dis=candidatos.filter(j=>!plant.find(p=>p.id===j.id));
     const isSel=selPos===pos.k;
     // Jugadores asignados — scrollable, compactos
     const jH=enc.map(j=>{
@@ -572,36 +686,19 @@ function rCampo(){
       </div>`;
     }).join("");
     // Panel de candidatos: lista de todos los jugadores que pueden ir a esta posición
-    const candidatosHTML=visibles.map(j=>{
-      const enCampo=plant.find(p=>p.id===j.id);
-      const esEsta=(enCampo?._posAsignada||jugPos(enCampo||{})[0])===pos.k;
-      const{bg,tx,bd}=es(j.est); const b=bd?`border:1px solid ${bd};`:"";
-      if(esEsta) return""; // ya visible en la tarjeta arriba
-      return`<div class="ai" onclick="${enCampo?`moverPos(${j.id},'${pos.k}')`:`addP(${j.id},'${pos.k}')`}" 
-        style="opacity:${enCampo?0.6:1}" title="${enCampo?'Mover a esta posición':'Añadir al campo'}">
-        <span style="font-size:9px;color:rgba(255,255,255,.85);flex:1">${j.n}</span>
-        ${enCampo?`<span style="font-size:8px;color:rgba(255,255,255,.35);margin-right:3px">${enCampo._posAsignada||jugPos(enCampo)[0]}</span>`:""}
-        <span class="eb" style="background:${bg};color:${tx};${b}">${j.est||""}</span>
-        <span style="font-size:10px;margin-left:3px;opacity:.5">${enCampo?'⇄':'+'}</span>
-      </div>`;
-    }).join("");
-    const masBtn=!isExpanded&&candidatos.length>8?
-      `<div onclick="tExp('${pos.k}')" style="font-size:8px;color:rgba(255,255,255,.35);text-align:center;padding:4px;cursor:pointer;border-top:.5px solid rgba(255,255,255,.06)">
-        Ver todos (${candidatos.length}) ▼
-      </div>`
-      :isExpanded&&candidatos.length>8?
-      `<div onclick="tExp('${pos.k}')" style="font-size:8px;color:rgba(255,255,255,.35);text-align:center;padding:4px;cursor:pointer;border-top:.5px solid rgba(255,255,255,.06)">
-        Mostrar menos ▲
-      </div>`:""
-    ;
-    const nDeEquipo=candidatos.filter(esDeEsteEquipo).length;
+    // La lista la rellena cgPintaCandidatos() después de pintar, para que
+    // escribir en el buscador no obligue a repintar la pantalla entera.
     const nuevoBtn=`<div class="ai" onclick="cgNuevoJug('${pos.k}')" style="border-top:.5px solid rgba(255,255,255,.08);color:var(--gold)">
         <span style="font-size:9px;flex:1;color:var(--gold)">+ Jugador nuevo de ${(cg()&&cg().nombre)||'este equipo'}</span>
         <span style="font-size:10px;opacity:.7">✎</span>
       </div>`;
     const addPanel=`<div class="ap">
-      <div class="at">${candidatos.length} candidatos${nDeEquipo?` · ${nDeEquipo} de la plantilla`:""}${enc.length?` · ${enc.length} en campo`:""}:</div>
-      ${candidatosHTML}${masBtn}${nuevoBtn}
+      <input class="ap-busca" id="busca-${pos.k}" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Buscar jugador..." value="${escHtml(posFiltro[pos.k]||'')}"
+             oninput="cgBuscaPos('${pos.k}',this.value)" onkeydown="cgBuscaTecla(event,'${pos.k}')">
+      <div class="at" id="at-${pos.k}"></div>
+      <div id="cand-${pos.k}"></div>
+      ${nuevoBtn}
     </div>`;
     const nA=!enc.length?`<div class="na" onclick="tPos('${pos.k}')">+ añadir candidatos</div>`:""; 
     return`<div class="pc ${isSel?'sel':''}">
@@ -1038,7 +1135,7 @@ window.setSistema = s => {
 };
 
 // ── Pestañas de campogramas ──────────────────────────────────────
-window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; cgGuardar(); cgSync(); render(); };
+window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; posFiltro={}; cgGuardar(); cgSync(); render(); };
 // ── LA HOJA DE CREAR / EDITAR UN CAMPOGRAMA ──────────────────────
 //   Vive fuera de render(): si se repintara toda la pantalla con cada
 //   tecla, el cursor se saldría del campo de texto a media palabra.
@@ -1222,7 +1319,11 @@ window.cgDel = () => {
   CGS=CGS.filter(x=>x.id!==c.id); cgAct=CGS[0].id;
   selPos=null; posExpanded={}; cgGuardar(); cgSync(); render(); shT('Campograma eliminado');
 };
-window.tPos = k => { selPos=selPos===k?null:k; editCid=null; render(); };
+window.tPos = k => {
+  if(selPos===k){ delete posFiltro[k]; selPos=null; }   // al cerrarlo, se olvida lo buscado
+  else selPos=k;
+  editCid=null; render();
+};
 window.tExp = k => { posExpanded={...posExpanded,[k]:!posExpanded[k]}; render(); };
 window.moverPos = async (id, nuevaPos) => {
   if(!id) { movJid=null; render(); return; }
@@ -1303,7 +1404,9 @@ window.cgNuevoJug = (pos) => {
   const c=cg(); if(!c) return;
   // Se limpian los espacios de más: escribiendo deprisa en el móvil salen
   // dobles y luego el nombre no casa con el de la base de datos.
-  const n=(prompt('Nombre del jugador (equipo: '+c.nombre+'):','')||'').replace(/\s+/g,' ').trim();
+  // Si venías de buscar y no estaba, el nombre buscado ya viene puesto.
+  const sugerido=(posFiltro[pos]||'').replace(/\s+/g,' ').trim();
+  const n=(prompt('Nombre del jugador (equipo: '+c.nombre+'):', sugerido)||'').replace(/\s+/g,' ').trim();
   if(!n) return;
   const maxId = jug.length ? Math.max(...jug.map(j=>Number(j.id)||0)) : 300;
   const nuevo = {id:maxId+1, n:n.toUpperCase(), eq:c.nombre, cat:c.cat||'', pos:pos,
@@ -1312,7 +1415,8 @@ window.cgNuevoJug = (pos) => {
                  _deCampograma:c.id, updated_at:new Date().toISOString()};
   jug=[...jug,nuevo];
   try{ localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug)); }catch(e){}
-  c.asign[nuevo.id]=pos; cgGuardar(); cgSync(); render();
+  c.asign[nuevo.id]=pos; delete posFiltro[pos];
+  cgGuardar(); cgSync(); render();
   shT(nuevo.n+' → '+pos);
 };
 window.addP = (id, pos) => addPlant(id, pos);

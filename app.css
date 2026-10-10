@@ -560,6 +560,34 @@ input[list] { cursor: text; }
 }
 .leyenda-perfiles-toggle:hover { background: var(--card); color: var(--text); }
 
+/* Fila de candidato: nombre arriba, estado debajo. En una sola línea
+   el badge del estado no cedía y los nombres salían cortados. */
+.ai { flex-wrap: wrap; row-gap: 2px; }
+.ai .ai-n { flex: 1 1 100%; font-size: 9px; color: rgba(255,255,255,0.88); line-height: 1.2; overflow-wrap: break-word; }
+.ai .ai-b { flex: 1 1 100%; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+/* ── BUSCADOR DE JUGADORES DENTRO DE UN PUESTO ──────────────────── */
+/* Va dentro del panel del puesto, que está sobre el campo (fondo
+   oscuro), así que aquí sí mandan los claros sobre oscuro. */
+.ap-busca {
+  width: 100%;
+  margin-bottom: 5px;
+  padding: 4px 7px;
+  font-size: 10px;
+  font-family: inherit;
+  color: #fff;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 4px;
+  outline: none;
+}
+.ap-busca:focus { border-color: var(--gold); background: rgba(0,0,0,0.5); }
+.ap-busca::placeholder { color: rgba(255,255,255,0.4); }
+/* La X de los input type=search se ve fatal en oscuro */
+.ap-busca::-webkit-search-cancel-button { filter: invert(1); opacity: .45; cursor: pointer; }
+/* Con el buscador abierto la lista puede crecer: que quepa más */
+.ap { max-height: 230px; }
+
 /* ── HOJA DE CAMPOGRAMA ─────────────────────────────────────────── */
 #cg-hoja .cg-club:hover { background: var(--bg); }
 #cg-hoja .cg-club:active { background: var(--border); }
