@@ -459,6 +459,35 @@ function cgFocoBusca(pk){
   try{ i.setSelectionRange(i.value.length, i.value.length); }catch(e){}
 }
 
+// Solo los estados y las características que aparecen en este campograma.
+function leyendaImpresa(){
+  const ests=[], icos=[];
+  plant.forEach(j=>{
+    if(j.est && !ests.includes(j.est)) ests.push(j.est);
+    (j.ico||[]).forEach(i=>{ if(!icos.includes(i)) icos.push(i); });
+  });
+  if(!ests.length && !icos.length) return '';
+  const e = ests.map(x=>{const{bg,tx,bd}=es(x);const b=bd?`border:1px solid ${bd};`:'';
+    return `<span class="eb" style="background:${bg};color:${tx};${b}">${escHtml(x)}</span>`;}).join('');
+  const i = icos.map(id=>{const t=ICO.find(x=>x.id===id); return t?`<span style="font-size:10px;white-space:nowrap;margin-right:7px">${t.e} <span style="font-size:8px">${escHtml(t.l)}</span></span>`:'';}).join('');
+  return `<div class="ley-print">${e}${i?'<span class="ley-sep"></span>'+i:''}</div>`;
+}
+
+// Imprimir / guardar en PDF el campograma abierto. Se cierra antes el
+// panel del puesto: lo que se lleva al papel es el campo, no el buscador.
+window.cgImprime = () => {
+  if(selPos){ delete posFiltro[selPos]; delete posTodos[selPos]; selPos=null; }
+  editCid=null; movJid=null;
+  render();
+  // Todas las tarjetas del mismo ancho, y que la línea más poblada llene
+  // el folio. Si no, un 1-4-3-3 sale encogido en mitad de la hoja.
+  const filas=(SISTEMAS[sistema]||[]).map(r=>r.length);
+  const n=Math.max(1, ...filas);
+  document.documentElement.style.setProperty('--pc-print',
+    'calc((100% - '+(n-1)*3+'mm) / '+n+')');
+  setTimeout(()=>window.print(), 80);
+};
+
 function cgId(){ return 'cg'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function cgNuevo(nombre){
   return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3', asign:{}};
@@ -744,6 +773,18 @@ function rCampo(){
   const lE=Object.entries(EST).map(([e,{bg,tx,bd}])=>{const b=bd?`border:1px solid ${bd};`:"";return`<span class="eb" style="background:${bg};color:${tx};${b}">${e}</span>`;}).join("");
   const lI=ICO.map(ic=>`<span title="${ic.l}" style="font-size:12px;white-space:nowrap;margin-right:6px">${ic.e}<span style="font-size:9px;color:var(--muted);margin-left:2px">${ic.l}</span></span>`).join("");
   const c=cg();
+  // Cabecera de papel: en pantalla ya tienes el nombre arriba, pero el
+  // folio tiene que llevar escudo, equipo, categoría, sistema y fecha.
+  const hoy=new Date();
+  const fechaTxt=hoy.getDate()+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
+  const cabPrint=`<div class="print-head">
+    ${escudoHTML(c&&c.escudo,34)}
+    <div class="ph-txt">
+      <div class="ph-eq">${escHtml((c&&c.nombre)||'')}</div>
+      <div class="ph-sub">${escHtml((c&&c.cat)||'')}${(c&&c.cat)?' · ':''}${escHtml((c&&c.sistema)||'')}</div>
+    </div>
+    <div class="ph-fecha">${fechaTxt}</div>
+  </div>`;
   const tabs=CGS.map(x=>{
     const act=x.id===cgAct, n=Object.keys(x.asign).length;
     return`<button onclick="cgSel('${x.id}')" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px 7px 0 0;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;
@@ -755,7 +796,8 @@ function rCampo(){
     </button>`;
   }).join("");
   return`
-    <div style="display:flex;align-items:flex-end;gap:3px;overflow-x:auto;border-bottom:1px solid var(--border2);margin-bottom:10px;padding-bottom:0;min-width:0">
+    ${cabPrint}
+    <div class="no-print" style="display:flex;align-items:flex-end;gap:3px;overflow-x:auto;border-bottom:1px solid var(--border2);margin-bottom:10px;padding-bottom:0;min-width:0">
       ${tabs}
       <button onclick="cgAdd()" title="Nuevo campograma" style="flex:0 0 auto;padding:6px 11px;margin-left:4px;border:1px dashed var(--border2);border-bottom:none;border-radius:7px 7px 0 0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700">＋</button>
     </div>
@@ -770,6 +812,7 @@ function rCampo(){
       </select>
       <span style="font-size:11px;color:var(--muted)">← Izquierda &nbsp; Derecha →</span>
       <span style="margin-left:auto;display:flex;gap:5px">
+        <button onclick="cgImprime()" title="Imprimir o guardar en PDF este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted)">🖨 Imprimir / PDF</button>
         <button onclick="cgDup()" title="Duplicar este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted)">⧉ Duplicar</button>
         <button onclick="cgDel()" title="Eliminar este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:#E74C3C">🗑</button>
       </span>
@@ -777,8 +820,9 @@ function rCampo(){
     <div class="campo">
       ${rows}
     </div>
-    <div class="ley-section"><div class="ley-title">Estados</div><div class="lf">${lE}</div></div>
-    <div class="ley-section"><div class="ley-title">Características</div><div class="lf" style="gap:6px">${lI}</div></div>`;
+    <div class="ley-section no-print"><div class="ley-title">Estados</div><div class="lf">${lE}</div></div>
+    <div class="ley-section no-print"><div class="ley-title">Características</div><div class="lf" style="gap:6px">${lI}</div></div>
+    ${leyendaImpresa()}`;
 }
 
 // ── INLINE EDIT (campograma y plantilla) ──────────────────────────

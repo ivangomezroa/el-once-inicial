@@ -605,3 +605,104 @@ input[list] { cursor: text; }
 #cg-hoja .cg-club:hover { background: var(--bg); }
 #cg-hoja .cg-club:active { background: var(--border); }
 #cg-hoja input::placeholder { color: var(--muted); opacity: .8; }
+
+/* ══ IMPRESIÓN DEL CAMPOGRAMA ══════════════════════════════════════
+   El navegador imprime a PDF sin más: esto es lo que decide qué sale.
+   Cuidado con tres cosas que en pantalla están bien y en papel cortan:
+     · html/body y #app-wrap llevan overflow oculto → solo saldría lo
+       que se ve en la ventana.
+     · .pos-jugadores tiene max-height:140px con scroll → se perderían
+       los jugadores de abajo de cada puesto.
+     · .crow no envuelve y hace scroll lateral → se perdería la quinta
+       columna en los sistemas de línea de cinco.
+   Y, como en la planilla de sesión, los fondos oscuros pasan a blanco
+   pero las cabeceras de puesto y los estados conservan su color. */
+
+.print-head { display: none; }
+.ley-print { display: none; }
+
+@media print {
+  @page { size: A4 landscape; margin: 9mm; }
+
+  /* Que el folio crezca todo lo que haga falta. Ojo con el flex: en
+     captacion.html el body es flex en columna y #app-wrap lleva flex:1,
+     así que en papel se estiraba a la altura de la hoja y empujaba la
+     última línea (el portero) a una segunda página medio vacía. */
+  html, body { height: auto !important; overflow: visible !important;
+               display: block !important;
+               background: #fff !important; color: #111 !important; }
+  #app-wrap, #app, .pane { overflow: visible !important; height: auto !important;
+               flex: none !important; display: block !important;
+               max-height: none !important; padding: 0 !important; margin: 0 !important;
+               max-width: none !important; }
+
+  /* Fuera todo lo que es de pantalla */
+  .nav, .bottom-nav, #ta, .no-print, .ap, .na, .sis-sel,
+  .oi-topnav, #oi-s-velo { display: none !important; }
+  /* La flechita ▼/▲ de abrir el puesto no pinta nada en papel */
+  .ph span:last-child { display: none !important; }
+
+  /* Cabecera de papel */
+  .print-head {
+    display: flex !important; align-items: center; gap: 10px;
+    padding-bottom: 5px; margin-bottom: 7px;
+    border-bottom: 1.2pt solid #C8A84B;
+  }
+  .print-head .ph-txt { flex: 1; min-width: 0; }
+  .print-head .ph-eq { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif;
+    font-size: 19pt; font-weight: 700; color: #1B2A6B; line-height: 1.05; }
+  .print-head .ph-sub { font-size: 8.5pt; color: #5a6282; }
+  .print-head .ph-fecha { font-size: 8pt; color: #5a6282; white-space: nowrap; }
+
+  /* El campo: de verde a blanco */
+  .campo { background: #fff !important; border: 1pt solid #c8cfe0 !important;
+    padding: 4mm 2mm !important; margin: 0 !important; border-radius: 4px !important; }
+  .chnt { display: none !important; }
+
+  /* Las filas envuelven y no hacen scroll */
+  .crow { flex-wrap: wrap !important; overflow: visible !important;
+    gap: 3mm !important; margin-bottom: 3mm !important; page-break-inside: avoid;
+    /* Cada tarjeta con su altura: si se estiran todas a la de la más
+       poblada, una línea con un puesto cargado deja huecos enormes y
+       empuja el resto a una segunda hoja. */
+    align-items: flex-start !important; }
+
+  /* Las tarjetas, todas del mismo ancho y aprovechando el folio. El ancho
+     lo calcula cgImprime() según la línea más poblada del sistema, y hay
+     que ganarle a `#app-wrap .pc{width:130px!important}` de captacion.html,
+     de ahí el prefijo más largo: el <style> de esa página se carga DESPUÉS
+     de app.css, así que con la misma especificidad ganaba él. */
+  #app-wrap #app .pc, .pc {
+    flex: 0 0 var(--pc-print, 150px) !important;
+    width: var(--pc-print, 150px) !important;
+    min-width: 0 !important; max-width: none !important;
+    background: #fff !important; border: 0.8pt solid #c8cfe0 !important;
+    box-shadow: none !important; transform: none !important;
+    font-size: 11px !important;
+    page-break-inside: avoid; }
+  .ph { font-size: 7.5pt !important; padding: 1.2mm 2mm !important; }
+
+  /* Sin recorte: todos los jugadores de cada puesto */
+  .pos-jugadores { max-height: none !important; overflow: visible !important; }
+
+  .jr { background: #fff !important; border-bottom: 0.4pt solid #e3e8f2 !important;
+    padding: 1.2mm 2mm !important; page-break-inside: avoid; }
+  .jn { color: #111 !important; font-size: 8pt !important; }
+  .je { color: #5a6282 !important; font-size: 6.5pt !important; }
+  .jr-right { gap: 2mm !important; }
+  /* Las flechitas de mover y las equis no pintan nada en papel */
+  .jr .bi, .jr-info .jn span { display: none !important; }
+
+  .eb { font-size: 6.5pt !important; padding: 0.3mm 1.2mm !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Leyenda: solo lo que de verdad sale en este campograma */
+  .ley-print { display: flex !important; flex-wrap: wrap; align-items: center;
+    gap: 4px 6px; margin-top: 4mm; padding-top: 2mm;
+    border-top: 0.6pt solid #c8cfe0; page-break-inside: avoid; }
+  .ley-print .ley-sep { display: inline-block; width: 1px; height: 9pt;
+    background: #c8cfe0; margin: 0 3px; }
+
+  /* Los colores tienen que salir: cabeceras de puesto y estados */
+  .ph, .eb, .pb, .print-head { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
