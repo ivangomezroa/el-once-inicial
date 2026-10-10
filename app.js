@@ -666,6 +666,7 @@ function render(){
   // El panel del puesto abierto se rellena aquí: su HTML sale de
   // cgPintaCandidatos(), que es la misma función que usa el buscador.
   if(view==='campo' && selPos){ cgPintaCandidatos(selPos); cgFocoBusca(selPos); }
+  if(view==='bd') bdPintaLista();
 }
 
 // ── CAMPOGRAMA ────────────────────────────────────────────────────
@@ -798,14 +799,49 @@ function rEI(j){
 }
 
 // ── BASE DE DATOS ─────────────────────────────────────────────────
+// Los jugadores que pasan los filtros de la Base de datos.
+// Busca sin tildes, igual que el buscador del campograma: escribiendo
+// deprisa nadie pone acentos.
+function bdFiltrados(){
+  // Por trozos sueltos, igual que el buscador del campograma: "maria jose"
+  // encuentra a JOSÉ MARÍA aunque el orden no sea el mismo.
+  const t=sinTildes(flt.txt||'').trim();
+  const trozos = t ? t.split(/\s+/) : [];
+  return jug.filter(j=>{
+    const texto = sinTildes((j.n||'')+' '+(j.eq||'')+' '+(j.perfil||'')+' '+(j.cat||''));
+    const casa = !t || trozos.every(x=>texto.includes(x));
+    return casa && (!flt.sec||j.s===flt.sec) && (!flt.est||j.est===flt.est);
+  });
+}
+
 function rBD(){
   const secs=[...new Set(jug.map(j=>j.s))];
-  const f=jug.filter(j=>{
-    const t=flt.txt.toLowerCase();
-    return(!t||(j.n||"").toLowerCase().includes(t)||(j.eq||"").toLowerCase().includes(t)||(j.perfil||"").toLowerCase().includes(t))
-      &&(!flt.sec||j.s===flt.sec)&&(!flt.est||j.est===flt.est);
-  });
-  const cards=f.map((j,i)=>{
+  return`
+    <div class="flt">
+      <input id="search-bd" placeholder="🔍 Buscar nombre, equipo o perfil..." value="${escHtml(flt.txt)}" oninput="sf('txt',this.value)" autocomplete="off" spellcheck="false">
+      <select onchange="sf('sec',this.value)"><option value="">Todas las posiciones</option>${secs.map(s=>`<option ${flt.sec===s?'selected':''} value="${s}">${s}</option>`).join("")}</select>
+      <select onchange="sf('est',this.value)"><option value="">Todos los estados</option>${Object.keys(EST).map(e=>`<option ${flt.est===e?'selected':''} value="${e}">${e}</option>`).join("")}</select>
+      <button class="bg" id="bd-limpiar" onclick="cf()" style="display:none">✕ Limpiar</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px" id="bd-cuenta"></div>
+    <div id="bd-lista"></div>`;
+}
+
+// Repinta SOLO la lista. Es lo que permite seguir escribiendo en el
+// buscador: si se repintara la pantalla entera, el input se destruiría y
+// el cursor se perdería tras la primera letra.
+function bdPintaLista(){
+  const cont=document.getElementById('bd-lista'); if(!cont) return;
+  const f=bdFiltrados();
+  cont.innerHTML = bdTarjetas(f) || `<div style="padding:20px;text-align:center;color:var(--muted)">Sin resultados</div>`;
+  const c=document.getElementById('bd-cuenta');
+  if(c) c.textContent = f.length+' de '+jug.length+' jugadores';
+  const l=document.getElementById('bd-limpiar');
+  if(l) l.style.display = (flt.txt||flt.sec||flt.est) ? '' : 'none';
+}
+
+function bdTarjetas(f){
+  return f.map((j,i)=>{
     const{bg,tx,bd}=es(j.est);const b=bd?`border:1px solid ${bd};`:"";
     const isE=editJid===j.id;
     const telL=j.tel?`<a href="tel:${j.tel}" class="tel-link">📞 ${j.tel}</a>`:"";
@@ -903,15 +939,6 @@ function rBD(){
       </div>${eH}
     </div>`;
   }).join("");
-  return`
-    <div class="flt">
-      <input id="search-bd" placeholder="🔍 Buscar nombre, equipo o perfil..." value="${flt.txt}" oninput="sf('txt',this.value)" autocomplete="off" spellcheck="false">
-      <select onchange="sf('sec',this.value)"><option value="">Todas las posiciones</option>${secs.map(s=>`<option ${flt.sec===s?'selected':''} value="${s}">${s}</option>`).join("")}</select>
-      <select onchange="sf('est',this.value)"><option value="">Todos los estados</option>${Object.keys(EST).map(e=>`<option ${flt.est===e?'selected':''} value="${e}">${e}</option>`).join("")}</select>
-      ${flt.txt||flt.sec||flt.est?`<button class="bg" onclick="cf()">✕ Limpiar</button>`:""}
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${f.length} de ${jug.length} jugadores</div>
-    ${cards||`<div style="padding:20px;text-align:center;color:var(--muted)">Sin resultados</div>`}`;
 }
 
 // ── REGISTRO ──────────────────────────────────────────────────────
@@ -1415,21 +1442,16 @@ window.svEB = id => {
 };
 window.sf = (k,v) => {
   flt={...flt,[k]:v};
-  if(k==='txt') {
-    // Para texto: debounce — no re-renderiza hasta 250ms después de la última letra
+  if(k==='txt'){
+    // Al escribir se repinta SOLO la lista, nunca la pantalla entera: así
+    // el cursor no se sale de la caja. Un respiro de 120ms para no rehacer
+    // 300 tarjetas con cada tecla.
     if(searchTmr) clearTimeout(searchTmr);
-    searchTmr = setTimeout(()=>{ render(); reconectarBuscador(); }, 250);
+    searchTmr = setTimeout(bdPintaLista, 120);
   } else {
-    render();
+    render();   // los desplegables sí pueden repintar: no se escribe en ellos
   }
 };
-function reconectarBuscador() {
-  // Restaurar foco y posición del cursor en el buscador tras render
-  const inp = document.getElementById('search-bd');
-  if(inp && document.activeElement !== inp) {
-    // no robar el foco si el usuario ya está en otro sitio
-  }
-}
 window.cf  = () => { flt={txt:"",sec:"",est:""}; render(); };
 // Un jugador de la plantilla del equipo que todavía no está en la base.
 // Se crea con el equipo del campograma y entra directo al puesto.
