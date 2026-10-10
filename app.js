@@ -356,8 +356,20 @@ function candidatosPos(pk){
   const dentro = jug.filter(j=>jugPos(j).includes(pk) && casa(j))
                     .sort((a,b)=>(esDeEste(b)?1:0)-(esDeEste(a)?1:0));
   const lista  = dentro.filter(j=>!yaAqui(j));          // los de la tarjeta no se repiten
-  const fuera  = f ? jug.filter(j=>!jugPos(j).includes(pk) && casa(j) && !yaAqui(j)) : [];
-  return {dentro, lista, fuera, filtro:f, esDeEste};
+  // Los de otros puestos salen si estás buscando o si has pedido verlos
+  // todos. Un jugador puede ocupar varias posiciones, o encajar mejor en
+  // una que no es la suya de siempre: el campograma no debe impedirlo.
+  const verTodos = !!posTodos[pk];
+  let fuera = (f || verTodos)
+    ? jug.filter(j=>!jugPos(j).includes(pk) && casa(j) && !yaAqui(j))
+    : [];
+  // Los del propio equipo del campograma primero: es el caso de "a éste yo
+  // lo pondría aquí", que casi siempre es alguien de la misma plantilla.
+  if(verTodos && !f) fuera.sort((a,b)=>{
+    const d=(esDeEste(b)?1:0)-(esDeEste(a)?1:0);
+    return d || String(a.n||'').localeCompare(String(b.n||''),'es');
+  });
+  return {dentro, lista, fuera, filtro:f, verTodos, esDeEste};
 }
 
 // Una fila de la lista. `otraPos` marca a los que vienen de otro puesto.
@@ -383,7 +395,7 @@ function filaCandidato(j, pk, otraPos){
 // y por eso el buscador conserva el foco mientras escribes.
 function cgPintaCandidatos(pk){
   const cont=document.getElementById('cand-'+pk); if(!cont) return;
-  const {dentro, lista, fuera, filtro, esDeEste} = candidatosPos(pk);
+  const {dentro, lista, fuera, filtro, verTodos, esDeEste} = candidatosPos(pk);
   const exp = !!posExpanded[pk];
   // Buscando se enseñan todos los que coinciden; sin buscar, los 8 primeros.
   const visibles = (filtro||exp) ? lista : lista.slice(0,8);
@@ -394,13 +406,15 @@ function cgPintaCandidatos(pk){
          (exp ? 'Mostrar menos ▲' : 'Ver todos ('+lista.length+') ▼')+'</div>';
   }
   if(fuera.length){
+    const tope = (verTodos && !filtro) ? 25 : 15;
     h += `<div style="font-size:8px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.4px;padding:5px 4px 3px;border-top:.5px solid rgba(255,255,255,.08)">De otras posiciones (${fuera.length})</div>`+
-         fuera.slice(0,15).map(j=>filaCandidato(j,pk,true)).join('')+
-         (fuera.length>15?`<div style="font-size:8px;color:rgba(255,255,255,.3);text-align:center;padding:3px">y ${fuera.length-15} más · afina la búsqueda</div>`:'');
+         fuera.slice(0,tope).map(j=>filaCandidato(j,pk,true)).join('')+
+         (fuera.length>tope?`<div style="font-size:8px;color:rgba(255,255,255,.3);text-align:center;padding:3px">y ${fuera.length-tope} más · busca por nombre</div>`:'');
   }
   if(!lista.length && !fuera.length){
     h = `<div style="font-size:9px;color:rgba(255,255,255,.4);text-align:center;padding:10px 6px;font-style:italic">`+
-        (filtro ? 'Ningún jugador se llama así. Puedes crearlo abajo.' : 'Ningún candidato para este puesto todavía.')+'</div>';
+        (filtro ? 'Ningún jugador se llama así. Puedes crearlo abajo.'
+                : (verTodos ? 'No queda nadie por colocar.' : 'Ningún candidato para este puesto todavía.'))+'</div>';
   }
   cont.innerHTML = h;
 
@@ -409,12 +423,23 @@ function cgPintaCandidatos(pk){
     const nEq = dentro.filter(esDeEste).length;
     at.textContent = filtro
       ? (lista.length+fuera.length)+' encontrados'
-      : dentro.length+' candidatos'+(nEq?' · '+nEq+' de la plantilla':'');
+      : (verTodos
+          ? dentro.length+' del puesto · '+fuera.length+' de otros'
+          : dentro.length+' candidatos'+(nEq?' · '+nEq+' de la plantilla':''));
   }
+  // El interruptor refleja en qué modo estás
+  ['pos','todos'].forEach(m=>{
+    const b=document.getElementById('modo-'+m+'-'+pk);
+    if(b) b.classList.toggle('on', m==='todos' ? verTodos : !verTodos);
+  });
 }
 
 // Lo que se escribe en la caja. Solo repinta la lista.
 window.cgBuscaPos = (pk, v) => { posFiltro[pk]=v; cgPintaCandidatos(pk); };
+
+// Ver solo los del puesto o toda la plantilla. Como el buscador, repinta
+// solo la lista para no perder el cursor si estabas escribiendo.
+window.cgModoPos = (pk, todos) => { posTodos[pk]=!!todos; cgPintaCandidatos(pk); };
 
 // Intro con un solo resultado = añadirlo, sin tocar el ratón.
 window.cgBuscaTecla = (ev, pk) => {
@@ -478,6 +503,7 @@ function cgSync(){ plant = cgPlant(); if(cg()) sistema = cg().sistema; }
 let selPos=null, editJid=null, editCid=null, movJid=null;
 let posExpanded={}; // {P1: true, P3: true, ...} — posiciones con lista desplegada
 let posFiltro={};   // {P7: "car"} — lo escrito en el buscador de cada puesto
+let posTodos={};    // {P7: true}  — enseñar también a los de otros puestos
 let flt={txt:"",sec:"",est:""};
 let fd={s:"PORTEROS",pos:"P1",n:"",eq:"",cat:"",est:"INTERESA",ico:[],repre:"",contacto:"",tel:"",tm:"",bs:"",obs:"",perfil:""};
 let toast=null, tTmr=null, searchTmr=null;
@@ -696,6 +722,10 @@ function rCampo(){
       <input class="ap-busca" id="busca-${pos.k}" type="search" autocomplete="off" spellcheck="false"
              placeholder="Buscar jugador..." value="${escHtml(posFiltro[pos.k]||'')}"
              oninput="cgBuscaPos('${pos.k}',this.value)" onkeydown="cgBuscaTecla(event,'${pos.k}')">
+      <div class="ap-modo">
+        <button id="modo-pos-${pos.k}" onclick="cgModoPos('${pos.k}',false)" title="Solo los que tienen este puesto en su ficha">Del puesto</button>
+        <button id="modo-todos-${pos.k}" onclick="cgModoPos('${pos.k}',true)" title="Cualquier jugador de la base, vaya en su ficha o no">Todos</button>
+      </div>
       <div class="at" id="at-${pos.k}"></div>
       <div id="cand-${pos.k}"></div>
       ${nuevoBtn}
@@ -1135,7 +1165,7 @@ window.setSistema = s => {
 };
 
 // ── Pestañas de campogramas ──────────────────────────────────────
-window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; posFiltro={}; cgGuardar(); cgSync(); render(); };
+window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; posFiltro={}; posTodos={}; cgGuardar(); cgSync(); render(); };
 // ── LA HOJA DE CREAR / EDITAR UN CAMPOGRAMA ──────────────────────
 //   Vive fuera de render(): si se repintara toda la pantalla con cada
 //   tecla, el cursor se saldría del campo de texto a media palabra.
@@ -1320,8 +1350,11 @@ window.cgDel = () => {
   selPos=null; posExpanded={}; cgGuardar(); cgSync(); render(); shT('Campograma eliminado');
 };
 window.tPos = k => {
-  if(selPos===k){ delete posFiltro[k]; selPos=null; }   // al cerrarlo, se olvida lo buscado
-  else selPos=k;
+  // Al salir de un puesto se olvida lo que tuviera: lo escrito en el
+  // buscador y si estaba en "Todos". Da igual que se cierre o que se
+  // salte a otro puesto; al volver siempre se empieza limpio.
+  if(selPos){ delete posFiltro[selPos]; delete posTodos[selPos]; delete posExpanded[selPos]; }
+  selPos = (selPos===k) ? null : k;
   editCid=null; render();
 };
 window.tExp = k => { posExpanded={...posExpanded,[k]:!posExpanded[k]}; render(); };

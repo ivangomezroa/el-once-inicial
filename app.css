@@ -588,6 +588,19 @@ input[list] { cursor: text; }
 /* Con el buscador abierto la lista puede crecer: que quepa más */
 .ap { max-height: 230px; }
 
+/* Del puesto / Todos — para poder colocar a alguien donde tú lo veas,
+   no solo donde diga su ficha. */
+.ap-modo { display: flex; gap: 3px; margin-bottom: 5px; }
+.ap-modo button {
+  /* Sin mayúsculas ni espaciado: "Del puesto" no cabía en una línea y los
+     dos botones quedaban de distinta altura. */
+  flex: 1; padding: 3px 4px; font-size: 9px; font-weight: 700;
+  font-family: inherit; white-space: nowrap;
+  color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 4px; cursor: pointer;
+}
+.ap-modo button.on { color: #1B2A6B; background: var(--gold); border-color: var(--gold); }
+
 /* ── HOJA DE CAMPOGRAMA ─────────────────────────────────────────── */
 #cg-hoja .cg-club:hover { background: var(--bg); }
 #cg-hoja .cg-club:active { background: var(--border); }
