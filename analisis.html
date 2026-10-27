@@ -3717,7 +3717,10 @@ function paginaVacia(p){
 function cambiaUso(v){
   if(!curRep || !USOS[v]) return;
   const antes=(curRep.uso && USOS[curRep.uso]) ? curRep.uso : 'rival';
-  if(antes===v){ curRep.uso=v; return; }
+  // No se sale aunque el uso ya sea ése: un informe puede estar marcado
+  // con un uso y seguir teniendo las páginas de otro (pasó con los que se
+  // cambiaron antes de que esto ajustara nada). Volver a elegirlo lo
+  // cuadra; si ya está cuadrado, no pregunta nada y no toca nada.
 
   const quiere=PAGINAS_POR_USO[v]||[];
   const presupuesto={}; quiere.forEach(t=>presupuesto[t]=(presupuesto[t]||0)+1);
@@ -3767,7 +3770,7 @@ function cambiaUso(v){
   }
 
   curRep.uso=v; saveReports(); renderReportList(); renderReport();
-  toast('Ahora es un informe de '+USOS[v].lb.toLowerCase());
+  if(antes!==v) toast('Ahora es un informe de '+USOS[v].lb.toLowerCase());
 }
 function renderPageNav(){
   const sel=document.getElementById('rep-uso');
