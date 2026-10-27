@@ -201,6 +201,55 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .page-stripe i:nth-child(even){background:var(--gold);}
 .page-foot{position:absolute;right:22px;bottom:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;color:#888;letter-spacing:1px;text-transform:uppercase;}
 .pg-head{display:flex;align-items:center;gap:14px;height:52px;flex-shrink:0;}
+/* ── Página de campograma ───────────────────────────────────────── */
+.cgp-body{flex:1;min-height:0;display:flex;gap:12px;}
+.cgp-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+.cgp-rot{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.6px;
+  text-transform:uppercase;color:#fff;background:var(--navy);padding:3px 9px;border-radius:4px;flex-shrink:0;}
+.cgp-rot.of{background:#1a5c1a;}
+.cgp-rot.def{background:#7a1a1a;}
+.cgp-meta{font-size:10px;color:#666;letter-spacing:.4px;text-transform:uppercase;flex-shrink:0;margin-top:-2px;}
+.cgp-campo{flex:1;min-height:0;border:1.2px solid var(--navy);border-radius:6px;background:#f7f9f4;
+  display:flex;flex-direction:column;justify-content:space-evenly;gap:4px;padding:7px 6px;}
+.cgp-fila{display:flex;gap:6px;justify-content:center;align-items:stretch;}
+.cgp-pos{flex:1 1 0;min-width:0;max-width:190px;border:1px solid rgba(0,0,0,.22);border-radius:4px;overflow:hidden;
+  display:flex;flex-direction:column;background:#fff;}
+.cgp-pos-h{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.3px;
+  padding:1.5px 4px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cgp-js{display:flex;flex-direction:column;gap:1px;padding:2px 3px;}
+.cgp-j{font-size:10.5px;font-weight:600;color:#111;line-height:1.2;overflow-wrap:break-word;}
+.cgp-j.b{font-size:8.5px;color:#777;font-weight:500;}
+.cgp-vacio{font-size:8.5px;color:#bbb;padding:2px 3px;font-style:italic;}
+.cgp-nota{flex-shrink:0;border:1px solid #d7d2c4;border-radius:5px;padding:6px 8px;min-height:46px;}
+.cgp-nota-h{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--navy);margin-bottom:2px;}
+.cgp-vacia{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  border:1.5px dashed #c9c4b4;border-radius:7px;color:#999;font-size:12px;text-align:center;padding:14px;}
+.cgp-btn{font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;padding:6px 13px;border-radius:6px;
+  border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer;}
+.cgp-btn.gh{background:transparent;color:var(--navy);}
+.cgp-tools{display:flex;gap:5px;align-items:center;flex-shrink:0;}
+.cgp-aviso{font-size:9.5px;color:#b8860b;font-weight:700;}
+/* El selector de campogramas */
+#cgpick{position:fixed;inset:0;z-index:9500;background:rgba(8,12,22,.82);display:flex;
+  align-items:center;justify-content:center;padding:14px;}
+#cgpick .pk{background:var(--panel,#1e2d40);border:1px solid rgba(255,255,255,.16);border-radius:12px;
+  width:min(520px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;color:#ddd8cc;
+  font-family:'Barlow',sans-serif;}
+#cgpick .pk-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.12);}
+#cgpick .pk-t{flex:1;font-size:14px;font-weight:700;color:var(--gold,#C8A84B);}
+#cgpick .pk-x{background:none;border:none;color:#9aa;font-size:20px;cursor:pointer;line-height:1;}
+#cgpick .pk-b{padding:10px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+#cgpick .pk-eq{border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden;}
+#cgpick .pk-eq-h{display:flex;align-items:center;gap:8px;padding:6px 9px;background:rgba(255,255,255,.05);
+  font-size:12px;font-weight:700;}
+#cgpick .pk-eq-h img{width:20px;height:20px;object-fit:contain;}
+#cgpick .pk-v{display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;
+  border-top:.5px solid rgba(255,255,255,.08);font-size:12px;}
+#cgpick .pk-v:hover{background:rgba(200,168,75,.14);}
+#cgpick .pk-f{font-size:8.5px;font-weight:800;padding:1px 5px;border-radius:7px;color:#fff;}
+#cgpick .pk-sis{font-size:10px;opacity:.6;margin-left:auto;}
+#cgpick .pk-vacio{padding:18px;text-align:center;font-size:12px;color:#9aa;line-height:1.5;}
 .pg-head .crest-box{width:50px;height:50px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .pg-head .crest-box img{max-width:100%;max-height:100%;object-fit:contain;}
 .banner{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);background:#1B2A6B;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:6px 26px;min-width:300px;text-align:center;border-radius:2px;margin:0 auto;}
@@ -446,6 +495,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
    ══════════════════════════════════════════════════════════ */
 @media print{
   @page{size:A4 landscape;margin:5mm;}
+  .cgp-tools, .cgp-vacia .cgp-btn{display:none !important;}
   html,body{height:auto !important;overflow:visible !important;background:#fff !important;display:block !important;}
   #topnav,#fe-props,.rep-side,.toast,.no-print,.fe-tb,.blk-tools,.page-tools,.img-x,.sq-del,.mini-btn,.modal-overlay{display:none !important;}
   .view{display:none !important;}
@@ -458,6 +508,11 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .page-label{display:none !important;}
   .page{zoom:0.95;box-shadow:none !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .ed:not(.banner){border-color:transparent !important;background:transparent !important;}
+  /* El rótulo del campograma es un .ed, así que la regla de arriba le
+     quitaba el color de fondo y en papel salía texto suelto. */
+  .ed.cgp-rot{background:var(--navy) !important;color:#fff !important;}
+  .ed.cgp-rot.of{background:#1a5c1a !important;}
+  .ed.cgp-rot.def{background:#7a1a1a !important;}
   .banner{border-color:transparent !important;}
   .ed:empty::before{content:'';}
   .img-drop{border-color:transparent;background:transparent;color:transparent;}
@@ -467,7 +522,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .blk-vs .img-drop{border-color:transparent !important;background:transparent !important;color:transparent !important;}
   .img-drop:not(.has){border-color:#ddd;}
   .fe-stage{border-color:#ccc;border-radius:4px;}
-  .banner,.kv-h,.dq-h,.pn-num,.page-stripe i,.rbadge{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .banner,.kv-h,.dq-h,.pn-num,.page-stripe i,.rbadge,.cgp-rot,.cgp-pos-h{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .fe-stage .hnd,.fe-stage .sel-outline{display:none;}
   .pl-tag:not(.on){display:none;}
   .squad-row{grid-template-columns:30px 1fr 52px 34px 34px 1.15fr 0 0;}
@@ -788,6 +843,12 @@ body.fe-full-abierto{overflow:hidden;}
         <button class="nav-btn primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="newReport()">+ Nuevo informe</button>
       </div>
       <div id="rep-pages-box" hidden>
+        <div class="panel-hdr">Para qué es</div>
+        <select id="rep-uso" onchange="cambiaUso(this.value)" style="width:100%;margin-bottom:10px;">
+          <option value="rival">Rival · preparar un partido</option>
+          <option value="futuro">Posible futuro equipo</option>
+          <option value="reunion">Reunión con el club</option>
+        </select>
         <div class="panel-hdr">Páginas del informe</div>
         <div class="page-nav" id="page-nav"></div>
         <div class="side-row" style="margin-top:8px;">
@@ -798,6 +859,7 @@ body.fe-full-abierto{overflow:hidden;}
             <option value="dafo">Análisis DAFO</option>
             <option value="plantilla">Plantilla</option>
             <option value="abp">ABP</option>
+            <option value="campograma">Campograma (de Captación)</option>
             <option value="texto">Página de texto</option>
             <option value="portada">Portada</option>
           </select>
@@ -3510,6 +3572,11 @@ function newPage(type){
   else if(type==='dafo'){ p.title='ANÁLISIS DAFO'; p.d=''; p.f=''; p.a=''; p.o=''; }
   else if(type==='plantilla'){ p.title='PLANTILLA'; p.rows=[]; for(let i=0;i<24;i++) p.rows.push({num:'',name:'',pos:'',age:'',h:'',note:''}); }
   else if(type==='texto'){ p.title='NOTAS'; p.cols=2; p.texts=['','']; }
+  else if(type==='campograma'){ p.title='CAMPOGRAMA';
+    // Dos huecos: el primero para cómo juega el equipo, el segundo —si se
+    // usa— para la propuesta. El segundo empieza vacío y no estorba.
+    p.slots=[{rot:'CÓMO JUEGA', cg:null},{rot:'MI PROPUESTA', cg:null}];
+    p.nota=''; }
   return p;
 }
 function mkBlock(title,vs,type){
@@ -3517,27 +3584,66 @@ function mkBlock(title,vs,type){
   if(vs){ b.vs={home:'',away:'',crestHome:'',crestAway:''}; }
   return b;
 }
-const PAGE_LABEL={portada:'Portada',posible11:'Posible 11',alineaciones:'Últimas alineaciones',momento:'Momento de juego',abp:'ABP',dafo:'Análisis DAFO',plantilla:'Plantilla',texto:'Notas'};
+const PAGE_LABEL={portada:'Portada',posible11:'Posible 11',alineaciones:'Últimas alineaciones',momento:'Momento de juego',abp:'ABP',dafo:'Análisis DAFO',plantilla:'Plantilla',texto:'Notas',campograma:'Campograma'};
 
+// ══ PARA QUÉ ES EL INFORME ════════════════════════════════════════
+//   El mismo informe no sirve igual para un rival de la jornada que para
+//   un equipo que te interesa o para sentarte con su director deportivo.
+//   El uso decide con qué páginas nace: después se añade o se quita lo
+//   que haga falta, nada queda cerrado.
+const USOS={
+  rival:   {lb:'Rival',                 ab:'RIVAL',   desc:'Para preparar un partido'},
+  futuro:  {lb:'Posible futuro equipo', ab:'FUTURO',  desc:'Un equipo que te interesa'},
+  reunion: {lb:'Reunión con el club',   ab:'REUNIÓN', desc:'Cómo lo veo y qué cambiaría'},
+};
+const PAGINAS_POR_USO={
+  rival:   ['portada','posible11','alineaciones','alineaciones','momento','momento','momento','dafo','abp','plantilla'],
+  futuro:  ['portada','campograma','momento','momento','dafo','plantilla'],
+  reunion: ['portada','campograma','momento','momento','dafo','plantilla','texto'],
+};
+
+// Pregunta para qué es el informe antes de crearlo: de eso dependen las
+// páginas con las que nace.
 function newReport(){
-  const r={ id:uid('r'), rival:'NUEVO RIVAL', jornada:'', fecha:todayStr(), hora:'', campo:'', superficie:'', medidas:'', tiempo:'', temp:'', temporada:seasonStr(),
+  const m=elx('div','');
+  m.id='cgpick';
+  m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">¿Para qué es este informe?</span>'+
+    '<button class="pk-x">×</button></div><div class="pk-b">'+
+    Object.keys(USOS).map(k=>'<div class="pk-eq" data-uso="'+k+'" style="cursor:pointer">'+
+      '<div class="pk-eq-h" style="font-size:13px">'+USOS[k].lb+'</div>'+
+      '<div class="pk-v" style="border-top:none;opacity:.75">'+USOS[k].desc+
+      ' · '+PAGINAS_POR_USO[k].length+' páginas</div></div>').join('')+
+    '</div></div>';
+  document.body.appendChild(m);
+  const cierra=()=>m.remove();
+  m.querySelector('.pk-x').onclick=cierra;
+  m.onclick=e=>{ if(e.target===m) cierra(); };
+  m.querySelectorAll('[data-uso]').forEach(el=>{
+    el.onclick=()=>{ cierra(); creaInforme(el.dataset.uso); };
+  });
+}
+function creaInforme(uso){
+  if(!USOS[uso]) uso='rival';
+  const r={ id:uid('r'), uso:uso, rival:'NUEVO RIVAL', jornada:'', fecha:todayStr(), hora:'', campo:'', superficie:'', medidas:'', tiempo:'', temp:'', temporada:seasonStr(),
     competicion:'', sede:'', rivalOtro:'', crestRival:'', crestOwn:'', photoCampo:'', photoEquip:'', pages:[] };
-  r.pages.push(newPage('portada'));
-  r.pages.push(newPage('posible11'));
-  // Dos páginas de alineaciones: cuatro partidos listos para rellenar.
-  // Van en páginas separadas y no cuatro en una, porque con más de dos
-  // bloques la página los parte en dos filas y el campo baja de 553 a 205
-  // px de alto: queda un campo achatado que no se puede leer.
-  r.pages.push(newPage('alineaciones'));
-  r.pages.push(newPage('alineaciones'));
-  const m1=newPage('momento'); m1.title='MOMENTO CON BALÓN'; r.pages.push(m1);
-  const m2=newPage('momento'); m2.title='MOMENTO SIN BALÓN'; r.pages.push(m2);
-  const m3=newPage('momento'); m3.title='TRANSICIONES'; m3.blocks[0].t1='TRANSICIÓN OFENSIVA'; m3.blocks[1].t1='TRANSICIÓN DEFENSIVA'; r.pages.push(m3);
-  r.pages.push(newPage('dafo'));
-  r.pages.push(newPage('abp'));
-  r.pages.push(newPage('plantilla'));
+  // Las dos páginas de alineaciones del informe de rival van separadas y no
+  // cuatro partidos en una: con más de dos bloques la página los parte en dos
+  // filas y el campo baja de 553 a 205 px de alto, que no se puede leer.
+  const titulosMomento=['MOMENTO CON BALÓN','MOMENTO SIN BALÓN','TRANSICIONES'];
+  let nMomento=0;
+  PAGINAS_POR_USO[uso].forEach(t=>{
+    const pg=newPage(t);
+    if(t==='momento'){
+      pg.title=titulosMomento[nMomento]||('MOMENTO '+(nMomento+1));
+      if(pg.title==='TRANSICIONES'){ pg.blocks[0].t1='TRANSICIÓN OFENSIVA'; pg.blocks[1].t1='TRANSICIÓN DEFENSIVA'; }
+      nMomento++;
+    }
+    if(t==='texto' && uso==='reunion'){ pg.title='LO QUE PROPONGO'; }
+    r.pages.push(pg);
+  });
   numeraAlineaciones(r);
-  REPORTS.unshift(r); saveReports(); curRep=r; renderReportList(); renderReport(); toast('Informe creado');
+  REPORTS.unshift(r); saveReports(); curRep=r; renderReportList(); renderReport();
+  toast('Informe de '+USOS[uso].lb.toLowerCase()+' creado');
 }
 function duplicateReport(){ if(!curRep) return; const c=JSON.parse(JSON.stringify(curRep)); c.id=uid('r'); c.rival=(c.rival||'')+' (copia)'; reId(c); REPORTS.unshift(c); saveReports(); curRep=c; renderReportList(); renderReport(); toast('Informe duplicado'); }
 function reId(r){ (r.pages||[]).forEach(p=>{ p.id=uid('p'); (p.blocks||[]).forEach(b=>{ b.id=uid('b'); if(b.field) (b.field.els||[]).forEach(e=>e.id=uid('e')); }); if(p.field) (p.field.els||[]).forEach(e=>e.id=uid('e')); }); }
@@ -3559,7 +3665,7 @@ function renderReportList(){
     REPORTS.forEach(r=>{
       const d=document.createElement('div'); d.className='rep-item'+(curRep&&curRep.id===r.id?' active':'');
       d.innerHTML=(imgHay(r.crestRival)?`<img src="${imgSrc(r.crestRival)}" alt="">`:'<span class="ri-crest-ph">⚽</span>')+
-        `<span class="ri-t"><span class="ri-n">${escapeHtml(r.rival||'Sin nombre')}</span><span class="ri-s">${escapeHtml(r.jornada||'')}${r.jornada&&r.fecha?' · ':''}${escapeHtml(r.fecha||'')} · ${r.pages.length} pág.</span></span>`;
+        `<span class="ri-t"><span class="ri-n">${escapeHtml(r.rival||'Sin nombre')}</span><span class="ri-s">${escapeHtml(usoDe(r).ab)} · ${escapeHtml(r.jornada||'')}${r.jornada&&r.fecha?' · ':''}${escapeHtml(r.fecha||'')} · ${r.pages.length} pág.</span></span>`;
       d.onclick=()=>selectReport(r.id); box.appendChild(d);
     });
   }
@@ -3567,7 +3673,17 @@ function renderReportList(){
   document.getElementById('rep-main-empty').style.display=curRep?'none':'';
   renderPageNav();
 }
+// Los informes de antes no traen `uso`: eran todos de rival.
+function usoDe(r){ return USOS[(r&&r.uso)||'rival'] || USOS.rival; }
+function cambiaUso(v){
+  if(!curRep || !USOS[v]) return;
+  // Solo cambia la etiqueta: las páginas que ya tenga se quedan como están.
+  curRep.uso=v; saveReports(); renderReportList();
+  toast('Ahora es un informe de '+USOS[v].lb.toLowerCase());
+}
 function renderPageNav(){
+  const sel=document.getElementById('rep-uso');
+  if(sel && curRep) sel.value=(curRep.uso&&USOS[curRep.uso])?curRep.uso:'rival';
   const nav=document.getElementById('page-nav'); if(!curRep){ nav.innerHTML=''; return; }
   nav.innerHTML='';
   curRep.pages.forEach((p,i)=>{
@@ -3763,6 +3879,7 @@ function buildPage(p,r,idx){
   else if(p.type==='dafo') buildDafo(page,p,r);
   else if(p.type==='plantilla') buildSquad(page,p,r);
   else if(p.type==='texto') buildText(page,p,r);
+  else if(p.type==='campograma') buildCampograma(page,p,r);
   return wrap;
 }
 
@@ -3884,6 +4001,196 @@ function buildP11(page,p,r){
   body.appendChild(lg);
   page.appendChild(body);
 }
+
+// ══════════════════════════════════════════════════════════════════
+// PÁGINA DE CAMPOGRAMA
+//   Trae a un informe el campograma que ya tienes montado en Captación.
+//   En un hueco va cómo juega el equipo y, si quieres, en el otro va tu
+//   propuesta: los dos al lado, que es lo que se enseña en una reunión.
+//
+//   Lo que se guarda en el informe es una FOTO del campograma, no un
+//   enlace vivo. Si luego lo tocas en Captación, el informe no se mueve:
+//   avisa con un punto y tú decides si lo actualizas. Un informe que ya
+//   mandaste no puede cambiar a tus espaldas.
+//
+//   El dibujo no se calcula aquí: cada campograma guarda en Captación su
+//   propia `vista` con las filas y los puestos ya resueltos. Así los doce
+//   sistemas viven en un solo sitio (app.js) y no hay dos copias que un
+//   día dejen de coincidir.
+// ══════════════════════════════════════════════════════════════════
+const FASE_CG={OF:{lb:'Ofensiva',bg:'#1a5c1a'},DEF:{lb:'Defensiva',bg:'#7a1a1a'}};
+
+function cgLeeTodos(){
+  let d=null;
+  try{ d=JSON.parse(localStorage.getItem('oi_campogramas_v1')||'null'); }catch(e){ d=null; }
+  const lista=(d&&Array.isArray(d.lista))?d.lista:[];
+  // Agrupados por equipo, igual que las pestañas de Captación.
+  const g=new Map();
+  lista.forEach(c=>{
+    if(!c) return;
+    const k=String(c.nombre||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+    if(!g.has(k)) g.set(k,{nombre:c.nombre||'Sin nombre', escudo:c.escudo||'', items:[]});
+    const e=g.get(k);
+    if(!imgHay(e.escudo) && imgHay(c.escudo)) e.escudo=c.escudo;
+    e.items.push(c);
+  });
+  return [...g.values()];
+}
+function cgBuscaUno(id){
+  let d=null;
+  try{ d=JSON.parse(localStorage.getItem('oi_campogramas_v1')||'null'); }catch(e){ d=null; }
+  return ((d&&d.lista)||[]).find(c=>c&&c.id===id)||null;
+}
+// La foto que se guarda en el informe.
+function cgFoto(c){
+  if(!c || !c.vista) return null;
+  const f=JSON.parse(JSON.stringify(c.vista));
+  f.cgId=c.id;
+  f.tomada=Date.now();
+  return f;
+}
+// ¿La foto se ha quedado vieja? Se compara solo lo que se ve.
+function cgPinta(v){
+  return JSON.stringify({s:v.sistema,f:v.fase,va:v.variante,n:v.nombre,c:v.cat,
+    fi:(v.filas||[]).map(fila=>fila.map(po=>po.k+':'+(po.js||[]).map(j=>j.n).join('/')))});
+}
+function cgDesfasada(foto){
+  if(!foto || !foto.cgId) return false;
+  const c=cgBuscaUno(foto.cgId);
+  if(!c || !c.vista) return false;         // ya no está en Captación: la foto se queda
+  return cgPinta(c.vista) !== cgPinta(foto);
+}
+
+function buildCampograma(page,p,r){
+  if(!Array.isArray(p.slots)) p.slots=[{rot:'CÓMO JUEGA',cg:null},{rot:'MI PROPUESTA',cg:null}];
+  while(p.slots.length<2) p.slots.push({rot:'',cg:null});
+
+  // Botonera de la cabecera: añadir o quitar el segundo campograma.
+  const tools=elx('div','cgp-tools no-print');
+  const hayDos=!!p.slots[1].cg;
+  const bDos=elx('button','cgp-btn gh', hayDos?'− Quitar el segundo':'+ Segundo campograma');
+  bDos.onclick=()=>{
+    if(hayDos){
+      if(!confirm('¿Quitar el segundo campograma de esta página?')) return;
+      p.slots[1].cg=null;
+    } else cgpAbre(p,1,r);
+    saveAll(); renderReport();
+  };
+  tools.appendChild(bDos);
+  page.appendChild(pageHead(p,p.title,tools,r.crestRival));
+
+  const body=elx('div','cgp-body');
+  const cols=hayDos?2:1;
+  for(let i=0;i<cols;i++) body.appendChild(cgpColumna(p,i,r));
+  page.appendChild(body);
+
+  // Una nota al pie, para explicar el porqué de los cambios.
+  const nota=elx('div','cgp-nota');
+  nota.appendChild(elx('div','cgp-nota-h','Notas'));
+  nota.appendChild(ed(p,'nota','','Por qué este sistema, qué cambiaría y con quién…',true));
+  page.appendChild(nota);
+}
+
+function cgpColumna(p,i,r){
+  const col=elx('div','cgp-col');
+  const slot=p.slots[i], v=slot.cg;
+  if(!v){
+    const vac=elx('div','cgp-vacia');
+    vac.appendChild(elx('div','','Ningún campograma todavía'));
+    const b=elx('button','cgp-btn','Elegir campograma de Captación');
+    b.onclick=()=>cgpAbre(p,i,r);
+    vac.appendChild(b);
+    col.appendChild(vac);
+    return col;
+  }
+  // Rótulo editable (CÓMO JUEGA / MI PROPUESTA / lo que quieras)
+  const f=FASE_CG[v.fase];
+  const rot=ed(slot,'rot','cgp-rot'+(v.fase==='OF'?' of':(v.fase==='DEF'?' def':'')),'RÓTULO');
+  col.appendChild(rot);
+  const meta=[v.nombre, v.cat, v.sistema, f?f.lb:'', String(v.variante||'').trim()]
+    .filter(Boolean).join(' · ');
+  col.appendChild(elx('div','cgp-meta', escapeHtml(meta)));
+
+  const campo=elx('div','cgp-campo');
+  (v.filas||[]).forEach(fila=>{
+    const fr=elx('div','cgp-fila');
+    fila.forEach(po=>{
+      const d=elx('div','cgp-pos');
+      const h=elx('div','cgp-pos-h', escapeHtml(po.lb||po.k));
+      h.style.background=po.bg||'#1B2A6B'; h.style.color=po.tx||'#fff';
+      d.appendChild(h);
+      const js=elx('div','cgp-js');
+      if(!(po.js||[]).length) js.appendChild(elx('div','cgp-vacio','—'));
+      (po.js||[]).forEach((j,n)=>js.appendChild(elx('div','cgp-j'+(n?' b':''), escapeHtml(j.n||''))));
+      d.appendChild(js);
+      fr.appendChild(d);
+    });
+    campo.appendChild(fr);
+  });
+  col.appendChild(campo);
+
+  const tl=elx('div','cgp-tools no-print');
+  if(cgDesfasada(v)) tl.appendChild(elx('span','cgp-aviso','● cambió en Captación'));
+  const bAct=elx('button','cgp-btn gh','↻ Actualizar');
+  bAct.title='Volver a traerlo tal como está ahora en Captación';
+  bAct.onclick=()=>{
+    const c=cgBuscaUno(v.cgId);
+    if(!c||!c.vista){ toast('Ese campograma ya no está en Captación'); return; }
+    const rotActual=slot.rot;
+    slot.cg=cgFoto(c); slot.rot=rotActual;
+    saveAll(); renderReport(); toast('Campograma actualizado');
+  };
+  tl.appendChild(bAct);
+  const bCam=elx('button','cgp-btn gh','Cambiar');
+  bCam.onclick=()=>cgpAbre(p,i,r);
+  tl.appendChild(bCam);
+  col.appendChild(tl);
+  return col;
+}
+
+// ── El selector de campogramas ───────────────────────────────────
+function cgpAbre(p,i,r){
+  const grupos=cgLeeTodos();
+  const m=elx('div','');
+  m.id='cgpick';
+  let cuerpo;
+  if(!grupos.length){
+    cuerpo='<div class="pk-vacio">No hay ningún campograma guardado.<br>'+
+      'Móntalos en <b>Captación → Campogramas</b> y vuelve aquí.</div>';
+  } else {
+    cuerpo=grupos.map((g,gi)=>'<div class="pk-eq"><div class="pk-eq-h">'+
+      (imgHay(g.escudo)?'<img src="'+imgSrc(g.escudo)+'" alt="">':'<span style="opacity:.5">⚽</span>')+
+      '<span>'+escapeHtml(g.nombre)+'</span></div>'+
+      g.items.map((c,ci)=>{
+        const f=FASE_CG[c.fase];
+        const hay=!!(c.vista && (c.vista.filas||[]).length);
+        const n=Object.keys(c.asign||{}).length;
+        return '<div class="pk-v" data-g="'+gi+'" data-c="'+ci+'"'+(hay?'':' style="opacity:.45;cursor:not-allowed"')+'>'+
+          (f?'<span class="pk-f" style="background:'+f.bg+'">'+(c.fase)+'</span>':'')+
+          '<span>'+escapeHtml(String(c.variante||'').trim()||c.sistema||'Variante')+'</span>'+
+          '<span class="pk-sis">'+escapeHtml(c.sistema||'')+' · '+n+' jug.</span></div>';
+      }).join('')+'</div>').join('');
+  }
+  m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">Campograma de Captación</span>'+
+    '<button class="pk-x">×</button></div><div class="pk-b">'+cuerpo+'</div></div>';
+  document.body.appendChild(m);
+  const cierra=()=>m.remove();
+  m.querySelector('.pk-x').onclick=cierra;
+  m.onclick=e=>{ if(e.target===m) cierra(); };
+  m.querySelectorAll('.pk-v[data-g]').forEach(el=>{
+    el.onclick=()=>{
+      const c=grupos[+el.dataset.g].items[+el.dataset.c];
+      const foto=cgFoto(c);
+      if(!foto){ toast('Ese campograma todavía no tiene nada que pintar'); return; }
+      // El rótulo que ya hubiera puesto se respeta; si no hay, uno por defecto.
+      if(!String(p.slots[i].rot||'').trim()) p.slots[i].rot = i ? 'MI PROPUESTA' : 'CÓMO JUEGA';
+      p.slots[i].cg=foto;
+      cierra(); saveAll(); renderReport();
+      toast('Campograma de '+(foto.nombre||'equipo')+' añadido');
+    };
+  });
+}
+
 // ══ DEL POSIBLE 11 A LA PLANTILLA ═════════════════════════════════
 //   Todo el que se pone en el Posible 11 aparece en la Plantilla, por
 //   orden de dorsal. Nunca se borra ni se pisa nada de lo que ya hay

@@ -529,8 +529,30 @@ function cgEtiq(c){
 }
 // Última variante usada de cada equipo, para volver donde lo dejaste.
 let cgUlt={};
+// ── LA VISTA QUE SE LLEVA A LOS INFORMES ─────────────────────────
+//   Los informes (pantalla de Análisis) necesitan pintar un campograma,
+//   pero SISTEMAS vive aquí. En vez de copiar los doce sistemas allí —y
+//   que un día dejen de coincidir, como pasó con los colores de fase—,
+//   cada campograma guarda ya resuelto lo que hay que pintar: filas,
+//   puestos y quién ocupa cada uno. Análisis solo tiene que leerlo.
+function cgVista(c){
+  if(!c) return null;
+  const filas=(SISTEMAS[c.sistema]||[]).map(fila=>fila.map(pos=>{
+    const js=Object.keys(c.asign||{})
+      .filter(id=>c.asign[id]===pos.k)
+      .map(id=>{
+        const j=jug.find(x=>String(x.id)===String(id));
+        return j ? {n:j.n||'', est:j.est||'', eq:j.eq||''} : null;
+      }).filter(Boolean);
+    return {k:pos.k, lb:pos.lb, bg:pos.bg, tx:pos.tx, js:js};
+  }));
+  return {sistema:c.sistema||'', fase:c.fase||'', variante:c.variante||'',
+          nombre:c.nombre||'', cat:c.cat||'', escudo:c.escudo||'',
+          filas:filas, fecha:Date.now()};
+}
 function cgGuardar(){
   try{
+    CGS.forEach(c=>{ c.vista=cgVista(c); });
     localStorage.setItem(K_CG, JSON.stringify({activo:cgAct, lista:CGS}));
     return true;
   }catch(e){
@@ -587,6 +609,7 @@ async function loadData() {
     // (pos_campo), pero antes nadie lo volvía a leer: al recargar la pantalla
     // la plantilla salía vacía aunque el dato estuviera guardado.
     cgCargar(); cgSync();
+    cgGuardar();   // deja al día la vista que leen los informes
     syncStatus="ok"; render(); shT(jug.length + " jugadores ✓");
   } catch(e) {
     syncStatus="error"; shT("Error: "+e.message,"err"); render();
