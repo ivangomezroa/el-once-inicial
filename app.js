@@ -490,8 +490,45 @@ window.cgImprime = () => {
 
 function cgId(){ return 'cg'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function cgNuevo(nombre){
-  return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3', asign:{}};
+  return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3',
+          fase:'', variante:'', asign:{}};
 }
+
+// ── VARIANTES DE UN MISMO EQUIPO ─────────────────────────────────
+//   Un equipo puede tener varios campogramas: el mismo club y el mismo
+//   escudo, con sistemas distintos — uno para la fase ofensiva, otro
+//   para la defensiva, o dos alternativas de la misma fase.
+//   Se agrupan por el NOMBRE del equipo, sin tildes ni may/min, así que
+//   renombrar una variante renombra todas las del grupo: si no, cambiar
+//   una letra partiría el grupo en dos.
+//   Los campogramas de antes no tienen `fase` ni `variante`: se quedan
+//   como grupo de uno y se les puede poner la etiqueta cuando se quiera.
+const FASES={
+  OF: {lb:'Ofensiva',  ab:'OF',  bg:'#1a5c1a', brd:'#2ecc40'},
+  DEF:{lb:'Defensiva', ab:'DEF', bg:'#7a1a1a', brd:'#e05252'},
+};
+function cgClave(c){ return sinTildes((c&&c.nombre)||'').replace(/\s+/g,' ').trim(); }
+function cgGrupos(){
+  const g=new Map();
+  CGS.forEach(c=>{
+    const k=cgClave(c);
+    if(!g.has(k)) g.set(k,{clave:k, nombre:c.nombre||'Sin nombre', escudo:c.escudo||'', items:[]});
+    const e=g.get(k);
+    if(!imgHay(e.escudo) && imgHay(c.escudo)) e.escudo=c.escudo;   // el grupo hereda el escudo que haya
+    e.items.push(c);
+  });
+  return [...g.values()];
+}
+function cgGrupoDe(c){ const k=cgClave(c); return cgGrupos().find(g=>g.clave===k)||null; }
+// Etiqueta corta de una variante, para la pestaña y la cabecera impresa.
+function cgEtiq(c){
+  const f=FASES[c&&c.fase], n=String((c&&c.variante)||'').replace(/\s+/g,' ').trim();
+  if(f&&n) return f.ab+' · '+n;
+  if(f)    return f.lb;
+  return n || ((c&&c.sistema)||'');
+}
+// Última variante usada de cada equipo, para volver donde lo dejaste.
+let cgUlt={};
 function cgGuardar(){
   try{
     localStorage.setItem(K_CG, JSON.stringify({activo:cgAct, lista:CGS}));
@@ -781,30 +818,53 @@ function rCampo(){
     ${escudoHTML(c&&c.escudo,34)}
     <div class="ph-txt">
       <div class="ph-eq">${escHtml((c&&c.nombre)||'')}</div>
-      <div class="ph-sub">${escHtml((c&&c.cat)||'')}${(c&&c.cat)?' · ':''}${escHtml((c&&c.sistema)||'')}</div>
+      <div class="ph-sub">${escHtml((c&&c.cat)||'')}${(c&&c.cat)?' · ':''}${escHtml((c&&c.sistema)||'')}${(c&&FASES[c.fase])?' · '+escHtml(FASES[c.fase].lb):''}${(c&&String(c.variante||'').trim())?' · '+escHtml(String(c.variante).trim()):''}</div>
     </div>
     <div class="ph-fecha">${fechaTxt}</div>
   </div>`;
-  const tabs=CGS.map(x=>{
-    const act=x.id===cgAct, n=Object.keys(x.asign).length;
-    return`<button onclick="cgSel('${x.id}')" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px 7px 0 0;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;
+  // Una pestaña por EQUIPO. Las variantes del equipo abierto van en la
+  // fila de abajo: con ocho o diez equipos, meterlo todo en una sola
+  // fila deja la barra ilegible.
+  const grupos=cgGrupos(), claveAct=cgClave(c);
+  const tabs=grupos.map(g=>{
+    const act=g.clave===claveAct;
+    const nj=g.items.reduce((t,x)=>t+Object.keys(x.asign).length,0);
+    const nv=g.items.length;
+    return`<button onclick="cgSelEq('${g.items[0].id}')" title="${escHtml(g.nombre)}${nv>1?' · '+nv+' variantes':''}" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px 7px 0 0;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;
       border:1px solid ${act?'var(--border2)':'transparent'};border-bottom:none;
       background:${act?'var(--card)':'rgba(255,255,255,.04)'};color:${act?'var(--gold)':'var(--muted)'}">
-      ${escudoHTML(x.escudo,16)}
-      ${x.nombre||'Sin nombre'}
-      <span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;background:${act?'var(--gold)':'rgba(255,255,255,.12)'};color:${act?'#1B2A6B':'var(--muted)'}">${n}</span>
+      ${escudoHTML(g.escudo,16)}
+      ${escHtml(g.nombre)}
+      <span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;background:${act?'var(--gold)':'rgba(255,255,255,.12)'};color:${act?'#1B2A6B':'var(--muted)'}">${nv>1?nv+'⧉':nj}</span>
+    </button>`;
+  }).join("");
+  const gA=grupos.find(g=>g.clave===claveAct);
+  const vars=(gA?gA.items:[]).map(x=>{
+    const act=x.id===cgAct, n=Object.keys(x.asign).length;
+    const f=FASES[x.fase];
+    return`<button onclick="cgSel('${x.id}')" title="${escHtml(cgEtiq(x))} · ${escHtml(x.sistema||'')}" style="flex:0 0 auto;display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:0 0 7px 7px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;
+      border:1px solid ${act?'var(--border2)':'transparent'};border-top:none;
+      background:${act?'var(--card)':'transparent'};color:${act?'var(--text)':'var(--muted)'}">
+      ${f?`<span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:7px;background:${f.bg};border:1px solid ${f.brd};color:#fff">${f.ab}</span>`:''}
+      <span>${escHtml(String(x.variante||'').trim()||x.sistema||'Variante')}</span>
+      ${String(x.variante||'').trim()?`<span style="font-size:9px;opacity:.55">${escHtml(x.sistema||'')}</span>`:''}
+      <span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:8px;background:rgba(255,255,255,.12)">${n}</span>
     </button>`;
   }).join("");
   return`
     ${cabPrint}
     <div class="no-print" style="display:flex;align-items:flex-end;gap:3px;overflow-x:auto;border-bottom:1px solid var(--border2);margin-bottom:10px;padding-bottom:0;min-width:0">
       ${tabs}
-      <button onclick="cgAdd()" title="Nuevo campograma" style="flex:0 0 auto;padding:6px 11px;margin-left:4px;border:1px dashed var(--border2);border-bottom:none;border-radius:7px 7px 0 0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700">＋</button>
+      <button onclick="cgAdd()" title="Nuevo equipo" style="flex:0 0 auto;padding:6px 11px;margin-left:4px;border:1px dashed var(--border2);border-bottom:none;border-radius:7px 7px 0 0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700">＋ equipo</button>
+    </div>
+    <div class="no-print" style="display:flex;align-items:flex-start;gap:3px;overflow-x:auto;margin:-10px 0 10px;padding-bottom:2px;min-width:0">
+      ${vars}
+      <button onclick="cgVar()" title="Otra variante de este mismo equipo (otro sistema, otra fase)" style="flex:0 0 auto;padding:4px 10px;margin-left:4px;border:1px dashed var(--border2);border-top:none;border-radius:0 0 7px 7px;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;font-weight:700">＋ variante</button>
     </div>
     <div class="sis-sel" style="flex-wrap:wrap">
       ${escudoHTML(c&&c.escudo,26,'cursor:pointer;')}
       <span onclick="cgHoja(cgAct)" title="Equipo, escudo, categoría y sistema" style="font-size:14px;font-weight:700;color:var(--text);cursor:pointer">${(c&&c.nombre)||'Sin nombre'} <span style="font-size:10px;opacity:.4">✎</span></span>
-      <span onclick="cgHoja(cgAct)" title="Equipo, escudo, categoría y sistema" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:2px 8px">${(c&&c.cat)||'+ categoría'}</span>${(c&&!imgHay(c.escudo))?`<span onclick="cgHoja(cgAct)" title="Poner el escudo del club" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px dashed var(--border2);border-radius:9px;padding:2px 8px">+ escudo</span>`:''}
+      <span onclick="cgHoja(cgAct)" title="Equipo, escudo, categoría y sistema" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:2px 8px">${(c&&c.cat)||'+ categoría'}</span>${(c&&FASES[c.fase])?`<span onclick="cgHoja(cgAct)" title="Fase y nombre de esta variante" style="font-size:10px;font-weight:700;color:#fff;cursor:pointer;background:${FASES[c.fase].bg};border:1px solid ${FASES[c.fase].brd};border-radius:9px;padding:2px 8px">${FASES[c.fase].lb}</span>`:''}${(c&&String(c.variante||'').trim())?`<span onclick="cgHoja(cgAct)" title="Fase y nombre de esta variante" style="font-size:10px;color:var(--text);cursor:pointer;border:1px solid var(--border2);border-radius:9px;padding:2px 8px">${escHtml(String(c.variante).trim())}</span>`:''}${(c&&!imgHay(c.escudo))?`<span onclick="cgHoja(cgAct)" title="Poner el escudo del club" style="font-size:10px;color:var(--muted);cursor:pointer;border:1px dashed var(--border2);border-radius:9px;padding:2px 8px">+ escudo</span>`:''}
       <span style="width:1px;height:16px;background:var(--border)"></span>
       <label>⚽ Sistema:</label>
       <select onchange="setSistema(this.value)">
@@ -813,7 +873,7 @@ function rCampo(){
       <span style="font-size:11px;color:var(--muted)">← Izquierda &nbsp; Derecha →</span>
       <span style="margin-left:auto;display:flex;gap:5px">
         <button onclick="cgImprime()" title="Imprimir o guardar en PDF este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted)">🖨 Imprimir / PDF</button>
-        <button onclick="cgDup()" title="Duplicar este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted)">⧉ Duplicar</button>
+        <button onclick="cgDup()" title="Duplicar esta variante (mismo equipo)" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted)">⧉ Duplicar</button>
         <button onclick="cgDel()" title="Eliminar este campograma" style="padding:3px 9px;font-size:10px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:transparent;color:#E74C3C">🗑</button>
       </span>
     </div>
@@ -1236,20 +1296,44 @@ window.setSistema = s => {
 };
 
 // ── Pestañas de campogramas ──────────────────────────────────────
-window.cgSel = id => { cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; posFiltro={}; posTodos={}; cgGuardar(); cgSync(); render(); };
+window.cgSel = id => {
+  cgAct=id; selPos=null; editCid=null; movJid=null; posExpanded={}; posFiltro={}; posTodos={};
+  const c=cg(); if(c) cgUlt[cgClave(c)]=c.id;
+  cgGuardar(); cgSync(); render();
+};
+// Pinchar la pestaña de un equipo: entra por la variante que dejaste
+// abierta la última vez, o por la primera si es la primera visita.
+window.cgSelEq = id => {
+  const base=CGS.find(x=>x.id===id); if(!base) return;
+  const g=cgGrupoDe(base); if(!g) return cgSel(id);
+  const rec=g.items.find(x=>x.id===cgUlt[g.clave]);
+  cgSel((rec||g.items[0]).id);
+};
+// Nueva variante del equipo que tienes abierto: mismo club, mismo
+// escudo, y por defecto la fase contraria a la de ahora.
+window.cgVar = () => {
+  const c=cg(); if(!c) return;
+  cgHojaFoco=true;
+  cgDraft={id:null, nombre:c.nombre||'', cat:c.cat||'', escudo:c.escudo||'',
+           sistema:c.sistema||'1-4-3-3', fase:(c.fase==='OF'?'DEF':'OF'), variante:'',
+           copiaDe:c.id, copiar:true};
+  cgPintaHoja();
+};
 // ── LA HOJA DE CREAR / EDITAR UN CAMPOGRAMA ──────────────────────
 //   Vive fuera de render(): si se repintara toda la pantalla con cada
 //   tecla, el cursor se saldría del campo de texto a media palabra.
-let cgDraft=null;
+let cgDraft=null, cgHojaFoco=false;
 
 window.cgAdd = () => cgHoja(null);
 window.cgRen = () => cgHoja(cgAct);
 window.cgCat = () => cgHoja(cgAct);
 window.cgHoja = (id) => {
+  cgHojaFoco=true;
   const base = id ? CGS.find(c=>c.id===id) : null;
   cgDraft = base
-    ? {id:base.id, nombre:base.nombre||'', cat:base.cat||'', escudo:base.escudo||'', sistema:base.sistema||'1-4-3-3'}
-    : {id:null, nombre:'', cat:'', escudo:'', sistema:'1-4-3-3'};
+    ? {id:base.id, nombre:base.nombre||'', cat:base.cat||'', escudo:base.escudo||'',
+       sistema:base.sistema||'1-4-3-3', fase:base.fase||'', variante:base.variante||''}
+    : {id:null, nombre:'', cat:'', escudo:'', sistema:'1-4-3-3', fase:'', variante:''};
   cgPintaHoja();
 };
 window.cgCierraHoja = () => { const m=document.getElementById('cg-hoja'); if(m) m.remove(); cgDraft=null; };
@@ -1264,7 +1348,7 @@ function cgPintaHoja(){
     <div style="background:var(--card);border:1px solid var(--border2);border-radius:12px;
          width:min(560px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)">
-        <span style="font-size:14px;font-weight:700;color:var(--gold);flex:1">${d.id?'Editar campograma':'Nuevo campograma'}</span>
+        <span style="font-size:14px;font-weight:700;color:var(--gold);flex:1">${d.id?'Editar campograma':(d.copiaDe?'Nueva variante de '+escHtml(d.nombre||'este equipo'):'Nuevo equipo')}</span>
         <button id="cg-x" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1">×</button>
       </div>
       <div style="padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
@@ -1286,12 +1370,33 @@ function cgPintaHoja(){
                 ${Object.keys(SISTEMAS).map(x=>`<option value="${x}"${x===d.sistema?' selected':''}>${x}</option>`).join('')}
               </select>
             </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div style="display:flex;gap:3px">
+                ${[['','Sin fase'],['OF','Ofensiva'],['DEF','Defensiva']].map(([v,lb])=>{
+                  const sel=(d.fase||'')===v, f=FASES[v];
+                  return `<button class="cg-fase" data-f="${v}" style="padding:4px 9px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;
+                    border:1px solid ${sel?(f?f.brd:'var(--gold)'):'var(--border)'};
+                    background:${sel?(f?f.bg:'var(--gold)'):'transparent'};
+                    color:${sel?(f?'#fff':'#1B2A6B'):'var(--muted)'}">${lb}</button>`;
+                }).join('')}
+              </div>
+              <input id="cg-var" value="${(d.variante||'').replace(/"/g,'&quot;')}" placeholder="Nombre de la variante (opcional)"
+                     style="flex:1;min-width:0;padding:6px 9px;border-radius:7px;border:1px solid var(--border);
+                            background:var(--bg);color:var(--text);font-size:12px">
+            </div>
             <button id="cg-quita-esc" style="align-self:flex-start;font-size:10px;padding:2px 8px;border-radius:5px;
                     border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;
                     display:${d.escudo?'block':'none'}">Quitar escudo</button>
           </div>
         </div>
-        <div>
+        ${d.copiaDe?`<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer;
+             border:1px solid var(--border);border-radius:8px;padding:9px 11px">
+          <input type="checkbox" id="cg-copiar"${d.copiar?' checked':''} style="width:15px;height:15px;cursor:pointer">
+          <span>Traer los jugadores ya colocados<br>
+            <span style="font-size:10px;color:var(--muted)">Misma plantilla, otro sistema. Los que no tengan puesto en el sistema nuevo no se pierden: vuelven al cambiar de sistema.</span>
+          </span>
+        </label>`:''}
+        <div style="display:${d.copiaDe?'none':'block'}">
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">
             Clubes ya registrados
           </div>
@@ -1319,12 +1424,17 @@ function cgPintaHoja(){
   $('cg-nombre').oninput = e => { cgDraft.nombre=e.target.value; };
   $('cg-cat').oninput    = e => { cgDraft.cat=e.target.value; };
   $('cg-sis').onchange   = e => { cgDraft.sistema=e.target.value; };
+  $('cg-var').oninput    = e => { cgDraft.variante=e.target.value; };
+  if($('cg-copiar')) $('cg-copiar').onchange = e => { cgDraft.copiar=e.target.checked; };
+  m.querySelectorAll('.cg-fase').forEach(b=>{
+    b.onclick=()=>{ cgDraft.fase=b.dataset.f; cgPintaHoja(); };   // repintar: los botones cambian de color
+  });
   $('cg-busca').oninput  = e => cgPintaClubes(e.target.value);
   $('cg-esc').onclick    = () => $('cg-file').click();
   $('cg-file').onchange  = cgEscudoElegido;
   $('cg-quita-esc').onclick = () => { cgDraft.escudo=''; cgPintaEscudoHoja(); };
   $('cg-ok').onclick     = cgGuardaHoja;
-  $('cg-nombre').focus();
+  if(cgHojaFoco){ cgHojaFoco=false; (d.copiaDe ? $('cg-var') : $('cg-nombre')).focus(); }
 }
 
 function cgPintaEscudoHoja(){
@@ -1394,31 +1504,73 @@ function cgGuardaHoja(){
   const nombre=String(d.nombre||'').replace(/\s+/g,' ').trim();
   if(!nombre){ shT('Ponle nombre al equipo','err'); const n=document.getElementById('cg-nombre'); if(n) n.focus(); return; }
   const cat=String(d.cat||'').replace(/\s+/g,' ').trim();
+  const variante=String(d.variante||'').replace(/\s+/g,' ').trim();
+  const fase=FASES[d.fase]?d.fase:'';
   if(d.id){
     const c=CGS.find(x=>x.id===d.id); if(!c) return cgCierraHoja();
-    c.nombre=nombre; c.cat=cat; c.escudo=d.escudo||''; c.sistema=SISTEMAS[d.sistema]?d.sistema:c.sistema;
-    cgGuardar(); cgSync(); cgCierraHoja(); render(); shT('Campograma actualizado');
+    // El nombre y el escudo son del EQUIPO, no de la variante: si cambian,
+    // cambian en todas las variantes del grupo. Si no, renombrar una sola
+    // la sacaría del grupo y aparecería como un equipo aparte.
+    const hermanas=(cgGrupoDe(c)||{items:[c]}).items;
+    const cambiaNombre = cgClave({nombre:nombre}) !== cgClave(c);
+    const cambiaEscudo = (d.escudo||'') !== (c.escudo||'');
+    hermanas.forEach(h=>{
+      if(cambiaNombre) h.nombre=nombre;
+      if(cambiaEscudo) h.escudo=d.escudo||'';
+    });
+    c.nombre=nombre; c.cat=cat; c.escudo=d.escudo||'';
+    c.sistema=SISTEMAS[d.sistema]?d.sistema:c.sistema;
+    c.fase=fase; c.variante=variante;
+    cgGuardar(); cgSync(); cgCierraHoja(); render();
+    shT(hermanas.length>1 && (cambiaNombre||cambiaEscudo)
+        ? 'Actualizado en las '+hermanas.length+' variantes'
+        : 'Campograma actualizado');
   } else {
     const c=cgNuevo(nombre);
     c.cat=cat; c.escudo=d.escudo||''; c.sistema=SISTEMAS[d.sistema]?d.sistema:'1-4-3-3';
-    CGS.push(c); cgAct=c.id; selPos=null; posExpanded={};
-    cgGuardar(); cgSync(); cgCierraHoja(); render(); shT('Campograma «'+c.nombre+'» creado');
+    c.fase=fase; c.variante=variante;
+    const madre = d.copiaDe ? CGS.find(x=>x.id===d.copiaDe) : null;
+    if(madre && d.copiar) c.asign=JSON.parse(JSON.stringify(madre.asign||{}));
+    // Las variantes del mismo equipo van juntas: la nueva se coloca
+    // detrás de la última del grupo, no al final de todo.
+    const g = madre ? cgGrupoDe(madre) : cgGrupoDe(c);
+    if(g && g.items.length){
+      const ultima=g.items[g.items.length-1];
+      CGS.splice(CGS.indexOf(ultima)+1, 0, c);
+    } else CGS.push(c);
+    cgAct=c.id; selPos=null; posExpanded={};
+    cgGuardar(); cgSync(); cgCierraHoja(); render();
+    shT(madre ? 'Variante «'+(cgEtiq(c)||c.sistema)+'» creada' : 'Equipo «'+c.nombre+'» creado');
   }
 }
 window.cgDup = () => {
   const c=cg(); if(!c) return;
   const copia=JSON.parse(JSON.stringify(c));
-  copia.id=cgId(); copia.nombre=c.nombre+' (copia)';
+  copia.id=cgId();
+  // Antes la copia se llamaba «Equipo (copia)» y salía como un equipo
+  // distinto. Ahora es otra variante del mismo: se cambia la etiqueta,
+  // no el nombre del club.
+  copia.variante=(String(c.variante||'').trim() || c.sistema || 'Variante')+' (copia)';
   CGS.splice(CGS.indexOf(c)+1,0,copia); cgAct=copia.id;
-  cgGuardar(); cgSync(); render(); shT('Copiado');
+  cgGuardar(); cgSync(); render(); shT('Variante duplicada');
 };
 window.cgDel = () => {
   const c=cg(); if(!c) return;
   if(CGS.length<=1){ shT('Tiene que quedar al menos un campograma','err'); return; }
   const n=Object.keys(c.asign).length;
-  if(!confirm('¿Eliminar el campograma «'+c.nombre+'»'+(n?' con sus '+n+' jugadores colocados':'')+'?\n\nLas fichas de los jugadores NO se borran: siguen en la base de datos.')) return;
-  CGS=CGS.filter(x=>x.id!==c.id); cgAct=CGS[0].id;
-  selPos=null; posExpanded={}; cgGuardar(); cgSync(); render(); shT('Campograma eliminado');
+  const g=cgGrupoDe(c), varias=!!g && g.items.length>1;
+  const qué = varias
+    ? 'la variante «'+(cgEtiq(c)||c.sistema)+'» de '+c.nombre
+    : 'el campograma «'+c.nombre+'»';
+  if(!confirm('¿Eliminar '+qué+(n?' con sus '+n+' jugadores colocados':'')+'?'+
+      (varias?'\n\nLas otras '+(g.items.length-1)+' variantes de '+c.nombre+' se quedan como están.':'')+
+      '\n\nLas fichas de los jugadores NO se borran: siguen en la base de datos.')) return;
+  CGS=CGS.filter(x=>x.id!==c.id);
+  // Si al equipo le quedan variantes, quedarse en el equipo; si no, a la primera.
+  const quedan=(g?g.items:[]).filter(x=>x.id!==c.id && CGS.includes(x));
+  cgAct=(quedan[0]||CGS[0]).id;
+  selPos=null; posExpanded={}; cgGuardar(); cgSync(); render();
+  shT(varias?'Variante eliminada':'Campograma eliminado');
 };
 window.tPos = k => {
   // Al salir de un puesto se olvida lo que tuviera: lo escrito en el
