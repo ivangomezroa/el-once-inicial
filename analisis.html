@@ -294,6 +294,18 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .cover-meta{display:flex;gap:10px;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#444;}
 .cover-meta .ed{min-width:60px;display:inline-block;text-align:center;font-weight:700;color:var(--navy);}
 .season-tag{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;color:#b81e1e;letter-spacing:1px;text-align:center;}
+/* Portada de informe que no es de partido (futuro equipo / reunión) */
+.cover-grid.sin-vs{grid-template-columns:260px 1fr 250px;}
+.cover-club{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.cover-club .img-drop{width:100%;height:150px;flex:none;}
+.cover-grid.sin-vs .cover-center > .kv-box{width:100%;}
+.cover-uso{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1.6px;
+  text-transform:uppercase;color:#fff;background:var(--navy);padding:4px 12px;border-radius:4px;align-self:flex-start;}
+.cover-box{border:1px solid #d7d2c4;border-radius:6px;overflow:hidden;}
+.cover-box .kv-h{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.9px;
+  text-transform:uppercase;color:#fff;background:var(--navy);padding:3px 8px;}
+.cover-box .cb-b{padding:7px 9px;min-height:62px;font-size:12px;}
+.cover-box.grande .cb-b{min-height:150px;}
 
 /* ── POSIBLE 11 ── */
 .p11-body{display:grid;grid-template-columns:1fr 150px;gap:14px;flex:1;min-height:0;}
@@ -511,6 +523,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   /* El rótulo del campograma es un .ed, así que la regla de arriba le
      quitaba el color de fondo y en papel salía texto suelto. */
   .ed.cgp-rot{background:var(--navy) !important;color:#fff !important;}
+  .cover-uso,.cover-box .kv-h{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .ed.cgp-rot.of{background:#1a5c1a !important;}
   .ed.cgp-rot.def{background:#7a1a1a !important;}
   .banner{border-color:transparent !important;}
@@ -3624,7 +3637,7 @@ function newReport(){
 }
 function creaInforme(uso){
   if(!USOS[uso]) uso='rival';
-  const r={ id:uid('r'), uso:uso, rival:'NUEVO RIVAL', jornada:'', fecha:todayStr(), hora:'', campo:'', superficie:'', medidas:'', tiempo:'', temp:'', temporada:seasonStr(),
+  const r={ id:uid('r'), uso:uso, rival:(uso==='rival')?'NUEVO RIVAL':'NUEVO CLUB', jornada:'', fecha:todayStr(), hora:'', campo:'', superficie:'', medidas:'', tiempo:'', temp:'', temporada:seasonStr(),
     competicion:'', sede:'', rivalOtro:'', crestRival:'', crestOwn:'', photoCampo:'', photoEquip:'', pages:[] };
   // Las dos páginas de alineaciones del informe de rival van separadas y no
   // cuatro partidos en una: con más de dos bloques la página los parte en dos
@@ -3675,10 +3688,85 @@ function renderReportList(){
 }
 // Los informes de antes no traen `uso`: eran todos de rival.
 function usoDe(r){ return USOS[(r&&r.uso)||'rival'] || USOS.rival; }
+// ¿Esta página está sin tocar? Decide qué se puede quitar al cambiar de
+// uso. Lo que tenga algo escrito o dibujado NUNCA se quita solo.
+function paginaVacia(p){
+  if(!p || p.type==='portada') return false;
+  const campoVacio=f=>!f || !((f.els||[]).length);
+  const bloquesVacios=()=> (p.blocks||[]).every(b=>
+    campoVacio(b.field) && !String(b.text||'').trim() && !String(b.t2||'').trim() &&
+    !(b.vs && (String(b.vs.home||'').trim() || String(b.vs.away||'').trim() ||
+               imgHay(b.vs.crestHome) || imgHay(b.vs.crestAway))));
+  switch(p.type){
+    case 'posible11':   return campoVacio(p.field);
+    case 'alineaciones':
+    case 'momento':
+    case 'abp':         return bloquesVacios();
+    case 'dafo':        return !['d','f','a','o'].some(k=>String(p[k]||'').trim());
+    case 'plantilla':   return (p.rows||[]).every(x=>!['num','name','pos','age','h','note']
+                                 .some(k=>String(x[k]||'').trim()));
+    case 'texto':       return !(p.texts||[]).some(t=>String(t||'').trim());
+    case 'campograma':  return !(p.slots||[]).some(x=>x&&x.cg) && !String(p.nota||'').trim();
+  }
+  return false;
+}
+
+// Cambiar el uso cambia las páginas, no solo la etiqueta: añade las que
+// el uso nuevo pide y no están, y quita las que sobran SIEMPRE QUE ESTÉN
+// VACÍAS. Una página con trabajo dentro se queda, y se avisa.
 function cambiaUso(v){
   if(!curRep || !USOS[v]) return;
-  // Solo cambia la etiqueta: las páginas que ya tenga se quedan como están.
-  curRep.uso=v; saveReports(); renderReportList();
+  const antes=(curRep.uso && USOS[curRep.uso]) ? curRep.uso : 'rival';
+  if(antes===v){ curRep.uso=v; return; }
+
+  const quiere=PAGINAS_POR_USO[v]||[];
+  const presupuesto={}; quiere.forEach(t=>presupuesto[t]=(presupuesto[t]||0)+1);
+  const sobran=[], conTrabajo=[];
+  (curRep.pages||[]).forEach(pg=>{
+    if(presupuesto[pg.type]>0){ presupuesto[pg.type]--; return; }
+    if(pg.type==='portada') return;
+    (paginaVacia(pg)?sobran:conTrabajo).push(pg);
+  });
+  const pend=Object.assign({},presupuesto);
+  const faltan=quiere.filter(t=>{ if(pend[t]>0){ pend[t]--; return true; } return false; });
+
+  if(faltan.length || sobran.length){
+    const lista=a=>a.map(x=>'· '+(PAGE_LABEL[x.type||x]||(x.type||x))).join('\n');
+    let txt='Pasar este informe a «'+USOS[v].lb+'»:\n\n';
+    if(faltan.length) txt+='SE AÑADEN '+faltan.length+' página(s):\n'+lista(faltan)+'\n\n';
+    if(sobran.length) txt+='SE QUITAN '+sobran.length+' página(s) que están vacías:\n'+lista(sobran)+'\n\n';
+    if(conTrabajo.length) txt+='SE QUEDAN '+conTrabajo.length+' página(s) que ya tienen contenido,\naunque este uso no las pida. Quítalas tú si no las quieres:\n'+lista(conTrabajo)+'\n\n';
+    txt+='¿Sigo?';
+    if(!confirm(txt)){
+      // Devolver el desplegable a donde estaba: el cambio no se hizo.
+      const sel=document.getElementById('rep-uso'); if(sel) sel.value=antes;
+      return;
+    }
+    if(sobran.length) curRep.pages=curRep.pages.filter(pg=>sobran.indexOf(pg)<0);
+    faltan.forEach(t=>{
+      const pg=newPage(t);
+      if(t==='momento'){
+        // Ponerle el título que le toque según los momentos que ya haya.
+        const n=(curRep.pages||[]).filter(x=>x.type==='momento').length;
+        pg.title=['MOMENTO CON BALÓN','MOMENTO SIN BALÓN','TRANSICIONES'][n]||('MOMENTO '+(n+1));
+        if(pg.title==='TRANSICIONES'){ pg.blocks[0].t1='TRANSICIÓN OFENSIVA'; pg.blocks[1].t1='TRANSICIÓN DEFENSIVA'; }
+      }
+      if(t==='texto' && v==='reunion') pg.title='LO QUE PROPONGO';
+      // Colocarla donde le toca por el orden del uso, no al final: el
+      // campograma de una reunión va detrás de la portada, no al final.
+      const sitio=quiere.indexOf(t);
+      let idx=curRep.pages.length;
+      for(let i=0;i<curRep.pages.length;i++){
+        const pos=quiere.indexOf(curRep.pages[i].type);
+        if(pos<0) continue;          // una página que este uso no pide se queda donde está
+        if(pos>sitio){ idx=i; break; }
+      }
+      curRep.pages.splice(idx,0,pg);
+    });
+    numeraAlineaciones(curRep);
+  }
+
+  curRep.uso=v; saveReports(); renderReportList(); renderReport();
   toast('Ahora es un informe de '+USOS[v].lb.toLowerCase());
 }
 function renderPageNav(){
@@ -3885,6 +3973,10 @@ function buildPage(p,r,idx){
 
 // ── PORTADA ──
 function buildCover(page,p,r){
+  // Un informe de posible futuro equipo o de reunión con el club no es de
+  // un partido: no hay rival, ni jornada, ni sede, ni VS. Esa portada
+  // sobra ahí, así que para esos usos se pinta otra.
+  if(((r&&r.uso)==='futuro') || ((r&&r.uso)==='reunion')) return buildCoverClub(page,p,r);
   const grid=elx('div','cover-grid');
   const left=elx('div','cover-left');
   const rivEd=ed(r,'rival','cover-rival','NOMBRE DEL RIVAL');
@@ -3969,6 +4061,67 @@ function buildCover(page,p,r){
   const tv2=elx('div','kv-v'); tv2.style.paddingTop='0'; tv2.appendChild(ed(r,'temp','','20° · 6 km/h')); tb.appendChild(tv2);
   right.appendChild(tb);
   right.appendChild(ed(r,'temporada','season-tag','2025-2026'));
+  grid.appendChild(right);
+  page.appendChild(grid);
+}
+
+
+// ── PORTADA DE CLUB (futuro equipo / reunión) ─────────────────────
+//   El mismo informe, sin lo que solo tiene sentido en un partido. Los
+//   campos nuevos (entrenador, clasificación, interlocutor, objetivo) no
+//   existen en los informes antiguos: salen vacíos y ya está.
+function buildCoverClub(page,p,r){
+  const esReunion=(r.uso==='reunion');
+  const grid=elx('div','cover-grid sin-vs');
+
+  // Izquierda: el club.
+  const left=elx('div','cover-left');
+  left.appendChild(elx('div','cover-uso', esReunion?'Reunión con el club':'Posible futuro equipo'));
+  const nomEd=ed(r,'rival','cover-rival','NOMBRE DEL CLUB');
+  nomEd.addEventListener('input',()=>{ document.querySelectorAll('#pages-root .page-foot').forEach(f=>f.textContent=r.rival||''); });
+  nomEd.addEventListener('blur',()=>renderReportList());
+  left.appendChild(nomEd);
+  const club=elx('div','cover-club');
+  club.appendChild(imgDrop(r,'crestRival','contain','+ Escudo del club',400));
+  left.appendChild(club);
+  const meta=elx('div','');
+  meta.style.cssText='display:flex;flex-direction:column;gap:6px;margin-top:auto;';
+  meta.appendChild(kv('Categoría',r,'categoria','—'));
+  meta.appendChild(kv('Competición',r,'competicion','—'));
+  meta.appendChild(kv('Clasificación',r,'clasificacion','—'));
+  meta.appendChild(kv('Fecha del informe',r,'fecha'));
+  left.appendChild(meta);
+  grid.appendChild(left);
+
+  // Centro: instalaciones. A un club al que puedes ir, esto sí le importa.
+  const cen=elx('div','cover-center');
+  const fieldBox=elx('div','kv-box'); fieldBox.appendChild(elx('div','kv-h','Estadio e instalaciones'));
+  const fv=elx('div','kv-v'); fv.appendChild(ed(r,'campo','','NOMBRE DEL CAMPO'));
+  const fv2=elx('div',''); fv2.style.cssText='display:flex;gap:6px;justify-content:center;padding:0 8px 6px;font-size:12px;font-weight:700;color:#1B2A6B;font-family:Barlow Condensed,sans-serif;';
+  fv2.appendChild(ed(r,'superficie','','Superficie')); fv2.appendChild(elx('span','','→')); fv2.appendChild(ed(r,'medidas','','105x68'));
+  fieldBox.appendChild(fv); fieldBox.appendChild(fv2); cen.appendChild(fieldBox);
+  cen.appendChild(imgDrop(r,'photoCampo','cover-photo','+ Foto del campo / instalaciones (arrastra aquí)',900,true));
+  grid.appendChild(cen);
+
+  // Derecha: por qué estoy escribiendo esto.
+  const right=elx('div','cover-right');
+  right.style.paddingTop='0';
+  const caja=(titulo,clave,ph,grande)=>{
+    const b=elx('div','cover-box'+(grande?' grande':''));
+    b.appendChild(elx('div','kv-h',titulo));
+    const c=elx('div','cb-b'); c.appendChild(ed(r,clave,'',ph,true)); b.appendChild(c);
+    return b;
+  };
+  right.appendChild(caja('Entrenador actual','entrenador','Nombre y desde cuándo'));
+  if(esReunion){
+    right.appendChild(caja('Reunión con','interlocutor','Director deportivo, presidente…'));
+    right.appendChild(caja('Qué quiero sacar de la reunión','objetivo','Mi objetivo, qué les propongo, qué necesito saber',true));
+  } else {
+    right.appendChild(caja('Por qué me interesa','objetivo','Proyecto, plantilla, categoría, momento del club…',true));
+  }
+  const tmp=ed(r,'temporada','season-tag','2025-2026');
+  tmp.style.marginTop='auto';
+  right.appendChild(tmp);
   grid.appendChild(right);
   page.appendChild(grid);
 }
