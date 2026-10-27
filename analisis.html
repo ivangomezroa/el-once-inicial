@@ -4165,14 +4165,26 @@ function cgpAbre(p,i,r){
         const f=FASE_CG[c.fase];
         const hay=!!(c.vista && (c.vista.filas||[]).length);
         const n=Object.keys(c.asign||{}).length;
-        return '<div class="pk-v" data-g="'+gi+'" data-c="'+ci+'"'+(hay?'':' style="opacity:.45;cursor:not-allowed"')+'>'+
+        // Un campograma montado antes de que existiera esta pantalla todavía
+        // no tiene su `vista`: se prepara la próxima vez que se abra
+        // Captación. Decirlo, en vez de dejar una fila gris sin explicación.
+        return '<div class="pk-v'+(hay?'" data-g="'+gi+'" data-c="'+ci+'"':' pk-no"')+
+          (hay?'':' style="opacity:.6;cursor:default"')+'>'+
           (f?'<span class="pk-f" style="background:'+f.bg+'">'+(c.fase)+'</span>':'')+
           '<span>'+escapeHtml(String(c.variante||'').trim()||c.sistema||'Variante')+'</span>'+
-          '<span class="pk-sis">'+escapeHtml(c.sistema||'')+' · '+n+' jug.</span></div>';
+          '<span class="pk-sis">'+(hay
+             ? escapeHtml(c.sistema||'')+' · '+n+' jug.'
+             : 'abre Captación una vez')+'</span></div>';
       }).join('')+'</div>').join('');
   }
+  const sinPreparar=grupos.reduce((t,g)=>t+g.items.filter(c=>!(c.vista&&(c.vista.filas||[]).length)).length,0);
+  const aviso=sinPreparar
+    ? '<div class="pk-vacio" style="padding:9px 12px;text-align:left;border:1px solid rgba(200,168,75,.4);'+
+      'border-radius:7px;color:#C8A84B;font-size:11px">'+sinPreparar+' campograma'+(sinPreparar>1?'s':'')+
+      ' todavía sin preparar. Abre <b>Captación → Campogramas</b> una vez y vuelve aquí: aparecerán listos.</div>'
+    : '';
   m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">Campograma de Captación</span>'+
-    '<button class="pk-x">×</button></div><div class="pk-b">'+cuerpo+'</div></div>';
+    '<button class="pk-x">×</button></div><div class="pk-b">'+aviso+cuerpo+'</div></div>';
   document.body.appendChild(m);
   const cierra=()=>m.remove();
   m.querySelector('.pk-x').onclick=cierra;
