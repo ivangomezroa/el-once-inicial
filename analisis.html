@@ -4117,8 +4117,9 @@ function buildCoverClub(page,p,r){
   };
   right.appendChild(caja('Entrenador actual','entrenador','Nombre y desde cuándo'));
   if(esReunion){
-    right.appendChild(caja('Reunión con','interlocutor','Director deportivo, presidente…'));
-    right.appendChild(caja('Qué quiero sacar de la reunión','objetivo','Mi objetivo, qué les propongo, qué necesito saber',true));
+    right.appendChild(caja('Dinámica del equipo','dinamica',
+      'Racha y resultados, goles a favor y en contra, local y fuera, lesiones, '+
+      'qué transmite el equipo en el campo, ambiente, sensaciones…',true));
   } else {
     right.appendChild(caja('Por qué me interesa','objetivo','Proyecto, plantilla, categoría, momento del club…',true));
   }
