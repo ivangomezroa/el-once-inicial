@@ -468,6 +468,12 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
    el gesto. Con `pinch-zoom` el dedo suelto sigue siendo para trabajar y
    los dos dedos son para ampliar y moverse por la página. */
 .fe-stage svg{width:100%;height:100%;display:block;touch-action:pinch-zoom;user-select:none;}
+/* `touch-action` NO se hereda. Estaba puesto solo en el <svg>, así que el
+   dedo no arrastraba la página al tocar el césped... pero sí al tocar un
+   JUGADOR, que es justo lo que uno quiere mover: el navegador se quedaba
+   el gesto para hacer scroll y el jugador salía disparado fuera del campo
+   o no se movía. Hay que repetirlo en todo lo que hay dentro. */
+.fe-stage svg *{touch-action:pinch-zoom;}
 .fe-stage.fit{align-items:stretch;}
 .fe.no-tb .fe-stage{border-radius:4px;}
 .fe-stage svg .sel-outline{fill:none;stroke:#fff;stroke-width:1.5;stroke-dasharray:5 3;pointer-events:none;}
@@ -2612,7 +2618,16 @@ const FE = (function(){
     gTransform(){ return this.orient==='v' ? `translate(${PAD+W},${PAD}) rotate(90)` : `translate(${PAD},${PAD})`; }
     upright(){ return this.orient==='v' ? 'rotate(-90)' : ''; }
     toLocal(cx,cy){
-      const r=this.svg.getBoundingClientRect(), [vw,vh]=this.vb;
+      // Durante un arrastre se usa la foto del campo tomada al apoyar el
+      // dedo, no la de ahora. En el móvil, abrir el panel de propiedades
+      // (o que aparezca el teclado, o que se esconda la barra del
+      // navegador) hace que el contenedor del informe se desplace 450 px
+      // A MEDIO GESTO: el campo se iba de debajo del dedo y el jugador
+      // salía disparado fuera del campo. Medido: scrollTop 571 → 1021 y
+      // el campo de top 173 a -277 entre el pointerdown y el primer
+      // pointermove.
+      const r=this.rectFijo || this.svg.getBoundingClientRect();
+      const [vw,vh]=this.vb;
       const s=Math.min(r.width/vw, r.height/vh)||1, ox=(r.width-vw*s)/2, oy=(r.height-vh*s)/2;
       const sx=(cx-r.left-ox)/s, sy=(cy-r.top-oy)/s;
       if(this.orient==='v') return {x:sy-PAD, y:PAD+W-sx};
@@ -2758,6 +2773,7 @@ const FE = (function(){
       const dedos=new Set();
       const suelta=ev=>{
         dedos.delete(ev.pointerId);
+        if(!dedos.size) this.rectFijo=null;
         try{ svg.releasePointerCapture(ev.pointerId); }catch(e){}
       };
       svg.addEventListener('pointerup', suelta);
@@ -2766,6 +2782,7 @@ const FE = (function(){
 
       svg.addEventListener('pointerdown',ev=>{
         if(ev.button===2) return;
+        this.rectFijo=null;   // la foto anterior ya no vale
         // En un móvil la hoja del informe se dibuja a un tercio de su
         // tamaño (scale de fitPages), así que un jugador mide 11 px en
         // pantalla y el botón ⛶ de ampliar, 8. Con el dedo no hay forma de
@@ -2792,6 +2809,7 @@ const FE = (function(){
           }
         }
         FE.setActive(this);
+        this.rectFijo=svg.getBoundingClientRect();
         const p=this.toLocal(ev.clientX,ev.clientY);
         const t=ev.target;
         // herramientas de colocar
@@ -2816,7 +2834,8 @@ const FE = (function(){
           // el primer toque sólo selecciona y deja arrastrar, y el panel se
           // abre al SEGUNDO toque sobre el mismo elemento. Con ratón, igual
           // que siempre.
-          if(ev.pointerType==='mouse' || yaEstaba) FE.openProps(this);
+          if(ev.pointerType==='mouse') FE.openProps(this);
+          else if(yaEstaba) this.tapAbrir={cx:ev.clientX, cy:ev.clientY};
           return;
         }
         this.sel=null; this.render(); FE.closeProps();
@@ -2838,14 +2857,33 @@ const FE = (function(){
         this.render(); if(propsEl===e) FE.refreshProps();
       });
       const end=ev=>{
-        if(!this.drag) return; const d=this.drag; this.drag=null;
+        const fijo=this.rectFijo; this.rectFijo=null;
+        if(!this.drag){
+          // Toque sin arrastre sobre algo ya seleccionado: es cuando toca
+          // abrir el panel de propiedades (ver más abajo por qué no se
+          // abre al apoyar el dedo).
+          if(this.tapAbrir && ev.pointerType!=='mouse'){
+            const q=this.tapAbrir; this.tapAbrir=null;
+            if(Math.hypot(ev.clientX-q.cx, ev.clientY-q.cy) < 12) FE.openProps(this);
+          }
+          return;
+        }
+        const d=this.drag; this.drag=null;
         if(d.mode==='a2' && Math.hypot(d.e.x2-d.e.x1,d.e.y2-d.e.y1)<10){ this.data.els=this.data.els.filter(x=>x!==d.e); this.sel=null; this.hist.pop(); this.render(); return; }
         if(d.mode==='a2'){ this.tool=ev.shiftKey?this.tool:'select'; }
         this.render(); this.changed();
         // Al soltar también se abría el panel, así que el guardia del
         // pointerdown no servía de nada: con el dedo, al levantarlo salía
         // igual la ventanita. Con ratón, como siempre.
+        // Con el dedo, el panel se abre sólo si NO has arrastrado: abrirlo
+        // al apoyar el dedo movía el campo a mitad de gesto y el jugador
+        // acababa en cualquier sitio.
         if(this.sel && ev.pointerType==='mouse') FE.openProps(this);
+        else if(this.sel && this.tapAbrir){
+          const q=this.tapAbrir; this.tapAbrir=null;
+          if(Math.hypot(ev.clientX-q.cx, ev.clientY-q.cy) < 12) FE.openProps(this);
+        }
+        this.tapAbrir=null;
       };
       svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
       svg.addEventListener('dblclick',ev=>{ const node=ev.target.closest&&ev.target.closest('g.el'); if(!node) return; this.selectById(node.dataset.id); this.render(); FE.openProps(this); const f=document.querySelector('#fe-props [data-focus]'); if(f){ f.focus(); f.select&&f.select(); } });
