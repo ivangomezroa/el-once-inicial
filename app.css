@@ -249,6 +249,14 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.2) transparent;
 }
+/* Con el panel de un jugador abierto, la caja no puede seguir midiendo
+   140px: el panel mide 289 y «Que ocupe también» se quedaba a 264px, o
+   sea FUERA de la tarjeta, escondido tras un scroll de tres píxeles que no
+   se ve. Mientras hay un panel abierto, la lista crece. */
+.pos-jugadores.con-panel {
+  max-height: none;
+  overflow-y: visible;
+}
 .pos-jugadores::-webkit-scrollbar { width: 3px; }
 .pos-jugadores::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
 

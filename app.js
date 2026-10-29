@@ -906,6 +906,13 @@ function rCampo(){
             return`<button onclick="moverPos(${j.id},'${pk}','${pos.k}')" style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;cursor:pointer;border:1.5px solid ${esActual?'#fff':pdef?.bg||'#555'};background:${esActual?pdef?.bg||'#555':'transparent'};color:${esActual?pdef?.tx||'#fff':pdef?.bg||'#888'};opacity:${esActual?1:.8}">${pk}</button>`;
           }).join("")}
         </div>
+        <div style="font-size:8px;color:var(--gold);text-transform:uppercase;margin:7px 0 4px">Que ocupe también:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">
+          ${possSistema.filter(pk=>!(j._pos||[]).includes(pk)).map(pk=>{
+            const pdef=SISTEMAS[sistema].flat().find(x=>x.k===pk);
+            return`<button onclick="tambienPos(${j.id},'${pk}')" title="Que ocupe ${pk} sin dejar ${pos.k}" style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;cursor:pointer;border:1.5px dashed ${pdef?.bg||'#555'};background:transparent;color:${pdef?.bg||'#888'}">＋${pk}</button>`;
+          }).join("") || '<span style="font-size:8px;color:rgba(255,255,255,.3)">ya está en todos los puestos</span>'}
+        </div>
         <button onclick="moverPos(null,null)" style="margin-top:5px;width:100%;padding:2px 0;font-size:8px;cursor:pointer;border:.5px solid rgba(255,255,255,.2);border-radius:3px;background:transparent;color:rgba(255,255,255,.3)">Cancelar</button>
       </div>`:"";
       return`<div class="jr">
@@ -946,7 +953,7 @@ function rCampo(){
       <div class="ph" style="background:${pos.bg};color:${pos.tx}" onclick="tPos('${pos.k}')">
         <span>${pos.lb}</span><span style="font-size:10px">${isSel?'▲':'▼'}</span>
       </div>
-      <div class="pos-jugadores">${jH}${nA}</div>
+      <div class="pos-jugadores${enc.some(j=>j.id===movJid)?' con-panel':''}">${jH}${nA}</div>
       ${isSel?addPanel:""}
     </div>`;
   }).join("")}</div>`).join("");
@@ -1783,7 +1790,7 @@ window.moverPos = async (id, nuevaPos, desde) => {
 };
 // Sumar un puesto a alguien que ya está en el campo, desde la lista de
 // candidatos de otro puesto.
-window.tambienPos = (id, pos) => addPlant(id, pos);
+window.tambienPos = (id, pos) => { movJid=null; addPlant(id, pos); };
 window.tEC  = id => { editCid=editCid===id?null:id; render(); };
 window.tMov = id => { movJid=movJid===id?null:id; render(); };
 window.sEC  = (id,est) => updJug(id,{est});
