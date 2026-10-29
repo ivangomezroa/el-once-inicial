@@ -740,8 +740,17 @@ function pbg(pos){const p0=(pos||"").split(",")[0].trim();return`<span class="pb
 function isp(ico){return ico?.length?`<span class="ir">${ico.map(ie).join("")}</span>`:"";}
 
 // ── RENDER PRINCIPAL ──────────────────────────────────────────────
+let vistaPintada=null;   // la pestaña que había la última vez que se pintó
+let scrollPane=0;        // dónde está la lista, aunque se repinte varias veces seguidas
 function render(){
   const app=document.getElementById("app"); if(!app) return;
+  // Guardar el sitio de la lista. Ojo: no vale con leer el scroll del
+  // .pane viejo, porque updJug() repinta DOS veces seguidas y en la
+  // segunda el contenedor recién creado todavía marca 0. Por eso la
+  // posición vive en `scrollPane` y solo se actualiza con un valor real.
+  const paneViejo=app.querySelector('.pane');
+  if(vistaPintada!==view) scrollPane=0;                       // otra pestaña: desde arriba
+  else if(paneViejo && paneViejo.scrollTop) scrollPane=paneViejo.scrollTop;
   const logoSrc = window.LOGO_SRC || '/logo.png';
   const NAV=[
     {id:"campo",  ic:"ti-layout-dashboard", lb:"Campogramas"},
@@ -788,6 +797,22 @@ function render(){
   rtT();
   // El panel del puesto abierto se rellena aquí: su HTML sale de
   // cgPintaCandidatos(), que es la misma función que usa el buscador.
+  // Devolver la lista a donde estaba. Se hace también en el siguiente
+  // fotograma porque algunas listas (las tarjetas de la base de datos) se
+  // pintan justo después y hasta entonces el contenedor no tiene altura.
+  vistaPintada=view;
+  const pane=app.querySelector('.pane');
+  if(pane){
+    if(scrollPane){
+      pane.scrollTop=scrollPane;
+      // Las tarjetas de la base de datos se pintan justo después de esto,
+      // así que hasta el siguiente fotograma el contenedor no tiene altura
+      // y el scroll se queda corto. Se vuelve a intentar entonces.
+      requestAnimationFrame(()=>{ if(pane.scrollTop!==scrollPane) pane.scrollTop=scrollPane; });
+    }
+    // Si el que mueve la lista eres tú, mandas tú.
+    pane.addEventListener('scroll', ()=>{ scrollPane=pane.scrollTop; }, {passive:true});
+  }
   rtT();   // el repintado deja #ta vacío: hay que volver a poner el aviso
   if(view==='campo' && selPos){ cgPintaCandidatos(selPos); cgFocoBusca(selPos); }
   if(view==='bd') bdPintaLista();
@@ -1020,6 +1045,12 @@ function bdTarjetas(f){
             <input class="efi" id="ee-${j.id}" value="${(j.eq||"").replace(/"/g,'&quot;')}"
               list="clubes-app" autocomplete="off" style="flex:1;min-width:0">
           </div>
+        </div>
+        <div><div class="efl">Sección</div>
+          <select class="efi" id="es-${j.id}">
+            ${SECS.map(x=>`<option value="${x}"${(j.s||'')===x?' selected':''}>${x}</option>`).join('')}
+            ${(j.s && !SECS.includes(j.s))?`<option value="${escHtml(j.s)}" selected>${escHtml(j.s)}</option>`:''}
+          </select>
         </div>
         <div><div class="efl">Categoría</div>
           <select class="efi" id="ec-${j.id}">
@@ -1720,8 +1751,9 @@ window.tIB = (id,ico) => {
 };
 window.svEB = id => {
   const g = s => document.getElementById(`${s}-${id}`)?.value||"";
-  const datos={n:g('en').toUpperCase(),eq:g('ee'),cat:g('ec'),perfil:g('ep'),
+  const datos={n:g('en').toUpperCase(),eq:g('ee'),cat:g('ec'),s:g('es'),perfil:g('ep'),
                repre:g('er'),tel:g('et'),tm:g('etm'),bs:g('ebs'),obs:g('eob'),notas:g('eob')};
+  if(!datos.s) delete datos.s;   // por si una ficha vieja no trae sección
   // Cerrar ANTES de guardar. updJug repinta la pantalla, así que si se
   // cerraba después la ficha se quedaba abierta tal cual y parecía que
   // seguías editando sin que nada se hubiera guardado.
