@@ -599,8 +599,12 @@ let cgUlt={};
 function cgVista(c){
   if(!c) return null;
   const filas=(SISTEMAS[c.sistema]||[]).map(fila=>fila.map(pos=>{
+    // En el mismo orden que en pantalla: el titular del puesto primero.
+    const ord=ordenPos(c, pos.k);
+    const sitio=id=>{ const i=ord.indexOf(String(id)); return i<0 ? 1e9 : i; };
     const js=Object.keys(c.asign||{})
       .filter(id=>posDe(c,id).includes(pos.k))
+      .sort((a,b)=>sitio(a)-sitio(b))
       .map(id=>{
         const j=jug.find(x=>String(x.id)===String(id));
         return j ? {n:j.n||'', est:j.est||'', eq:j.eq||''} : null;
@@ -645,6 +649,52 @@ function posDe(c, id){
   if(v==null) return [];
   return Array.isArray(v) ? v.filter(Boolean) : [v];
 }
+// ── EN QUÉ ORDEN SALEN DENTRO DE UN PUESTO ───────────────────────
+//   El de arriba del todo es el titular y debajo van las alternativas.
+//   Antes el orden lo decidía el navegador: `Object.keys(asign)` devuelve
+//   las claves numéricas de menor a mayor, así que mandaba el número de
+//   ficha del jugador — nada que ver con lo que uno quiere.
+//   Se guarda en `c.orden = { P4:[id, id, ...] }`. Lo que no esté en la
+//   lista va al final, así que un campograma de antes se ve igual que
+//   siempre hasta que se toque el orden.
+function ordenPos(c, pos){
+  const l=(c && c.orden && Array.isArray(c.orden[pos])) ? c.orden[pos] : [];
+  return l.map(String);
+}
+function ponOrden(c, pos, ids){
+  if(!c) return;
+  if(!c.orden || typeof c.orden!=='object') c.orden={};
+  c.orden[pos]=ids.map(String);
+}
+// Los jugadores de un puesto, en el orden guardado.
+function ordenaEnPuesto(lista, pos){
+  const ord=ordenPos(cg(), pos);
+  const sitio=j=>{ const i=ord.indexOf(String(j.id)); return i<0 ? 1e9 : i; };
+  return lista.slice().sort((a,b)=>sitio(a)-sitio(b));
+}
+// Mover a un jugador dentro de su puesto. `salto` puede ser -1, +1,
+// 'arriba' o 'abajo'.
+function mueveEnPuesto(id, pos, salto){
+  const c=cg(); if(!c) return;
+  // Se parte del orden que se está viendo, no del guardado: así los que
+  // nunca se han tocado conservan el sitio que tenían en pantalla.
+  const vistos=ordenaEnPuesto(plant.filter(j=>(j._pos||[]).includes(pos)), pos).map(j=>String(j.id));
+  const i=vistos.indexOf(String(id));
+  if(i<0) return;
+  vistos.splice(i,1);
+  let destino;
+  if(salto==='arriba') destino=0;
+  else if(salto==='abajo') destino=vistos.length;
+  else destino=Math.max(0, Math.min(vistos.length, i+salto));
+  vistos.splice(destino,0,String(id));
+  ponOrden(c, pos, vistos);
+  cgGuardar(); cgSync(); render();
+}
+window.subeEnPuesto  = (id,pos) => mueveEnPuesto(id,pos,-1);
+window.bajaEnPuesto  = (id,pos) => mueveEnPuesto(id,pos,+1);
+window.arribaDelTodo = (id,pos) => mueveEnPuesto(id,pos,'arriba');
+window.abajoDelTodo  = (id,pos) => mueveEnPuesto(id,pos,'abajo');
+
 // Guardar la lista. Una sola posición se guarda como texto, no como lista.
 function ponPos(c, id, arr){
   if(!c || !c.asign) return;
@@ -889,10 +939,12 @@ function rCampo(){
     const esDeEsteEquipo=j=>eqCG && (j.eq||'').trim().toLowerCase()===eqCG;
     const candidatos=jug.filter(j=>jugPos(j).includes(pos.k));
     // enc: jugadores cuya posición asignada (o primera posición natural) es esta
-    const enc=plant.filter(j=>((j._pos&&j._pos.length?j._pos:[j._posAsignada||jugPos(j)[0]]).includes(pos.k)));
+    const enc=ordenaEnPuesto(
+      plant.filter(j=>((j._pos&&j._pos.length?j._pos:[j._posAsignada||jugPos(j)[0]]).includes(pos.k))),
+      pos.k);
     const isSel=selPos===pos.k;
     // Jugadores asignados — scrollable, compactos
-    const jH=enc.map(j=>{
+    const jH=enc.map((j,iJ)=>{
       const{bg,tx,bd}=es(j.est); const b=bd?`border:1px solid ${bd};`:"";
       const isMov=movJid===j.id; // panel de mover activo
       // Posiciones del sistema actual para mover
@@ -906,6 +958,14 @@ function rCampo(){
             return`<button onclick="moverPos(${j.id},'${pk}','${pos.k}')" style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;cursor:pointer;border:1.5px solid ${esActual?'#fff':pdef?.bg||'#555'};background:${esActual?pdef?.bg||'#555':'transparent'};color:${esActual?pdef?.tx||'#fff':pdef?.bg||'#888'};opacity:${esActual?1:.8}">${pk}</button>`;
           }).join("")}
         </div>
+        ${enc.length>1?`
+        <div style="font-size:8px;color:rgba(255,255,255,.4);text-transform:uppercase;margin:7px 0 4px">Orden en el puesto:</div>
+        <div style="display:flex;gap:3px">
+          <button onclick="arribaDelTodo(${j.id},'${pos.k}')" title="Ponerlo el primero: el titular del puesto" style="flex:1;padding:2px 0;font-size:9px;cursor:pointer;border:1px solid var(--gold);border-radius:3px;background:transparent;color:var(--gold)">⤒ 1º</button>
+          <button onclick="subeEnPuesto(${j.id},'${pos.k}')" title="Subirlo un puesto" style="flex:1;padding:2px 0;font-size:9px;cursor:pointer;border:1px solid rgba(255,255,255,.25);border-radius:3px;background:transparent;color:rgba(255,255,255,.6)">▲</button>
+          <button onclick="bajaEnPuesto(${j.id},'${pos.k}')" title="Bajarlo un puesto" style="flex:1;padding:2px 0;font-size:9px;cursor:pointer;border:1px solid rgba(255,255,255,.25);border-radius:3px;background:transparent;color:rgba(255,255,255,.6)">▼</button>
+          <button onclick="abajoDelTodo(${j.id},'${pos.k}')" title="Mandarlo al final" style="flex:1;padding:2px 0;font-size:9px;cursor:pointer;border:1px solid rgba(255,255,255,.25);border-radius:3px;background:transparent;color:rgba(255,255,255,.6)">⤓</button>
+        </div>`:''}
         <div style="font-size:8px;color:var(--gold);text-transform:uppercase;margin:7px 0 4px">Que ocupe también:</div>
         <div style="display:flex;flex-wrap:wrap;gap:3px">
           ${possSistema.filter(pk=>!(j._pos||[]).includes(pk)).map(pk=>{
@@ -917,13 +977,18 @@ function rCampo(){
       </div>`:"";
       return`<div class="jr">
         <div class="jr-info" onclick="tMov(${j.id})" style="cursor:pointer;flex:1">
-          <div class="jn">${j.n} ${isMov?'':'<span style="font-size:8px;opacity:.35">⇄</span>'}</div>
+          <div class="jn">${enc.length>1?`<span title="${iJ===0?'Titular en este puesto':'Alternativa '+iJ}" style="font-size:8px;font-weight:800;padding:0 4px;border-radius:7px;margin-right:3px;background:${iJ===0?'var(--gold)':'rgba(255,255,255,.14)'};color:${iJ===0?'#1B2A6B':'rgba(255,255,255,.6)'}">${iJ+1}</span>`:''}${j.n} ${isMov?'':'<span style="font-size:8px;opacity:.35">⇄</span>'}</div>
           ${((j._pos||[]).length>1)?`<div style="font-size:7.5px;color:var(--gold);opacity:.75">también en ${(j._pos||[]).filter(x=>x!==pos.k).join(', ')}</div>`:''}
           ${esDeEsteEquipo(j)?'':`<div class="je">${j.eq}</div>`}
         </div>
         <div class="jr-right">
           <span class="eb" style="background:${bg};color:${tx};${b}">${j.est||""}</span>
           ${isp(j.ico)}
+          ${enc.length>1?`
+          <button class="bi" onclick="event.stopPropagation();subeEnPuesto(${j.id},'${pos.k}')" title="Subirlo en este puesto"
+            style="font-size:9px;color:rgba(255,255,255,${iJ===0?'.12':'.45'});padding:0 1px"${iJ===0?' disabled':''}>▲</button>
+          <button class="bi" onclick="event.stopPropagation();bajaEnPuesto(${j.id},'${pos.k}')" title="Bajarlo en este puesto"
+            style="font-size:9px;color:rgba(255,255,255,${iJ===enc.length-1?'.12':'.45'});padding:0 1px"${iJ===enc.length-1?' disabled':''}>▼</button>`:''}
           <button class="bi" onclick="remP(${j.id},'${pos.k}')" title="Quitarlo de este puesto" style="font-size:10px;color:rgba(255,255,255,.3);padding:0 2px">✕</button>
         </div>
         ${movPanel}
