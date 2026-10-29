@@ -346,20 +346,44 @@ function sinTildes(t){
 //   · fuera : el resto de la base que coincide con la búsqueda. Sirve
 //             para colocar a alguien en un puesto que no tiene marcado
 //             (un central que hoy juega de lateral, por ejemplo).
+// ── ¿ES DEL EQUIPO DEL CAMPOGRAMA? ───────────────────────────────
+//   Comparar los nombres tal cual dejaba fuera a demasiada gente: en la
+//   base hay fichas como «FC Andorra (cedido)», «Levante UD (cedido
+//   Celta)» o «Córdoba CF (Atm)», que son del club aunque el texto no sea
+//   idéntico. Se quita el paréntesis del final, los puntos y las tildes.
+function clubNorm(x){
+  return sinTildes(String(x==null?'':x))
+    .replace(/\([^)]*\)\s*$/,'')      // «(cedido)», «(Atm)»…
+    .replace(/\./g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function mismoClub(a,b){
+  const x=clubNorm(a), y=clubNorm(b);
+  return !!x && !!y && x===y;
+}
+
 function candidatosPos(pk){
   const f = sinTildes(posFiltro[pk]||'').trim();
   const trozos = f ? f.split(/\s+/) : [];
   const casa = j => { if(!f) return true;
     const t = sinTildes((j.n||'')+' '+(j.eq||'')+' '+(j.pos||'')+' '+(j.cat||''));
     return trozos.every(x=>t.includes(x)); };
-  const eqCG = ((cg()&&cg().nombre)||'').trim().toLowerCase();
-  const esDeEste = j => !!eqCG && String(j.eq||'').trim().toLowerCase()===eqCG;
+  const eqCG = (cg()&&cg().nombre)||'';
+  const esDeEste = j => mismoClub(j&&j.eq, eqCG);
+  // Los del equipo del campograma, SIEMPRE primero — se busque o no. Antes
+  // los de otros puestos no se ordenaban al escribir en el buscador, así
+  // que un jugador de la plantilla quedaba enterrado entre doscientos de
+  // otros equipos. Después, por orden alfabético.
+  const primeroLosDelEquipo = (a,b) =>
+    ((esDeEste(b)?1:0)-(esDeEste(a)?1:0)) ||
+    String(a.n||'').localeCompare(String(b.n||''),'es');
   const yaAqui = j => {
     const p = plant.find(x=>x.id===j.id);
     return !!p && (p._posAsignada||jugPos(p)[0])===pk;
   };
   const dentro = jug.filter(j=>jugPos(j).includes(pk) && casa(j))
-                    .sort((a,b)=>(esDeEste(b)?1:0)-(esDeEste(a)?1:0));
+                    .sort(primeroLosDelEquipo);
   const lista  = dentro.filter(j=>!yaAqui(j));          // los de la tarjeta no se repiten
   // Los de otros puestos salen si estás buscando o si has pedido verlos
   // todos. Un jugador puede ocupar varias posiciones, o encajar mejor en
@@ -370,15 +394,12 @@ function candidatosPos(pk){
     : [];
   // Los del propio equipo del campograma primero: es el caso de "a éste yo
   // lo pondría aquí", que casi siempre es alguien de la misma plantilla.
-  if(verTodos && !f) fuera.sort((a,b)=>{
-    const d=(esDeEste(b)?1:0)-(esDeEste(a)?1:0);
-    return d || String(a.n||'').localeCompare(String(b.n||''),'es');
-  });
+  fuera.sort(primeroLosDelEquipo);
   return {dentro, lista, fuera, filtro:f, verTodos, esDeEste};
 }
 
 // Una fila de la lista. `otraPos` marca a los que vienen de otro puesto.
-function filaCandidato(j, pk, otraPos){
+function filaCandidato(j, pk, otraPos, delEquipo){
   const enCampo = plant.find(p=>p.id===j.id);
   if(enCampo && (enCampo._posAsignada||jugPos(enCampo)[0])===pk) return '';  // ya está en esta tarjeta
   const {bg,tx,bd} = es(j.est); const b = bd?`border:1px solid ${bd};`:'';
@@ -387,7 +408,8 @@ function filaCandidato(j, pk, otraPos){
   // El nombre va en su propia línea y el estado debajo: la columna es
   // estrecha y, compartiendo línea, los apellidos salían como "ALP…".
   return `<div class="ai" data-jug="${j.id}" onclick="${acc}" style="opacity:${enCampo?0.6:1}" title="${tit}">
-    <span class="ai-n">${escHtml(j.n)}${otraPos&&j.pos?` <span style="opacity:.45">· ${escHtml(j.pos)}</span>`:''}</span>
+    <span class="ai-n">${delEquipo?'<span title="De la plantilla de este equipo" style="color:var(--gold)">● </span>':''}${escHtml(j.n)}${otraPos&&j.pos?` <span style="opacity:.45">· ${escHtml(j.pos)}</span>`:''}</span>
+    ${(!delEquipo && j.eq)?`<span style="font-size:8.5px;color:rgba(255,255,255,.4);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(j.eq)}</span>`:''}
     <span class="ai-b">
       <span class="eb" style="background:${bg};color:${tx};${b}">${escHtml(j.est||'')}</span>
       ${enCampo?`<span style="font-size:8px;color:rgba(255,255,255,.35)">en ${enCampo._posAsignada||jugPos(enCampo)[0]}</span>`:''}
@@ -402,18 +424,22 @@ function cgPintaCandidatos(pk){
   const cont=document.getElementById('cand-'+pk); if(!cont) return;
   const {dentro, lista, fuera, filtro, verTodos, esDeEste} = candidatosPos(pk);
   const exp = !!posExpanded[pk];
-  // Buscando se enseñan todos los que coinciden; sin buscar, los 8 primeros.
-  const visibles = (filtro||exp) ? lista : lista.slice(0,8);
-  let h = visibles.map(j=>filaCandidato(j,pk,false)).join('');
+  // Buscando se enseñan todos los que coinciden; sin buscar, los 8 primeros
+  // — pero nunca se corta a un jugador del propio equipo: si la plantilla
+  // tiene diez para ese puesto, salen los diez.
+  const delEquipo = lista.filter(esDeEste).length;
+  const tope = Math.max(8, delEquipo);
+  const visibles = (filtro||exp) ? lista : lista.slice(0,tope);
+  let h = visibles.map(j=>filaCandidato(j,pk,false,esDeEste(j))).join('');
 
-  if(!filtro && lista.length>8){
+  if(!filtro && lista.length>tope){
     h += `<div onclick="tExp('${pk}')" style="font-size:8px;color:rgba(255,255,255,.35);text-align:center;padding:4px;cursor:pointer;border-top:.5px solid rgba(255,255,255,.06)">`+
          (exp ? 'Mostrar menos ▲' : 'Ver todos ('+lista.length+') ▼')+'</div>';
   }
   if(fuera.length){
     const tope = (verTodos && !filtro) ? 25 : 15;
     h += `<div style="font-size:8px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.4px;padding:5px 4px 3px;border-top:.5px solid rgba(255,255,255,.08)">De otras posiciones (${fuera.length})</div>`+
-         fuera.slice(0,tope).map(j=>filaCandidato(j,pk,true)).join('')+
+         fuera.slice(0,tope).map(j=>filaCandidato(j,pk,true,esDeEste(j))).join('')+
          (fuera.length>tope?`<div style="font-size:8px;color:rgba(255,255,255,.3);text-align:center;padding:3px">y ${fuera.length-tope} más · busca por nombre</div>`:'');
   }
   if(!lista.length && !fuera.length){
