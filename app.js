@@ -252,6 +252,11 @@ let jug=[], plant=[], view="campo", sistema="1-4-3-3";
 //   equipo con su sistema y sus asignaciones, y un mismo jugador puede
 //   estar en varios a la vez sin pisarse.
 //   Forma: {id, nombre, cat, sistema, asign:{ idJugador: "P7" }}
+//   Un jugador puede estar en VARIAS posiciones del mismo campograma: un
+//   lateral que también hace de carrilero, o el que te cubre dos puestos.
+//   Por eso `asign[id]` puede ser un texto ("P7") o una lista
+//   (["P7","P11"]). Se guarda como texto cuando es una sola, para que lo
+//   de antes —y lo que ya está en la nube— siga leyéndose igual.
 const K_CG = 'oi_campogramas_v1';
 let CGS=[], cgAct=null;
 
@@ -378,10 +383,7 @@ function candidatosPos(pk){
   const primeroLosDelEquipo = (a,b) =>
     ((esDeEste(b)?1:0)-(esDeEste(a)?1:0)) ||
     String(a.n||'').localeCompare(String(b.n||''),'es');
-  const yaAqui = j => {
-    const p = plant.find(x=>x.id===j.id);
-    return !!p && (p._posAsignada||jugPos(p)[0])===pk;
-  };
+  const yaAqui = j => posDe(cg(), j.id).includes(pk);
   const dentro = jug.filter(j=>jugPos(j).includes(pk) && casa(j))
                     .sort(primeroLosDelEquipo);
   const lista  = dentro.filter(j=>!yaAqui(j));          // los de la tarjeta no se repiten
@@ -401,10 +403,10 @@ function candidatosPos(pk){
 // Una fila de la lista. `otraPos` marca a los que vienen de otro puesto.
 function filaCandidato(j, pk, otraPos, delEquipo){
   const enCampo = plant.find(p=>p.id===j.id);
-  if(enCampo && (enCampo._posAsignada||jugPos(enCampo)[0])===pk) return '';  // ya está en esta tarjeta
+  if(enCampo && (enCampo._pos||[]).includes(pk)) return '';  // ya está en esta tarjeta
   const {bg,tx,bd} = es(j.est); const b = bd?`border:1px solid ${bd};`:'';
   const acc = enCampo ? `moverPos(${j.id},'${pk}')` : `addP(${j.id},'${pk}')`;
-  const tit = enCampo ? 'Mover a esta posición' : (otraPos?'Colocarlo aquí aunque no sea su puesto':'Añadir al campo');
+  const tit = enCampo ? 'Dejarlo SOLO en este puesto' : (otraPos?'Colocarlo aquí aunque no sea su puesto':'Añadir al campo');
   // El nombre va en su propia línea y el estado debajo: la columna es
   // estrecha y, compartiendo línea, los apellidos salían como "ALP…".
   return `<div class="ai" data-jug="${j.id}" onclick="${acc}" style="opacity:${enCampo?0.6:1}" title="${tit}">
@@ -412,8 +414,15 @@ function filaCandidato(j, pk, otraPos, delEquipo){
     ${(!delEquipo && j.eq)?`<span style="font-size:8.5px;color:rgba(255,255,255,.4);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(j.eq)}</span>`:''}
     <span class="ai-b">
       <span class="eb" style="background:${bg};color:${tx};${b}">${escHtml(j.est||'')}</span>
-      ${enCampo?`<span style="font-size:8px;color:rgba(255,255,255,.35)">en ${enCampo._posAsignada||jugPos(enCampo)[0]}</span>`:''}
-      <span style="font-size:11px;margin-left:auto;opacity:.55">${enCampo?'⇄':'+'}</span>
+      ${enCampo?`<span style="font-size:8px;color:rgba(255,255,255,.35)">en ${(enCampo._pos||[]).join(' + ')}</span>`:''}
+      ${enCampo
+        ? `<span style="margin-left:auto;display:flex;gap:4px;align-items:center">
+             <button onclick="event.stopPropagation();tambienPos(${j.id},'${pk}')" title="Que ocupe también este puesto, sin dejar el suyo"
+               style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;cursor:pointer;
+                      border:1px solid var(--gold);background:transparent;color:var(--gold)">＋ también</button>
+             <span style="font-size:11px;opacity:.55" title="Dejarlo solo aquí">⇄</span>
+           </span>`
+        : `<span style="font-size:11px;margin-left:auto;opacity:.55">+</span>`}
     </span>
   </div>`;
 }
@@ -591,7 +600,7 @@ function cgVista(c){
   if(!c) return null;
   const filas=(SISTEMAS[c.sistema]||[]).map(fila=>fila.map(pos=>{
     const js=Object.keys(c.asign||{})
-      .filter(id=>c.asign[id]===pos.k)
+      .filter(id=>posDe(c,id).includes(pos.k))
       .map(id=>{
         const j=jug.find(x=>String(x.id)===String(id));
         return j ? {n:j.n||'', est:j.est||'', eq:j.eq||''} : null;
@@ -630,12 +639,28 @@ function cgCargar(){
   CGS=[c]; cgAct=c.id; cgGuardar();
 }
 function cg(){ return CGS.find(c=>c.id===cgAct) || CGS[0] || null; }
+// Las posiciones que ocupa un jugador en un campograma, siempre como lista.
+function posDe(c, id){
+  const v = (c && c.asign) ? c.asign[id] : null;
+  if(v==null) return [];
+  return Array.isArray(v) ? v.filter(Boolean) : [v];
+}
+// Guardar la lista. Una sola posición se guarda como texto, no como lista.
+function ponPos(c, id, arr){
+  if(!c || !c.asign) return;
+  const l=[...new Set((arr||[]).filter(Boolean))];
+  if(!l.length) delete c.asign[id];
+  else c.asign[id] = (l.length===1 ? l[0] : l);
+}
 // Los jugadores del campograma activo, con su puesto.
 function cgPlant(){
   const c=cg(); if(!c) return [];
   return Object.keys(c.asign).map(function(id){
     const j=jug.find(x=>String(x.id)===String(id));
-    return j ? Object.assign({},j,{_posAsignada:c.asign[id]}) : null;
+    const ps=posDe(c,id);
+    // `_posAsignada` se conserva (la primera) para no romper nada que la
+    // siga mirando; `_pos` es la lista completa.
+    return j ? Object.assign({},j,{_pos:ps, _posAsignada:ps[0]}) : null;
   }).filter(Boolean);
 }
 function cgSync(){ plant = cgPlant(); if(cg()) sistema = cg().sistema; }
@@ -691,14 +716,23 @@ async function delJug(id) {
 async function addPlant(id, posAsignada) {
   const j=jug.find(x=>x.id===id); const c=cg();
   if(!j||!c) return;
-  const yaEstaba = c.asign[id]!=null;
   const pa = posAsignada || jugPos(j)[0] || 'P1';
-  c.asign[id]=pa; cgGuardar(); cgSync(); render();
-  if(!yaEstaba) shT(`${j.n} → ${pa}`);
+  const ya = posDe(c,id);
+  if(ya.includes(pa)) return;                 // ya estaba en ese puesto
+  ponPos(c, id, [...ya, pa]);                 // se SUMA, no sustituye
+  cgGuardar(); cgSync(); render();
+  shT(ya.length ? `${j.n} → también en ${pa}` : `${j.n} → ${pa}`);
 }
-async function remPlant(id) {
+// Quitarlo de UN puesto. Si no se dice cuál, se va del campograma entero.
+async function remPlant(id, pos) {
   const c=cg(); if(!c) return;
-  delete c.asign[id]; cgGuardar(); cgSync(); render();
+  if(pos){
+    const quedan = posDe(c,id).filter(x=>x!==pos);
+    ponPos(c, id, quedan);
+  } else {
+    delete c.asign[id];
+  }
+  cgGuardar(); cgSync(); render();
 }
 async function addJug() {
   const n=(document.getElementById("rn")?.value||"").trim();
@@ -855,7 +889,7 @@ function rCampo(){
     const esDeEsteEquipo=j=>eqCG && (j.eq||'').trim().toLowerCase()===eqCG;
     const candidatos=jug.filter(j=>jugPos(j).includes(pos.k));
     // enc: jugadores cuya posición asignada (o primera posición natural) es esta
-    const enc=plant.filter(j=>(j._posAsignada||jugPos(j)[0])===pos.k);
+    const enc=plant.filter(j=>((j._pos&&j._pos.length?j._pos:[j._posAsignada||jugPos(j)[0]]).includes(pos.k)));
     const isSel=selPos===pos.k;
     // Jugadores asignados — scrollable, compactos
     const jH=enc.map(j=>{
@@ -868,8 +902,8 @@ function rCampo(){
         <div style="display:flex;flex-wrap:wrap;gap:3px">
           ${possSistema.map(pk=>{
             const pdef=SISTEMAS[sistema].flat().find(x=>x.k===pk);
-            const esActual=(j._posAsignada||jugPos(j)[0])===pk;
-            return`<button onclick="moverPos(${j.id},'${pk}')" style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;cursor:pointer;border:1.5px solid ${esActual?'#fff':pdef?.bg||'#555'};background:${esActual?pdef?.bg||'#555':'transparent'};color:${esActual?pdef?.tx||'#fff':pdef?.bg||'#888'};opacity:${esActual?1:.8}">${pk}</button>`;
+            const esActual=(j._pos||[]).includes(pk);
+            return`<button onclick="moverPos(${j.id},'${pk}','${pos.k}')" style="padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;cursor:pointer;border:1.5px solid ${esActual?'#fff':pdef?.bg||'#555'};background:${esActual?pdef?.bg||'#555':'transparent'};color:${esActual?pdef?.tx||'#fff':pdef?.bg||'#888'};opacity:${esActual?1:.8}">${pk}</button>`;
           }).join("")}
         </div>
         <button onclick="moverPos(null,null)" style="margin-top:5px;width:100%;padding:2px 0;font-size:8px;cursor:pointer;border:.5px solid rgba(255,255,255,.2);border-radius:3px;background:transparent;color:rgba(255,255,255,.3)">Cancelar</button>
@@ -877,12 +911,13 @@ function rCampo(){
       return`<div class="jr">
         <div class="jr-info" onclick="tMov(${j.id})" style="cursor:pointer;flex:1">
           <div class="jn">${j.n} ${isMov?'':'<span style="font-size:8px;opacity:.35">⇄</span>'}</div>
+          ${((j._pos||[]).length>1)?`<div style="font-size:7.5px;color:var(--gold);opacity:.75">también en ${(j._pos||[]).filter(x=>x!==pos.k).join(', ')}</div>`:''}
           ${esDeEsteEquipo(j)?'':`<div class="je">${j.eq}</div>`}
         </div>
         <div class="jr-right">
           <span class="eb" style="background:${bg};color:${tx};${b}">${j.est||""}</span>
           ${isp(j.ico)}
-          <button class="bi" onclick="remP(${j.id})" style="font-size:10px;color:rgba(255,255,255,.3);padding:0 2px">✕</button>
+          <button class="bi" onclick="remP(${j.id},'${pos.k}')" title="Quitarlo de este puesto" style="font-size:10px;color:rgba(255,255,255,.3);padding:0 2px">✕</button>
         </div>
         ${movPanel}
       </div>`;
@@ -1725,13 +1760,30 @@ window.tPos = k => {
   editCid=null; render();
 };
 window.tExp = k => { posExpanded={...posExpanded,[k]:!posExpanded[k]}; render(); };
-window.moverPos = async (id, nuevaPos) => {
+// `desde` es el puesto del que sale. Si no se dice (viene de la lista de
+// candidatos de otro puesto), se queda SOLO en el nuevo.
+window.moverPos = async (id, nuevaPos, desde) => {
   if(!id) { movJid=null; render(); return; }
-  const c=cg(); if(c){ c.asign[id]=nuevaPos; cgGuardar(); cgSync(); }
+  const c=cg();
+  if(c){
+    const ya=posDe(c,id);
+    if(ya.includes(nuevaPos) && desde){
+      // Ya está en el destino: entonces esto es "quitarlo de aquí".
+      ponPos(c, id, ya.filter(x=>x!==desde));
+      movJid=null; cgGuardar(); cgSync(); render();
+      shT('Quitado de '+desde);
+      return;
+    }
+    ponPos(c, id, desde ? ya.map(x=>x===desde?nuevaPos:x) : [nuevaPos]);
+    cgGuardar(); cgSync();
+  }
   movJid = null;
   render();
   shT('Movido a ' + nuevaPos);
 };
+// Sumar un puesto a alguien que ya está en el campo, desde la lista de
+// candidatos de otro puesto.
+window.tambienPos = (id, pos) => addPlant(id, pos);
 window.tEC  = id => { editCid=editCid===id?null:id; render(); };
 window.tMov = id => { movJid=movJid===id?null:id; render(); };
 window.sEC  = (id,est) => updJug(id,{est});
