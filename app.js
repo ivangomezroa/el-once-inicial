@@ -54,6 +54,11 @@ const ie = id => ICO.find(x => x.id === id)?.e || "";
 
 // ── POSICIONES ────────────────────────────────────────────────────
 const TODAS_POS = ["P1","P2","P3","P4","P5","P6","P7","P8","P9","P10","P11"];
+// Las mismas categorías en el registro y en la edición de la ficha: antes
+// el registro tenía desplegable y la edición texto libre, así que al
+// editar se perdía o se escribía distinto.
+const CATEGORIAS = ["","1ª División","2ª División","1ª Federación","2ª Federación",
+                    "3ª Federación","Liga Extranjera","Sin club","Retirado"];
 const PCC = {P1:"#C8A84B",P2:"#00B0F0",P3:"#00B0F0",P4:"#00B0F0",P5:"#00B0F0",
              P6:"#27AE60",P7:"#E74C3C",P8:"#27AE60",P9:"#E74C3C",P10:"#27AE60",P11:"#E74C3C"};
 const PCT = {P1:"#1B2A6B",P2:"#1B2A6B",P3:"#1B2A6B",P4:"#1B2A6B",P5:"#1B2A6B",
@@ -488,6 +493,27 @@ window.cgImprime = () => {
   setTimeout(()=>window.print(), 80);
 };
 
+// ── EL MISMO LISTADO DE CLUBES EN TODA LA PANTALLA ───────────────
+//   Un <datalist> con los clubes que ya existen en cualquier sitio de la
+//   app (calendario, rivales, informes, campogramas y fichas). Antes el
+//   formulario de registro solo miraba los equipos de las fichas, así que
+//   un rival del calendario había que volver a escribirlo a mano — y con
+//   una letra distinta ya era otro equipo para la app.
+//   Se emite UNA sola vez con el id `clubes-app`, y lo usan tanto el
+//   registro como la edición de cada ficha.
+function clubesDatalist(){
+  return '<datalist id="clubes-app">'+
+    clubesConocidos().map(c=>'<option value="'+escHtml(c.nombre)+'">').join('')+
+    '</datalist>';
+}
+// El escudo del club escrito, si lo hay en cualquier parte de la app.
+function escudoDeClub(nombre){
+  const n=sinTildes(nombre||'').replace(/\s+/g,' ').trim();
+  if(!n) return '';
+  const c=clubesConocidos().find(x=>sinTildes(x.nombre).replace(/\s+/g,' ').trim()===n);
+  return (c && imgHay(c.escudo)) ? c.escudo : '';
+}
+
 function cgId(){ return 'cg'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function cgNuevo(nombre){
   return {id:cgId(), nombre:nombre||'Equipo nuevo', cat:'', escudo:'', sistema:'1-4-3-3',
@@ -595,6 +621,7 @@ let posTodos={};    // {P7: true}  — enseñar también a los de otros puestos
 let flt={txt:"",sec:"",est:""};
 let fd={s:"PORTEROS",pos:"P1",n:"",eq:"",cat:"",est:"INTERESA",ico:[],repre:"",contacto:"",tel:"",tm:"",bs:"",obs:"",perfil:""};
 let toast=null, tTmr=null, searchTmr=null;
+let ultimoAlta=null;   // el último jugador registrado, para poder ir a su ficha
 let syncStatus="ok";
 let claudeMsgs=[], claudeLoading=false;
 
@@ -666,10 +693,16 @@ async function addJug() {
   try {
     jug=[...jug,nuevo];
     localStorage.setItem('oi_jugadores_v1', JSON.stringify(jug));
-    // Reset COMPLETO — posArr a null para que no arrastre posiciones del jugador anterior
-    fd={s:"PORTEROS",pos:"P1",n:"",eq:"",cat:"",est:"INTERESA",ico:[],repre:"",contacto:"",tel:"",tm:"",bs:"",obs:"",perfil:"",posArr:null};
+    // Se vacía todo MENOS el club y la categoría: normalmente se registran
+    // varios jugadores del mismo equipo seguidos, y volver a escribir el
+    // club cada vez es lo que hace pesado el registro. posArr a null para
+    // no arrastrar las posiciones del anterior.
+    fd={s:"PORTEROS",pos:"P1",n:"",eq:eq,cat:nuevo.cat||"",est:"INTERESA",ico:[],
+        repre:"",contacto:"",tel:"",tm:"",bs:"",obs:"",perfil:"",posArr:null};
+    ultimoAlta={id:nuevo.id, n:nuevo.n, eq:eq};
     render();
-    shT(`✅ ${nuevo.n} añadido correctamente`);
+    const caja=document.getElementById('rn'); if(caja) caja.focus();   // listo para el siguiente
+    shT(`✅ ${nuevo.n} guardado en ${eq}`);
   } catch(e) {
     shT("❌ Error al guardar: "+e.message,"err");
     console.error("addJug error:", e);
@@ -718,6 +751,7 @@ function render(){
     {id:"claude", ic:"ti-robot",            lb:"Claude AI"},
   ];
   app.innerHTML=`
+    ${clubesDatalist()}
     <div id="ta"></div>
     <nav class="nav">
       <div class="nav-bg"></div>
@@ -754,6 +788,7 @@ function render(){
   rtT();
   // El panel del puesto abierto se rellena aquí: su HTML sale de
   // cgPintaCandidatos(), que es la misma función que usa el buscador.
+  rtT();   // el repintado deja #ta vacío: hay que volver a poner el aviso
   if(view==='campo' && selPos){ cgPintaCandidatos(selPos); cgFocoBusca(selPos); }
   if(view==='bd') bdPintaLista();
 }
@@ -979,8 +1014,19 @@ function bdTarjetas(f){
     const eH=isE?`<div class="eform">
       <div class="efg">
         <div><div class="efl">Nombre</div><input class="efi" id="en-${j.id}" value="${(j.n||"").replace(/"/g,'&quot;')}"></div>
-        <div><div class="efl">Equipo</div><input class="efi" id="ee-${j.id}" value="${(j.eq||"").replace(/"/g,'&quot;')}"></div>
-        <div><div class="efl">Categoría</div><input class="efi" id="ec-${j.id}" value="${(j.cat||"").replace(/"/g,'&quot;')}"></div>
+        <div><div class="efl">Equipo</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="flex:0 0 22px;display:flex;align-items:center;justify-content:center">${escudoHTML(escudoDeClub(j.eq),20)}</span>
+            <input class="efi" id="ee-${j.id}" value="${(j.eq||"").replace(/"/g,'&quot;')}"
+              list="clubes-app" autocomplete="off" style="flex:1;min-width:0">
+          </div>
+        </div>
+        <div><div class="efl">Categoría</div>
+          <select class="efi" id="ec-${j.id}">
+            ${CATEGORIAS.map(c=>`<option value="${c}"${(j.cat||'')===c?' selected':''}>${c||'— Categoría —'}</option>`).join('')}
+            ${(j.cat && !CATEGORIAS.includes(j.cat))?`<option value="${escHtml(j.cat)}" selected>${escHtml(j.cat)}</option>`:''}
+          </select>
+        </div>
         <div style="grid-column:span 3">
           <div class="efl">Perfil de juego</div>
           <input class="efi" id="ep-${j.id}" value="${(j.perfil||"").replace(/"/g,'&quot;')}"
@@ -1073,7 +1119,7 @@ function rReg(){
   const eB=Object.keys(EST).map(e=>{const{bg,tx}=es(e);const sel=fd.est===e;return`<button class="ebt ${sel?'sel':''}" style="background:${bg};color:${tx}" onclick="sfe('${e}')">${e}</button>`;}).join("");
   const iB=ICO.map(ic=>{const sel=(fd.ico||[]).includes(ic.id);return`<button class="ibt ${sel?'sel':''}" onclick="tfi('${ic.id}')" title="${ic.l}">${ic.e} <span style="font-size:9px">${ic.l}</span></button>`;}).join("");
   const sO=SECS.map(s=>`<option ${fd.s===s?'selected':''} value="${s}">${s}</option>`).join("");
-  const cO=["","1ª División","2ª División","1ª Federación","2ª Federación","3ª Federación","Liga Extranjera","Sin club","Retirado"].map(c=>`<option ${fd.cat===c?'selected':''} value="${c}">${c||'— Categoría —'}</option>`).join("");
+  const cO=CATEGORIAS.map(c=>`<option ${fd.cat===c?'selected':''} value="${c}">${c||'— Categoría —'}</option>`).join("");
   // Selector de posiciones múltiples en registro
   const posB=TODAS_POS.map(p=>{
     const sel=(fd.posArr||[]).includes(p);
@@ -1087,6 +1133,16 @@ function rReg(){
         <div style="color:rgba(255,255,255,.5);font-size:11px">Sincronizado en todos tus dispositivos vía Supabase</div>
       </div>
     </div>
+    ${ultimoAlta?`<div style="display:flex;align-items:center;gap:10px;background:rgba(46,204,64,.1);
+         border:1px solid rgba(46,204,64,.45);border-radius:8px;padding:9px 12px;margin-bottom:12px">
+      <span style="font-size:15px">✅</span>
+      <span style="flex:1;min-width:0;font-size:12px;color:var(--text)">
+        <b>${escHtml(ultimoAlta.n)}</b> guardado en ${escHtml(ultimoAlta.eq)}.
+        <span style="color:var(--muted)">Sigue con el siguiente: el club ya está puesto.</span>
+      </span>
+      <button onclick="verFicha(${ultimoAlta.id})" style="flex:0 0 auto;padding:4px 10px;border-radius:6px;
+        border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-size:11px">Ver su ficha</button>
+    </div>`:''}
     <div class="stl">Identificación</div>
     <div class="rfg">
       <div><label class="rfl">Nombre deportivo *</label><input class="rfi" id="rn" value="${fd.n||""}" placeholder="ALIAS / NOMBRE" oninput="sfd('n',this.value)"></div>
@@ -1099,11 +1155,14 @@ function rReg(){
     <div class="stl">Club y categoría</div>
     <div class="rfg">
       <div><label class="rfl">Equipo actual *</label>
-        <input class="rfi" id="re" value="${fd.eq||""}" placeholder="Nombre del club"
-          oninput="sfd('eq',this.value)" list="equipos-list" autocomplete="off">
-        <datalist id="equipos-list">
-          ${[...new Set(jug.map(j=>j.eq).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(eq=>`<option value="${eq}">`).join("")}
-        </datalist>
+        <div style="display:flex;gap:7px;align-items:center">
+          <span id="re-escudo" style="flex:0 0 26px;display:flex;align-items:center;justify-content:center">${escudoHTML(escudoDeClub(fd.eq),24)}</span>
+          <input class="rfi" id="re" value="${fd.eq||""}" placeholder="Nombre del club"
+            oninput="sfdEq(this.value)" list="clubes-app" autocomplete="off" style="flex:1;min-width:0">
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:3px">
+          💡 ${clubesConocidos().length} clubes ya en la app — elige o escribe uno nuevo
+        </div>
       </div>
       <div><label class="rfl">Categoría</label><select class="rfs" onchange="sfd('cat',this.value)">${cO}</select></div>
       <div style="grid-column:span 2">
@@ -1312,7 +1371,12 @@ function rClaude(){
 }
 
 // ── EVENTOS ───────────────────────────────────────────────────────
-window.sv_ = v => { view=v; selPos=null; editJid=null; editCid=null; render(); };
+window.sv_ = v => {
+  // El aviso verde del último registrado solo tiene sentido mientras sigas
+  // en Registro: si te vas y vuelves, ya no viene a cuento.
+  if(v!=='reg') ultimoAlta=null;
+  view=v; selPos=null; editJid=null; editCid=null; render();
+};
 window.setSistema = s => {
   const c=cg(); if(c){ c.sistema=s; cgGuardar(); }
   sistema=s; selPos=null; render();
@@ -1656,8 +1720,14 @@ window.tIB = (id,ico) => {
 };
 window.svEB = id => {
   const g = s => document.getElementById(`${s}-${id}`)?.value||"";
-  updJug(id,{n:g('en').toUpperCase(),eq:g('ee'),cat:g('ec'),perfil:g('ep'),repre:g('er'),tel:g('et'),tm:g('etm'),bs:g('ebs'),obs:g('eob'),notas:g('eob')});
+  const datos={n:g('en').toUpperCase(),eq:g('ee'),cat:g('ec'),perfil:g('ep'),
+               repre:g('er'),tel:g('et'),tm:g('etm'),bs:g('ebs'),obs:g('eob'),notas:g('eob')};
+  // Cerrar ANTES de guardar. updJug repinta la pantalla, así que si se
+  // cerraba después la ficha se quedaba abierta tal cual y parecía que
+  // seguías editando sin que nada se hubiera guardado.
   editJid=null;
+  updJug(id, datos);
+  shT('✓ '+(datos.n||'Jugador')+' guardado');
 };
 window.sf = (k,v) => {
   flt={...flt,[k]:v};
@@ -1672,6 +1742,18 @@ window.sf = (k,v) => {
   }
 };
 window.cf  = () => { flt={txt:"",sec:"",est:""}; render(); };
+// Abrir la ficha de un jugador en la Base de datos, filtrando por su
+// nombre para que se vea solo él y no haya que buscarlo entre 300.
+window.verFicha = id => {
+  const j=jug.find(x=>String(x.id)===String(id));
+  if(!j){ shT('Ese jugador ya no está','err'); return; }
+  view='bd'; flt={txt:j.n||"", sec:"", est:""}; editJid=j.id; ultimoAlta=null;
+  render();
+  setTimeout(()=>{
+    const el=document.getElementById('en-'+j.id);
+    if(el && el.scrollIntoView) el.scrollIntoView({block:'center'});
+  },60);
+};
 // Un jugador de la plantilla del equipo que todavía no está en la base.
 // Se crea con el equipo del campograma y entra directo al puesto.
 window.cgNuevoJug = (pos) => {
@@ -1700,6 +1782,14 @@ window.addJug = addJug;
 window.sfe = e => { fd={...fd,est:e}; render(); };
 window.tfi = ico => { const c=fd.ico||[]; fd={...fd,ico:c.includes(ico)?c.filter(x=>x!==ico):[...c,ico]}; render(); };
 window.sfd = (k,v) => { fd={...fd,[k]:v}; };
+// El club aparte: además de guardarlo, enseña su escudo al lado. Se
+// repinta SOLO el escudo; si se repintara la pantalla, el cursor se
+// saldría de la caja a media palabra.
+window.sfdEq = v => {
+  fd={...fd, eq:v};
+  const e=document.getElementById('re-escudo');
+  if(e) e.innerHTML=escudoHTML(escudoDeClub(v),24);
+};
 window.sendClaude = sendClaude;
 
 // ── PWA ───────────────────────────────────────────────────────────
