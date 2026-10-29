@@ -4594,9 +4594,15 @@ function buildSquad(page,p,r){
     (i<Math.ceil(p.rows.length/2)?c1:c2).appendChild(d);
   });
   g.appendChild(c1); g.appendChild(c2); page.appendChild(g);
-  const add=elx('button','mini-btn no-print','+ Añadir jugador'); add.style.cssText='position:absolute;bottom:12px;left:50%;transform:translateX(-50%);';
+  const barra=elx('div','no-print'); barra.style.cssText='position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;';
+  const add=elx('button','mini-btn','+ Añadir jugador');
   add.onclick=()=>{ p.rows.push({num:'',name:'',pos:'',age:'',h:'',note:''}); saveReports(); renderReport(); };
-  page.appendChild(add);
+  barra.appendChild(add);
+  const traer=elx('button','mini-btn','⤓ Traer plantilla de Captación');
+  traer.title='Traer los jugadores de '+((r&&r.rival)||'este equipo')+' que ya tengas en la base de datos de Captación. Llegan sin dorsal.';
+  traer.onclick=()=>traePlantillaCaptacion(p,r);
+  barra.appendChild(traer);
+  page.appendChild(barra);
 }
 
 // ── TEXTO ──
@@ -4825,6 +4831,51 @@ function capGuessTraits(badgeIcons){
     if(best && !out.includes(best)) out.push(best);
   });
   return out;
+}
+
+// ── TRAER LA PLANTILLA DESDE CAPTACIÓN ───────────────────────────
+//   Al revés del botón ➕ de cada fila, que manda una ficha A Captación.
+//   Esto trae DE Captación los jugadores cuyo equipo coincide con el del
+//   informe, para no reescribir a mano a veinte tíos que ya están
+//   fichados.
+//   En Captación las fichas NO llevan dorsal, así que llegan sin número y
+//   ordenadas por puesto (portero primero, delantero al final). El dorsal
+//   lo pone él, y al ponerlo la fila se coloca sola en su sitio.
+//   Nunca pisa nada: solo rellena filas vacías y se salta a los que ya
+//   estén escritos en la plantilla.
+const POS_CORTA={P1:'POR',P2:'LD',P3:'LI',P4:'DFC',P5:'DFC',P6:'MCD',
+                 P8:'MC',P10:'MP',P7:'ED',P11:'EI',P9:'DC'};
+function traePlantillaCaptacion(p,r){
+  const equipo=capNorm(r&&r.rival);
+  if(!equipo){ toast('Ponle primero nombre al equipo en la portada'); return; }
+  const fichas=capLoad().filter(j=>j && capNorm(j.eq)===equipo);
+  if(!fichas.length){
+    toast('No hay jugadores de '+(r.rival||'ese equipo')+' en Captación');
+    return;
+  }
+  const pgs=(r.pages||[]).filter(pg=>pg.type==='plantilla');
+  const yaEstan=new Set();
+  pgs.forEach(pg=>(pg.rows||[]).forEach(x=>{ const n=capNorm(x.name); if(n) yaEstan.add(n); }));
+  const puesto=j=>{
+    const q=(String(j.pos||'').split(/[,/]/)[0]||'').trim();
+    const i=CAP_POS.indexOf(q);
+    return i<0 ? 99 : i;
+  };
+  const nuevos=fichas.filter(j=>!yaEstan.has(capNorm(j.n)))
+    .sort((a,b)=>puesto(a)-puesto(b) || String(a.n||'').localeCompare(String(b.n||''),'es'));
+  if(!nuevos.length){
+    toast('Los '+fichas.length+' de '+(r.rival||'ese equipo')+' ya están en la plantilla');
+    return;
+  }
+  nuevos.forEach(j=>{
+    let fila=p.rows.find(filaVacia);
+    if(!fila){ fila={num:'',name:'',pos:'',age:'',h:'',note:''}; p.rows.push(fila); }
+    fila.name=String(j.n||'').replace(/\s+/g,' ').trim();
+    const q=(String(j.pos||'').split(/[,/]/)[0]||'').trim();
+    fila.pos=POS_CORTA[q]||q||'';
+  });
+  saveReports(); renderReport();
+  toast(nuevos.length+(nuevos.length>1?' jugadores traídos':' jugador traído')+' · ponles el dorsal');
 }
 
 // ── MODAL ──
