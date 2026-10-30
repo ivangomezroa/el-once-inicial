@@ -263,6 +263,46 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .ed:focus{border-color:var(--navy);background:rgba(27,42,107,0.03);}
 .ed:empty::before{content:attr(data-ph);color:#aab;font-style:italic;pointer-events:none;}
 .ed.multi{white-space:pre-wrap;line-height:1.45;}
+/* ── TEXTO CON FORMATO ──────────────────────────────────────────────
+   Los campos de redacción (.ed.rico) guardan HTML, no texto pelado, y
+   admiten negrita, cursiva, subrayado, tamaño y fuente. Los tamaños son
+   tres y cerrados a propósito: la página es A4 de alto fijo y lo que no
+   cabe se corta al imprimir, así que dejar números libres era pedir que
+   un DAFO se viera bien en pantalla y saliera cortado en papel. */
+.ed.rico{white-space:pre-wrap;line-height:1.45;}
+.ed.rico b,.ed.rico strong{font-weight:800;}
+.ed.rico u{text-decoration:underline;}
+/* Las observaciones de la plantilla son una celda de UNA línea. Darles el
+   interlineado de los campos de redacción (1.45) estiraba las 24 filas y
+   la hoja de plantilla ya no salía igual al imprimir: se vio comparando
+   el PDF con el de antes, no en pantalla. */
+.squad-row .ed.rico{line-height:normal;white-space:normal;}
+.t-sm{font-size:.84em;}
+.t-lg{font-size:1.22em;}
+.t-xl{font-size:1.45em;}
+.f-cond{font-family:'Barlow Condensed',sans-serif;}
+.f-barlow{font-family:'Barlow',sans-serif;}
+.f-serif{font-family:Georgia,'Times New Roman',serif;}
+.f-mono{font-family:'Courier New',monospace;}
+/* La fuente por defecto de TODO el informe, puesta en cada .page */
+.page.f-cond .ed, .page.f-cond{font-family:'Barlow Condensed',sans-serif;}
+.page.f-serif .ed, .page.f-serif{font-family:Georgia,'Times New Roman',serif;}
+.page.f-mono  .ed, .page.f-mono{font-family:'Courier New',monospace;}
+/* …pero los títulos y cabeceras mantienen la suya: son del diseño */
+.page .banner,.page .kv-h,.page .dq-h,.page .cgp-rot,.page .cover-uso,
+.page .squad-row.hdr,.page .page-foot,.page .season-tag{font-family:'Barlow Condensed',sans-serif !important;}
+#fmt-bar{position:fixed;z-index:9400;display:none;gap:2px;align-items:center;
+  background:#1e2d40;border:1px solid rgba(255,255,255,.18);border-radius:8px;
+  padding:4px 5px;box-shadow:0 6px 22px rgba(0,0,0,.5);}
+#fmt-bar.show{display:flex;}
+#fmt-bar button{min-width:26px;height:24px;border:1px solid transparent;border-radius:5px;
+  background:transparent;color:#ddd8cc;cursor:pointer;font-size:12px;font-family:'Barlow',sans-serif;
+  display:flex;align-items:center;justify-content:center;padding:0 5px;}
+#fmt-bar button:hover{background:rgba(255,255,255,.12);}
+#fmt-bar button.on{background:var(--gold);color:#1B2A6B;font-weight:700;}
+#fmt-bar .sep{width:1px;height:16px;background:rgba(255,255,255,.18);margin:0 2px;}
+#fmt-bar select{height:24px;border-radius:5px;border:1px solid rgba(255,255,255,.2);
+  background:#16243a;color:#ddd8cc;font-size:11px;padding:0 4px;cursor:pointer;}
 .ed-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:#222;text-transform:uppercase;letter-spacing:.5px;text-align:center;}
 .ed-sub{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;color:#b81e1e;text-transform:uppercase;letter-spacing:.5px;text-align:center;}
 .txtbox{border:1.5px solid #222;padding:8px 10px;font-size:11px;line-height:1.5;color:#222;background:#fff;overflow:hidden;}
@@ -513,7 +553,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
    ══════════════════════════════════════════════════════════ */
 @media print{
   @page{size:A4 landscape;margin:5mm;}
-  .cgp-tools, .cgp-vacia .cgp-btn{display:none !important;}
+  .cgp-tools, .cgp-vacia .cgp-btn, #fmt-bar{display:none !important;}
   html,body{height:auto !important;overflow:visible !important;background:#fff !important;display:block !important;}
   #topnav,#fe-props,.rep-side,.toast,.no-print,.fe-tb,.blk-tools,.page-tools,.img-x,.sq-del,.mini-btn,.modal-overlay{display:none !important;}
   .view{display:none !important;}
@@ -862,6 +902,8 @@ body.fe-full-abierto{overflow:hidden;}
         <button class="nav-btn primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="newReport()">+ Nuevo informe</button>
       </div>
       <div id="rep-pages-box" hidden>
+        <div class="panel-hdr">Tipo de letra</div>
+        <select id="rep-fuente" onchange="cambiaFuente(this.value)" style="width:100%;margin-bottom:10px;"></select>
         <div class="panel-hdr">Para qué es</div>
         <select id="rep-uso" onchange="cambiaUso(this.value)" style="width:100%;margin-bottom:10px;">
           <option value="rival">Rival · preparar un partido</option>
@@ -3810,7 +3852,21 @@ function cambiaUso(v){
   curRep.uso=v; saveReports(); renderReportList(); renderReport();
   if(antes!==v) toast('Ahora es un informe de '+USOS[v].lb.toLowerCase());
 }
+// La fuente del informe entero. Dentro de un bloque se puede cambiar con
+// el desplegable de la barrita de formato.
+function cambiaFuente(v){
+  if(!curRep) return;
+  curRep.fuente = /^f-(cond|serif|mono|barlow)$/.test(v) ? v : '';
+  saveReports(); renderReport();
+}
 function renderPageNav(){
+  const selF=document.getElementById('rep-fuente');
+  if(selF && curRep){
+    if(!selF.options.length){
+      selF.innerHTML=FUENTES.map(f=>'<option value="'+f[0]+'">'+(f[0]?f[1]:'Barlow (por defecto)')+'</option>').join('');
+    }
+    selF.value=curRep.fuente||'';
+  }
   const sel=document.getElementById('rep-uso');
   if(sel && curRep) sel.value=(curRep.uso&&USOS[curRep.uso])?curRep.uso:'rival';
   const nav=document.getElementById('page-nav'); if(!curRep){ nav.innerHTML=''; return; }
@@ -3977,6 +4033,181 @@ function pageHead(p,title,rightNode,crestSrc){
 }
 function mkField(container,data,opts){ const d=document.createElement('div'); d.style.cssText='flex:1;min-height:0;display:flex;'; container.appendChild(d); const e=new FE.Editor(d,data,Object.assign({onChange:()=>scheduleSave()},opts||{})); return e; }
 
+
+// ══════════════════════════════════════════════════════════
+// TEXTO CON FORMATO EN LOS CAMPOS DE REDACCIÓN
+//   Los campos normales (`ed`) guardan texto pelado: se leen con
+//   `innerText` y se pintan con `textContent`. Por eso, hasta ahora, si
+//   seleccionabas una palabra y pulsabas ⌘B se ponía en negrita y
+//   desaparecía al repintar o al recargar — el formato se tiraba al
+//   guardar.
+//   `edRico` guarda HTML, pero SOLO el que se permite aquí abajo: nada de
+//   lo que venga de la nube o de otro equipo puede meter una etiqueta
+//   rara. Y se limpia con DOMParser, que es inerte, en vez de con
+//   innerHTML, que con un <img onerror> ya habría hecho el daño antes de
+//   limpiar nada.
+// ══════════════════════════════════════════════════════════
+const FMT_TAGS={B:1,STRONG:1,I:1,EM:1,U:1,BR:1,DIV:1,SPAN:1,P:1};
+const FMT_CLASES={'t-sm':1,'t-lg':1,'t-xl':1,'f-cond':1,'f-barlow':1,'f-serif':1,'f-mono':1};
+const FUENTES=[['','Por defecto del informe'],['f-barlow','Barlow'],['f-cond','Barlow Condensed'],
+               ['f-serif','Georgia (serif)'],['f-mono','Courier']];
+
+function htmlLimpio(v){
+  const txt=String(v==null?'':v);
+  // Sin ninguna etiqueta: es texto de siempre. Se escapa y los saltos de
+  // línea se respetan.
+  if(txt.indexOf('<')<0) return escapeHtml(txt).replace(/\n/g,'<br>');
+  const doc=new DOMParser().parseFromString('<div id="r">'+txt+'</div>','text/html');
+  const raiz=doc.getElementById('r');
+  const limpia=nodo=>{
+    [...nodo.children].forEach(h=>{
+      // De un <script> o un <style> no se salva ni el texto de dentro:
+      // desenvolverlos dejaba el código como texto suelto en el informe.
+      if(h.tagName==='SCRIPT'||h.tagName==='STYLE'||h.tagName==='NOSCRIPT'){ h.remove(); return; }
+      if(!FMT_TAGS[h.tagName]){ h.replaceWith(...h.childNodes); return; }
+      [...h.attributes].forEach(a=>{
+        if(a.name==='class'){
+          const c=a.value.split(/\s+/).filter(x=>FMT_CLASES[x]);
+          if(c.length) h.setAttribute('class',c.join(' ')); else h.removeAttribute('class');
+        } else h.removeAttribute(a.name);
+      });
+      limpia(h);
+    });
+  };
+  limpia(raiz);
+  return raiz.innerHTML;
+}
+// ¿Tiene algo escrito, más allá de las etiquetas? Para el placeholder.
+function textoDe(v){
+  const d=document.createElement('div');
+  d.innerHTML=htmlLimpio(v);
+  return (d.textContent||'').trim();
+}
+
+function edRico(obj,key,cls,ph){
+  const d=document.createElement('div');
+  d.className='ed rico '+(cls||'');
+  d.contentEditable='true'; d.spellcheck=false;
+  if(ph) d.dataset.ph=ph;
+  d.innerHTML=htmlLimpio(obj[key]);
+  const guarda=()=>{ obj[key]=htmlLimpio(d.innerHTML); };
+  d.addEventListener('input',()=>{ guarda(); scheduleSave(); fmtRefresca(); });
+  d.addEventListener('blur',()=>{ guarda(); saveAll(); });
+  d.addEventListener('paste',e=>{
+    // Pegar desde Word o una web traía estilos, tablas y colores. Se pega
+    // el texto y se mantiene el formato que ya tuviera el campo.
+    e.preventDefault();
+    const t=(e.clipboardData||window.clipboardData).getData('text/plain')||'';
+    document.execCommand('insertText',false,t);
+  });
+  return d;
+}
+
+// ── LA BARRITA FLOTANTE ──────────────────────────────────────────
+let fmtCampo=null;
+function fmtBarra(){
+  let b=document.getElementById('fmt-bar');
+  if(b) return b;
+  b=document.createElement('div'); b.id='fmt-bar'; b.className='no-print';
+  b.innerHTML=
+    '<button data-c="bold" title="Negrita (⌘B)"><b>B</b></button>'+
+    '<button data-c="italic" title="Cursiva (⌘I)"><i>I</i></button>'+
+    '<button data-c="underline" title="Subrayado (⌘U)"><u>U</u></button>'+
+    '<span class="sep"></span>'+
+    '<button data-t="t-sm" title="Más pequeño">A⁻</button>'+
+    '<button data-t="" title="Tamaño normal">A</button>'+
+    '<button data-t="t-lg" title="Más grande">A⁺</button>'+
+    '<button data-t="t-xl" title="Destacado">A⁺⁺</button>'+
+    '<span class="sep"></span>'+
+    '<select data-f title="Tipo de letra de ESTE bloque">'+
+      FUENTES.map(f=>'<option value="'+f[0]+'">'+f[1]+'</option>').join('')+'</select>';
+  document.body.appendChild(b);
+  // mousedown y no click: con click el campo ya ha perdido el foco y la
+  // selección, y el formato no se aplicaba a nada.
+  b.addEventListener('mousedown',e=>{
+    const bt=e.target.closest('button'); if(!bt) return;
+    e.preventDefault();
+    if(bt.dataset.c){ document.execCommand(bt.dataset.c,false,null); }
+    else if(bt.dataset.t!==undefined){ fmtTamano(bt.dataset.t); }
+    if(fmtCampo){ fmtCampo.dispatchEvent(new Event('input',{bubbles:true})); }
+    fmtRefresca();
+  });
+  b.querySelector('[data-f]').addEventListener('mousedown',e=>e.stopPropagation());
+  b.querySelector('[data-f]').addEventListener('change',e=>{
+    fmtFuenteBloque(e.target.value);
+  });
+  return b;
+}
+// El tamaño se aplica a lo seleccionado, envolviéndolo en un span con
+// clase. Antes de poner el nuevo, se quitan los que hubiera dentro.
+function fmtTamano(clase){
+  const sel=window.getSelection();
+  if(!sel.rangeCount || sel.isCollapsed || !fmtCampo) return;
+  const r=sel.getRangeAt(0);
+  const frag=r.cloneContents();
+  const caja=document.createElement('div');
+  caja.appendChild(frag);
+  caja.querySelectorAll('span').forEach(sp=>{
+    const c=[...sp.classList].filter(x=>!/^t-/.test(x));
+    if(c.length) sp.className=c.join(' '); else sp.replaceWith(...sp.childNodes);
+  });
+  const html = clase ? '<span class="'+clase+'">'+caja.innerHTML+'</span>' : caja.innerHTML;
+  document.execCommand('insertHTML',false,html);
+}
+// La fuente va al BLOQUE entero: es lo que pidió Iván — una para todo el
+// informe y, cuando haga falta, distinta en un bloque suelto.
+function fmtFuenteBloque(clase){
+  if(!fmtCampo) return;
+  const dentro=fmtCampo.innerHTML;
+  const caja=document.createElement('div');
+  caja.innerHTML=dentro;
+  // fuera cualquier fuente anterior, para no acumular capas
+  caja.querySelectorAll('span').forEach(sp=>{
+    const c=[...sp.classList].filter(x=>!/^f-/.test(x));
+    if(c.length) sp.className=c.join(' '); else sp.replaceWith(...sp.childNodes);
+  });
+  fmtCampo.innerHTML = clase ? '<span class="'+clase+'">'+caja.innerHTML+'</span>' : caja.innerHTML;
+  fmtCampo.dispatchEvent(new Event('input',{bubbles:true}));
+  saveAll();
+}
+function fmtRefresca(){
+  const b=document.getElementById('fmt-bar'); if(!b||!b.classList.contains('show')) return;
+  ['bold','italic','underline'].forEach(c=>{
+    const bt=b.querySelector('[data-c="'+c+'"]');
+    if(bt) bt.classList.toggle('on', (()=>{ try{ return document.queryCommandState(c); }catch(e){ return false; } })());
+  });
+  if(fmtCampo){
+    const sp=fmtCampo.querySelector(':scope > span[class*="f-"]');
+    const sel=b.querySelector('[data-f]');
+    if(sel) sel.value = sp ? ([...sp.classList].find(x=>/^f-/.test(x))||'') : '';
+  }
+}
+function fmtColoca(){
+  const b=fmtBarra();
+  const sel=window.getSelection();
+  if(!sel.rangeCount){ b.classList.remove('show'); return; }
+  const campo=(sel.anchorNode && sel.anchorNode.nodeType===1 ? sel.anchorNode : (sel.anchorNode||{}).parentElement);
+  const rico=campo && campo.closest ? campo.closest('.ed.rico') : null;
+  if(!rico){ b.classList.remove('show'); fmtCampo=null; return; }
+  fmtCampo=rico;
+  const r=sel.getRangeAt(0).getBoundingClientRect();
+  const ref=(r.width||r.height) ? r : rico.getBoundingClientRect();
+  b.classList.add('show');
+  const ancho=b.offsetWidth||300;
+  let x=ref.left + ref.width/2 - ancho/2;
+  x=Math.max(8, Math.min(window.innerWidth-ancho-8, x));
+  let y=ref.top - b.offsetHeight - 8;
+  if(y<8) y=ref.bottom + 8;
+  b.style.left=Math.round(x)+'px';
+  b.style.top=Math.round(y)+'px';
+  fmtRefresca();
+}
+document.addEventListener('selectionchange',()=>{ setTimeout(fmtColoca,0); });
+document.addEventListener('mousedown',e=>{
+  if(e.target.closest && (e.target.closest('#fmt-bar')||e.target.closest('.ed.rico'))) return;
+  const b=document.getElementById('fmt-bar'); if(b) b.classList.remove('show');
+},true);
+
 // ══════════════════════════════════════════════════════════
 // RENDER DE PÁGINAS
 // ══════════════════════════════════════════════════════════
@@ -3990,6 +4221,9 @@ function renderReport(){
 }
 function buildPage(p,r,idx){
   const {wrap,page}=pageShell(p,r);
+  // La fuente elegida para el informe entero. Los títulos y cabeceras
+  // conservan la suya: son del diseño, no del texto.
+  if(r && r.fuente) page.classList.add(r.fuente);
   const tools=elx('div','page-tools no-print');
   tools.innerHTML='<button class="mini-btn" data-a="up">▲</button><button class="mini-btn" data-a="dn">▼</button><button class="mini-btn" data-a="dup">⧉ Duplicar</button><button class="mini-btn danger" data-a="del">🗑</button>';
   tools.querySelectorAll('button').forEach(b=>{ b.onclick=()=>{ const a=b.dataset.a, i=r.pages.indexOf(p);
@@ -4282,7 +4516,7 @@ function buildCampograma(page,p,r){
   // Una nota al pie, para explicar el porqué de los cambios.
   const nota=elx('div','cgp-nota');
   nota.appendChild(elx('div','cgp-nota-h','Notas'));
-  nota.appendChild(ed(p,'nota','','Por qué este sistema, qué cambiaría y con quién…',true));
+  nota.appendChild(edRico(p,'nota','','Por qué este sistema, qué cambiaría y con quién…'));
   page.appendChild(nota);
 }
 
@@ -4512,7 +4746,7 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
     const row=elx('div','blk-row');
     const fw=elx('div','blk-field'); row.appendChild(fw);
     feBotonFull(mkField(fw,b.field,{lookupName:num=>lookupSquadName(r,num)}));
-    const tw=elx('div','blk-text'); const tb=elx('div','txtbox'); tb.appendChild(ed(b,'text','','Observaciones...',true)); tw.appendChild(tb); row.appendChild(tw);
+    const tw=elx('div','blk-text'); const tb=elx('div','txtbox'); tb.appendChild(edRico(b,'text','','Observaciones...')); tw.appendChild(tb); row.appendChild(tw);
     blk.appendChild(row);
     body.appendChild(blk);
   });
@@ -4552,7 +4786,7 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
 function buildDafo(page,p,r){
   page.appendChild(pageHead(p,p.title,null,r.crestRival));
   const g=elx('div','dafo');
-  const Q=(cls,label,key,icon)=>{ const q=elx('div','dafo-q '+cls); q.appendChild(elx('div','dq-h','<span>'+icon+'</span>'+label)); const b=elx('div','dq-b'); b.appendChild(ed(p,key,'','- Escribe aquí los puntos, uno por línea...',true)); q.appendChild(b); return q; };
+  const Q=(cls,label,key,icon)=>{ const q=elx('div','dafo-q '+cls); q.appendChild(elx('div','dq-h','<span>'+icon+'</span>'+label)); const b=elx('div','dq-b'); b.appendChild(edRico(p,key,'','- Escribe aquí los puntos, uno por línea...')); q.appendChild(b); return q; };
   g.appendChild(Q('D','Debilidades','d','🔗'));
   g.appendChild(Q('F','Fortalezas','f','💪'));
   g.appendChild(Q('O','Oportunidades','o','🧀'));
@@ -4573,7 +4807,7 @@ function buildSquad(page,p,r){
     d.appendChild(ed(row,'pos','','POS'));
     d.appendChild(ed(row,'age','','—'));
     d.appendChild(ed(row,'h','','—'));
-    d.appendChild(ed(row,'note','','—'));
+    d.appendChild(edRico(row,'note','','—'));
     const cap=elx('button','cap-btn no-print', capFind(row.name)?'✓':'➕');
     cap.title=capFind(row.name)?'Ya está en Captación — actualizar ficha':'Añadir este jugador a Captación';
     cap.onclick=()=>sendSquadRowToCaptacion(row);
@@ -4610,15 +4844,18 @@ function buildText(page,p,r){
   page.appendChild(pageHead(p,p.title,null,r.crestRival));
   const g=elx('div',''); g.style.cssText='display:grid;grid-template-columns:'+(p.cols===1?'1fr':'1fr 1fr')+';gap:14px;flex:1;min-height:0;';
   if(!p.texts) p.texts=['',''];
-  p.texts.forEach((t,i)=>{ const b=elx('div','txtbox'); const holder={get v(){return p.texts[i];},set v(x){p.texts[i]=x;}};
-    const d=document.createElement('div'); d.className='ed multi'; d.contentEditable='true'; d.spellcheck=false; d.dataset.ph='Escribe aquí...'; d.textContent=t;
-    d.addEventListener('input',()=>{ p.texts[i]=d.innerText; scheduleSave(); });
-    d.addEventListener('blur',()=>{ p.texts[i]=d.innerText; saveAll(); });
-    b.appendChild(d); g.appendChild(b); });
+  p.texts.forEach((t,i)=>{
+    const b=elx('div','txtbox');
+    // Un apaño para que edRico pueda escribir en p.texts[i] como si fuera
+    // una propiedad normal.
+    const hueco={ get v(){ return p.texts[i]; }, set v(x){ p.texts[i]=x; } };
+    b.appendChild(edRico(hueco,'v','','Escribe aquí...'));
+    g.appendChild(b);
+  });
   page.appendChild(g);
   const tb=elx('div','no-print'); tb.style.cssText='position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:5px;';
   tb.innerHTML='<button class="mini-btn" data-a="c1">1 columna</button><button class="mini-btn" data-a="c2">2 columnas</button>';
-  tb.querySelectorAll('button').forEach(b=>{ b.onclick=()=>{ p.cols=b.dataset.a==='c1'?1:2; if(p.cols===1) p.texts=[p.texts.join('\n')]; else if(p.texts.length<2) p.texts.push(''); saveReports(); renderReport(); }; });
+  tb.querySelectorAll('button').forEach(b=>{ b.onclick=()=>{ p.cols=b.dataset.a==='c1'?1:2; if(p.cols===1) p.texts=[p.texts.filter(x=>textoDe(x)).join('<br>')]; else if(p.texts.length<2) p.texts.push(''); saveReports(); renderReport(); }; });
   page.appendChild(tb);
 }
 
