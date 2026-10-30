@@ -277,6 +277,19 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
    la hoja de plantilla ya no salía igual al imprimir: se vio comparando
    el PDF con el de antes, no en pantalla. */
 .squad-row .ed.rico{line-height:normal;white-space:normal;}
+/* Escala de tamaños. Son pasos cerrados y no un número libre porque la
+   página es A4 de alto fijo: lo que no cabe se corta al imprimir. */
+.t-60{font-size:.60em;}
+.t-70{font-size:.70em;}
+.t-80{font-size:.80em;}
+.t-90{font-size:.90em;}
+.t-110{font-size:1.10em;}
+.t-125{font-size:1.25em;}
+.t-150{font-size:1.50em;}
+.t-175{font-size:1.75em;}
+.t-200{font-size:2.00em;}
+.t-250{font-size:2.50em;}
+/* Los de la primera versión, para no romper lo ya escrito */
 .t-sm{font-size:.84em;}
 .t-lg{font-size:1.22em;}
 .t-xl{font-size:1.45em;}
@@ -4048,7 +4061,17 @@ function mkField(container,data,opts){ const d=document.createElement('div'); d.
 //   limpiar nada.
 // ══════════════════════════════════════════════════════════
 const FMT_TAGS={B:1,STRONG:1,I:1,EM:1,U:1,BR:1,DIV:1,SPAN:1,P:1};
-const FMT_CLASES={'t-sm':1,'t-lg':1,'t-xl':1,'f-cond':1,'f-barlow':1,'f-serif':1,'f-mono':1};
+// La escala, de menor a mayor. El '' del medio es el tamaño normal.
+const TAMANOS=[['t-60','60%'],['t-70','70%'],['t-80','80%'],['t-90','90%'],
+               ['','Normal'],
+               ['t-110','110%'],['t-125','125%'],['t-150','150%'],
+               ['t-175','175%'],['t-200','200%'],['t-250','250%']];
+const FMT_CLASES=(()=>{
+  const o={'f-cond':1,'f-barlow':1,'f-serif':1,'f-mono':1,
+           't-sm':1,'t-lg':1,'t-xl':1};   // los de la primera versión
+  TAMANOS.forEach(t=>{ if(t[0]) o[t[0]]=1; });
+  return o;
+})();
 const FUENTES=[['','Por defecto del informe'],['f-barlow','Barlow'],['f-cond','Barlow Condensed'],
                ['f-serif','Georgia (serif)'],['f-mono','Courier']];
 
@@ -4114,10 +4137,10 @@ function fmtBarra(){
     '<button data-c="italic" title="Cursiva (⌘I)"><i>I</i></button>'+
     '<button data-c="underline" title="Subrayado (⌘U)"><u>U</u></button>'+
     '<span class="sep"></span>'+
-    '<button data-t="t-sm" title="Más pequeño">A⁻</button>'+
-    '<button data-t="" title="Tamaño normal">A</button>'+
-    '<button data-t="t-lg" title="Más grande">A⁺</button>'+
-    '<button data-t="t-xl" title="Destacado">A⁺⁺</button>'+
+    '<button data-paso="-1" title="Un punto más pequeño">A⁻</button>'+
+    '<select data-tam title="Tamaño del texto seleccionado">'+
+      TAMANOS.map(t=>'<option value="'+t[0]+'">'+t[1]+'</option>').join('')+'</select>'+
+    '<button data-paso="1" title="Un punto más grande">A⁺</button>'+
     '<span class="sep"></span>'+
     '<select data-f title="Tipo de letra de ESTE bloque">'+
       FUENTES.map(f=>'<option value="'+f[0]+'">'+f[1]+'</option>').join('')+'</select>';
@@ -4128,15 +4151,60 @@ function fmtBarra(){
     const bt=e.target.closest('button'); if(!bt) return;
     e.preventDefault();
     if(bt.dataset.c){ document.execCommand(bt.dataset.c,false,null); }
-    else if(bt.dataset.t!==undefined){ fmtTamano(bt.dataset.t); }
-    if(fmtCampo){ fmtCampo.dispatchEvent(new Event('input',{bubbles:true})); }
+    else if(bt.dataset.paso!==undefined){ fmtPaso(+bt.dataset.paso); }
+    // Guardar YA, no con el retardo de scheduleSave: si formateas y
+    // recargas en el segundo siguiente, el guardado con retardo no llega
+    // a dispararse y el formato se pierde.
+    if(fmtCampo){ fmtCampo.dispatchEvent(new Event('input',{bubbles:true})); saveAll(); }
     fmtRefresca();
   });
   b.querySelector('[data-f]').addEventListener('mousedown',e=>e.stopPropagation());
   b.querySelector('[data-f]').addEventListener('change',e=>{
     fmtFuenteBloque(e.target.value);
   });
+  // El desplegable de tamaño pierde la selección al abrirse, así que se
+  // guarda antes de tocarlo y se vuelve a poner al elegir.
+  const selTam=b.querySelector('[data-tam]');
+  selTam.addEventListener('mousedown',e=>{ e.stopPropagation(); fmtGuardaSeleccion(); });
+  selTam.addEventListener('change',e=>{
+    fmtRecuperaSeleccion();
+    fmtTamano(e.target.value);
+    if(fmtCampo){ fmtCampo.dispatchEvent(new Event('input',{bubbles:true})); saveAll(); }
+    fmtRefresca();
+  });
   return b;
+}
+let fmtRango=null;
+function fmtGuardaSeleccion(){
+  const sel=window.getSelection();
+  fmtRango=(sel.rangeCount && !sel.isCollapsed) ? sel.getRangeAt(0).cloneRange() : null;
+}
+function fmtRecuperaSeleccion(){
+  if(!fmtRango) return;
+  const sel=window.getSelection();
+  sel.removeAllRanges(); sel.addRange(fmtRango);
+}
+// El tamaño que tiene ahora lo seleccionado, para que A⁻ y A⁺ sepan de
+// dónde partir. Se mira el span de tamaño más cercano hacia arriba.
+function fmtTamanoActual(){
+  const sel=window.getSelection();
+  if(!sel.rangeCount) return '';
+  let n=sel.anchorNode;
+  if(n && n.nodeType===3) n=n.parentElement;
+  while(n && n.closest && n!==fmtCampo){
+    const c=[...(n.classList||[])].find(x=>/^t-/.test(x));
+    if(c) return c;
+    n=n.parentElement;
+  }
+  return '';
+}
+// A⁻ y A⁺: un paso arriba o abajo en la escala.
+function fmtPaso(dir){
+  const actual=fmtTamanoActual();
+  let i=TAMANOS.findIndex(t=>t[0]===actual);
+  if(i<0) i=TAMANOS.findIndex(t=>t[0]==='');
+  const j=Math.max(0, Math.min(TAMANOS.length-1, i+dir));
+  fmtTamano(TAMANOS[j][0]);
 }
 // El tamaño se aplica a lo seleccionado, envolviéndolo en un span con
 // clase. Antes de poner el nuevo, se quitan los que hubiera dentro.
@@ -4181,11 +4249,23 @@ function fmtRefresca(){
     const sel=b.querySelector('[data-f]');
     if(sel) sel.value = sp ? ([...sp.classList].find(x=>/^f-/.test(x))||'') : '';
   }
+  const st=b.querySelector('[data-tam]');
+  if(st){
+    const actual=fmtTamanoActual();
+    // Los tamaños de la primera versión no están en la escala nueva: se
+    // deja el desplegable en blanco en vez de mentir.
+    st.value = TAMANOS.some(t=>t[0]===actual) ? actual : '';
+  }
 }
 function fmtColoca(){
   const b=fmtBarra();
   const sel=window.getSelection();
   if(!sel.rangeCount){ b.classList.remove('show'); return; }
+  // Solo con texto SELECCIONADO. Antes aparecía en cuanto el cursor
+  // entraba en el campo, así que salía con cada clic y molestaba al
+  // escribir. Con esto sale al hacer doble clic (que selecciona la
+  // palabra) o al arrastrar para seleccionar, que es cuando hace falta.
+  if(sel.isCollapsed){ b.classList.remove('show'); return; }
   const campo=(sel.anchorNode && sel.anchorNode.nodeType===1 ? sel.anchorNode : (sel.anchorNode||{}).parentElement);
   const rico=campo && campo.closest ? campo.closest('.ed.rico') : null;
   if(!rico){ b.classList.remove('show'); fmtCampo=null; return; }
