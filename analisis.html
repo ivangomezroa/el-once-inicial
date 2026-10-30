@@ -4098,6 +4098,7 @@ function htmlLimpio(v){
     });
   };
   limpia(raiz);
+  fmtDesanida(raiz);     // arregla de paso lo que ya quedó anidado
   return raiz.innerHTML;
 }
 // ¿Tiene algo escrito, más allá de las etiquetas? Para el placeholder.
@@ -4174,6 +4175,42 @@ function fmtBarra(){
   });
   return b;
 }
+// ── NADA DE TAMAÑOS ANIDADOS ─────────────────────────────────────
+//   Los tamaños son `em`, o sea RELATIVOS al texto que los rodea. Si un
+//   span de tamaño acaba dentro de otro, se multiplican: a Iván le quedó
+//   <span class="t-150"><span class="t-125">…</span></span>, que no es
+//   150% sino 187%. De ahí que el mismo porcentaje se viera distinto en
+//   un recuadro y en otro.
+//   Esto deshace el anidamiento partiendo el span de fuera alrededor del
+//   de dentro: manda el que elegiste el último, que es el de dentro.
+function fmtDesanida(raiz){
+  if(!raiz) return;
+  const esTam=n=>n.nodeType===1 && n.tagName==='SPAN' &&
+                 [...n.classList].some(c=>/^t-/.test(c));
+  const tieneTamDentro=n=>n.nodeType===1 && !!n.querySelector &&
+                 !!n.querySelector('span[class*="t-"]') &&
+                 [...n.querySelectorAll('span')].some(x=>[...x.classList].some(c=>/^t-/.test(c)));
+  for(let vuelta=0; vuelta<12; vuelta++){
+    const fuera=[...raiz.querySelectorAll('span')].find(sp=>esTam(sp) && tieneTamDentro(sp));
+    if(!fuera) return;                       // ya no queda ninguno anidado
+    const clase=[...fuera.classList].find(c=>/^t-/.test(c));
+    const resto=[...fuera.classList].filter(c=>!/^t-/.test(c)).join(' ');
+    const trozos=[];
+    let grupo=null;
+    [...fuera.childNodes].forEach(n=>{
+      const lleva = esTam(n) || tieneTamDentro(n);
+      if(lleva){ grupo=null; trozos.push(n); return; }
+      if(!grupo){
+        grupo=document.createElement('span');
+        grupo.className=(clase+' '+resto).trim();
+        trozos.push(grupo);
+      }
+      grupo.appendChild(n);
+    });
+    fuera.replaceWith(...trozos);
+  }
+}
+
 let fmtRango=null;
 function fmtGuardaSeleccion(){
   const sel=window.getSelection();
@@ -4221,6 +4258,9 @@ function fmtTamano(clase){
   });
   const html = clase ? '<span class="'+clase+'">'+caja.innerHTML+'</span>' : caja.innerHTML;
   document.execCommand('insertHTML',false,html);
+  // Si lo seleccionado estaba DENTRO de otro tamaño, acaba de quedar
+  // anidado: se parte aquí mismo.
+  if(fmtCampo) fmtDesanida(fmtCampo);
 }
 // La fuente va al BLOQUE entero: es lo que pidió Iván — una para todo el
 // informe y, cuando haga falta, distinta en un bloque suelto.
