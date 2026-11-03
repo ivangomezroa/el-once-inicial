@@ -852,8 +852,8 @@ function init(){
   document.addEventListener('click',()=>{closeCtx();});
   // Clear all drag state if mouse released anywhere outside canvas
   document.addEventListener('mouseup',()=>{
-    if(isDrag||elHnd||dHnd||isRubber||isDL){
-      isDrag=false;elHnd=null;dHnd=null;isRubber=false;
+    if(isDrag||elHnd||dHnd||isRubber||isDL||gGiro||guias.length){
+      isDrag=false;elHnd=null;dHnd=null;isRubber=false;gGiro=null;guias=[];
       if(isDL){lip=null;isDL=false;}
       render();
     }
@@ -1230,6 +1230,7 @@ function render(){
     else drawLine(item.obj);
   });
 
+  if(typeof dibujaGuias==='function') dibujaGuias();
   if(typeof enganchando==='function' && enganchando()) dibujaAnclas();
   if(lip) drawLIP(lip);
   // Draw group selection highlight for elements
@@ -1248,6 +1249,7 @@ function render(){
     });
     ctx.restore();
   }
+  if(typeof dibujaCajaSel==='function') dibujaCajaSel();
   // Draw rubber-band rect
   if(isRubber&&rubberStart&&rubberEnd){
     const rx=Math.min(rubberStart.x,rubberEnd.x);
@@ -1663,6 +1665,94 @@ function enganchando(){
   return isDL || (dHnd==='s'||dHnd==='e');
 }
 
+// ====== GIRAR LA SELECCIÓN ENTERA ======
+// Cuando hay dos o más cosas seleccionadas aparece un marco con un tirador
+// arriba: al arrastrarlo giran todas alrededor del centro del marco.
+let gGiro=null;   // {cx,cy,ang0,els:[...],lns:[...]}
+function cajaSel(){
+  const els=selGroup, lns=selGroupLines;
+  if(els.length+lns.length<2) return null;
+  const xs=[],ys=[];
+  els.forEach(e=>{
+    const [hw,hh]=medidasDe(e);
+    const r=Math.max(hw,hh)||20;
+    xs.push(e.x-r,e.x+r); ys.push(e.y-r,e.y+r);
+  });
+  lns.forEach(l=>{xs.push(l.x1,l.x2); ys.push(l.y1,l.y2);});
+  const x1=Math.min(...xs),x2=Math.max(...xs),y1=Math.min(...ys),y2=Math.max(...ys);
+  return {x1,y1,x2,y2,cx:(x1+x2)/2,cy:(y1+y2)/2};
+}
+function tiradorGiro(){
+  const c=cajaSel(); if(!c) return null;
+  return {x:c.cx, y:c.y1-26/(vEsc||1), cx:c.cx, cy:c.cy};
+}
+function dibujaCajaSel(){
+  const c=cajaSel(); if(!c) return;
+  const t=tiradorGiro();
+  ctx.save();
+  const u=1/(vEsc||1);
+  ctx.strokeStyle='rgba(200,168,75,0.55)';ctx.lineWidth=1*u;ctx.setLineDash([6*u,4*u]);
+  ctx.strokeRect(c.x1,c.y1,c.x2-c.x1,c.y2-c.y1);
+  ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(c.cx,c.y1);ctx.lineTo(t.x,t.y);ctx.stroke();
+  ctx.fillStyle='#C8A84B';ctx.strokeStyle='#fff';ctx.lineWidth=1.5*u;
+  ctx.beginPath();ctx.arc(t.x,t.y,6*u,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.restore();
+}
+
+// ====== GUÍAS DE ALINEACIÓN (como en PowerPoint) ======
+// Mientras arrastras, si lo que mueves se alinea con algo que está quieto,
+// la cosa se pega a esa altura (o a esa vertical) y se pinta una línea
+// translúcida de lado a lado del campo para que se vea con qué se alinea.
+let guias=[];
+const GUIA_PX=6;
+function aplicaGuias(movEls,movLns){
+  guias=[];
+  if(!movEls.length&&!movLns.length) return;
+  const quietos=ELS.filter(e=>movEls.indexOf(e)<0);
+  if(!quietos.length) return;
+  const xsM=[],ysM=[];
+  movEls.forEach(e=>{xsM.push(e.x);ysM.push(e.y);});
+  movLns.forEach(l=>{xsM.push(l.x1,l.x2);ysM.push(l.y1,l.y2);});
+  const bx1=Math.min(...xsM),bx2=Math.max(...xsM);
+  const by1=Math.min(...ysM),by2=Math.max(...ysM);
+  const candX=movEls.map(e=>e.x).concat([bx1,bx2,(bx1+bx2)/2]);
+  const candY=movEls.map(e=>e.y).concat([by1,by2,(by1+by2)/2]);
+  const fijX=[],fijY=[];
+  quietos.forEach(e=>{
+    fijX.push(e.x); fijY.push(e.y);
+    const [hw,hh]=medidasDe(e);
+    if(hw&&hh&&!e.rot){fijX.push(e.x-hw,e.x+hw); fijY.push(e.y-hh,e.y+hh);}
+  });
+  const tope=GUIA_PX/(vEsc||1);
+  let mX=null,mY=null;
+  candX.forEach(c=>fijX.forEach(f=>{const d=f-c;
+    if(Math.abs(d)<tope&&(!mX||Math.abs(d)<Math.abs(mX.d))) mX={d:d,v:f};}));
+  candY.forEach(c=>fijY.forEach(f=>{const d=f-c;
+    if(Math.abs(d)<tope&&(!mY||Math.abs(d)<Math.abs(mY.d))) mY={d:d,v:f};}));
+  const dx=mX?mX.d:0, dy=mY?mY.d:0;
+  if(dx||dy){
+    movEls.forEach(e=>{e.x+=dx;e.y+=dy;});
+    movLns.forEach(l=>{l.x1+=dx;l.x2+=dx;l.y1+=dy;l.y2+=dy;});
+  }
+  if(mX) guias.push({v:true, p:mX.v});
+  if(mY) guias.push({v:false,p:mY.v});
+}
+function dibujaGuias(){
+  if(!guias.length) return;
+  const f=fieldRect();
+  ctx.save();
+  const u=1/(vEsc||1);
+  ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1.2*u;ctx.setLineDash([7*u,5*u]);
+  guias.forEach(g=>{
+    ctx.beginPath();
+    if(g.v){ctx.moveTo(g.p,f.y);ctx.lineTo(g.p,f.y+f.h);}
+    else   {ctx.moveTo(f.x,g.p);ctx.lineTo(f.x+f.w,g.p);}
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
 function onMD(e){
   if(e.button===2)return;
   const{x,y}=gpos(e);
@@ -1681,6 +1771,16 @@ function onMD(e){
 
   // Drawing lines
   if(tool!=='select'){const p=pegaAAncla(x,y);isDL=true;lip={lt:tool,x1:p.x,y1:p.y,x2:p.x,y2:p.y};render();return;}
+
+  // Tirador de giro de la selección entera
+  const tg=tiradorGiro();
+  if(tg && Math.hypot(x-tg.x,y-tg.y) < 12/(vEsc||1)){
+    saveH();
+    gGiro={cx:tg.cx, cy:tg.cy, ang0:Math.atan2(y-tg.cy,x-tg.cx),
+      els:selGroup.map(el=>({el:el,x:el.x,y:el.y,rot:el.rot||0})),
+      lns:selGroupLines.map(l=>({l:l,x1:l.x1,y1:l.y1,x2:l.x2,y2:l.y2}))};
+    return;
+  }
 
   // Line endpoint handles (drag endpoints)
   if(selLine){
@@ -1798,6 +1898,19 @@ function onMM(e){
   // Rubber-band selection
   if(isRubber){rubberEnd={x,y};render();return;}
 
+  // Girando la selección entera
+  if(gGiro){
+    let ang=Math.atan2(y-gGiro.cy,x-gGiro.cx)-gGiro.ang0;
+    if(e.shiftKey) ang=Math.round(ang/(Math.PI/12))*(Math.PI/12);   // de 15 en 15
+    const co=Math.cos(ang), si=Math.sin(ang);
+    const gira=(px,py)=>{const dx=px-gGiro.cx,dy=py-gGiro.cy;
+      return {x:gGiro.cx+dx*co-dy*si, y:gGiro.cy+dx*si+dy*co};};
+    gGiro.els.forEach(b=>{const p=gira(b.x,b.y);b.el.x=p.x;b.el.y=p.y;b.el.rot=b.rot+ang;});
+    gGiro.lns.forEach(b=>{const a=gira(b.x1,b.y1),c=gira(b.x2,b.y2);
+      b.l.x1=a.x;b.l.y1=a.y;b.l.x2=c.x;b.l.y2=c.y;});
+    render();return;
+  }
+
   // Dragging a line (endpoint or whole body)
   if(dHnd&&selLine){
     if(dHnd==='s'){const p=pegaAAncla(x,y);selLine.x1=p.x;selLine.y1=p.y;}
@@ -1846,11 +1959,12 @@ function onMM(e){
       const o=groupLineDragOffs[i]||{dx1:0,dy1:0,dx2:0,dy2:0};
       l.x1=x-o.dx1;l.y1=y-o.dy1;l.x2=x-o.dx2;l.y2=y-o.dy2;
     });
+    aplicaGuias(selGroup,selGroupLines);
     render();return;
   }
 
   // Single element drag
-  if(isDrag&&selEl){selEl.x=x-dOff.x;selEl.y=y-dOff.y;render();return;}
+  if(isDrag&&selEl){selEl.x=x-dOff.x;selEl.y=y-dOff.y;aplicaGuias([selEl],[]);render();return;}
 
   // Cursor feedback
   if(selEl&&!selGroup.length&&tool==='select'){
@@ -1888,7 +2002,7 @@ function onMU(e){
     render();return;
   }
   // Always clear all drag/handle state
-  isRubber=false;isDrag=false;dHnd=null;elHnd=null;anclaViva=null;render();
+  isRubber=false;isDrag=false;dHnd=null;elHnd=null;anclaViva=null;gGiro=null;guias=[];render();
 }
 function onDbl(e){
   const{x,y}=gpos(e);
