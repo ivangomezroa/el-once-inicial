@@ -2239,6 +2239,23 @@ function onKey(e){
   if(e.key==='Escape'){selGroup=[];selGroupLines=[];selEl=null;selLine=null;closeProps();render();}
 }
 
+// Colocar un elemento de un clic, en el centro del campo y ya
+// seleccionado. Cada uno sale un poco más abajo y a la derecha que el
+// anterior: si no, al pulsar cinco conos seguidos quedarían los cinco
+// exactamente encima y parecería que solo se ha puesto uno.
+let despl=0;
+function ponEnElCentro(el){
+  const r=cv.getBoundingClientRect();
+  const c=vInv(r.width/2, r.height/2);
+  const paso=34;   // un jugador mide unos 28 de ancho: con menos se solapan
+  el.x=c.x + (despl%5)*paso - 2*paso;
+  el.y=c.y + Math.floor(despl/5)*paso - paso;
+  despl=(despl+1)%15;
+  ELS.push(el); selEl=el; selGroup=[]; selLine=null;
+  saveH();
+  notify('Colocado — arrástralo donde quieras');
+}
+
 // ============ PALETTE DRAG ============
 // Tap-to-place state for mobile
 let tapPlaceEl=null;
@@ -2301,22 +2318,19 @@ function palDrag(e,type,strokeC,fillC,label){
     const r=cv.getBoundingClientRect();
     if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom){
       if(!ELS.includes(el))ELS.push(el);selEl=el;saveH();
+      despl=0;
       render();return;
     }
     // Soltado fuera del campo. Hay dos casos muy distintos:
     //   · Un CLIC (ni se movió el ratón): la paleta solo funcionaba
     //     arrastrando, así que un clic no hacía absolutamente nada y
-    //     parecía que el editor estuviera roto. Ahora el clic DEJA EL
-    //     ELEMENTO EN LA MANO y el siguiente clic en el campo lo coloca,
-    //     igual que en el móvil.
+    //     parecía que el editor estuviera roto. Ahora el clic lo COLOCA
+    //     DIRECTAMENTE en el centro del campo y lo deja seleccionado,
+    //     listo para arrastrarlo a donde toque.
     //   · Un arrastre que acabó fuera: eso sí es "déjalo estar".
     ELS=ELS.filter(x=>x!==el);
     const movido = Math.hypot(ev.clientX-inicio.x, ev.clientY-inicio.y) > 6;
-    if(!movido){
-      el.x=0; el.y=0;
-      tapPlaceEl=el;
-      notify('Ahora haz clic en el campo para colocarlo');
-    }
+    if(!movido) ponEnElCentro(el);
     render();
   };
   document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
