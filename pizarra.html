@@ -2269,6 +2269,8 @@ function palDrag(e,type,strokeC,fillC,label){
   // On touch devices use tap-to-place instead
   if(e.type==='mousedown'&&window.matchMedia('(pointer:coarse)').matches){palTap(type,strokeC,fillC,label);return;}
   e.preventDefault();
+  // Dónde se pulsó, para distinguir después un CLIC de un arrastre.
+  const inicio={x:e.clientX, y:e.clientY};
   const d=document.getElementById('dorsal-input');
   const num=String(parseInt(d?.value)||1);
   const el={type,x:0,y:0};
@@ -2299,7 +2301,22 @@ function palDrag(e,type,strokeC,fillC,label){
     const r=cv.getBoundingClientRect();
     if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom){
       if(!ELS.includes(el))ELS.push(el);selEl=el;saveH();
-    } else ELS=ELS.filter(x=>x!==el);
+      render();return;
+    }
+    // Soltado fuera del campo. Hay dos casos muy distintos:
+    //   · Un CLIC (ni se movió el ratón): la paleta solo funcionaba
+    //     arrastrando, así que un clic no hacía absolutamente nada y
+    //     parecía que el editor estuviera roto. Ahora el clic DEJA EL
+    //     ELEMENTO EN LA MANO y el siguiente clic en el campo lo coloca,
+    //     igual que en el móvil.
+    //   · Un arrastre que acabó fuera: eso sí es "déjalo estar".
+    ELS=ELS.filter(x=>x!==el);
+    const movido = Math.hypot(ev.clientX-inicio.x, ev.clientY-inicio.y) > 6;
+    if(!movido){
+      el.x=0; el.y=0;
+      tapPlaceEl=el;
+      notify('Ahora haz clic en el campo para colocarlo');
+    }
     render();
   };
   document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
