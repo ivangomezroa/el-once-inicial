@@ -451,8 +451,8 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
     <div class="pal-section">
       <span class="pal-label">Dorsal</span>
       <div class="dorsal-row">
-        <input type="number" id="dorsal-input" class="fi" value="1" min="1" max="99" style="width:48px;text-align:center;font-size:12px;font-weight:700;">
-        <span style="font-size:9px;color:var(--text3);">arrastra jugador</span>
+        <input type="text" id="dorsal-input" class="fi" value="1" maxlength="3" autocomplete="off" oninput="this.value=this.value.toUpperCase()" style="width:48px;text-align:center;font-size:12px;font-weight:700;">
+        <span style="font-size:9px;color:var(--text3);">nº o letra · arrastra jugador</span>
       </div>
     </div>
 
@@ -479,7 +479,7 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
           <div class="pal-icon"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="16" fill="#0a2a10" stroke="#00B050" stroke-width="2.5"/><text x="22" y="27" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" font-family="sans-serif">P</text></svg></div>
           <span>Verde</span>
         </div>
-        <div class="pal-item" onmousedown="palDrag(event,'player','#888888','#282828')">
+        <div class="pal-item" onmousedown="palDrag(event,'player','#888888','#282828','C')">
           <div class="pal-icon"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="16" fill="#282828" stroke="#888888" stroke-width="2" stroke-dasharray="4,2"/><text x="22" y="27" text-anchor="middle" fill="#aaa" font-size="13" font-weight="bold" font-family="sans-serif">C</text></svg></div>
           <span>Comodín</span>
         </div>
@@ -2436,12 +2436,25 @@ function ponEnElCentro(el){
 }
 
 // ============ PALETTE DRAG ============
+// El dorsal admite números y letras (hasta 3 caracteres): así el comodín
+// puede salir con una C, o un portero con GK, en vez de con un número.
+function dorsalActual(){
+  const d=document.getElementById('dorsal-input');
+  const v=String(d&&d.value!=null?d.value:'').trim().toUpperCase().slice(0,3);
+  return v||'1';
+}
+function esSoloNumero(v){ return /^[0-9]+$/.test(v); }
+// Para el comodín (que trae su propia letra), si en la caja sigue habiendo un
+// número se usa su letra; si has escrito letras, mandan las tuyas.
+function dorsalPara(porDefecto){
+  const v=dorsalActual();
+  return (porDefecto && esSoloNumero(v)) ? porDefecto : v;
+}
 // Tap-to-place state for mobile
 let tapPlaceEl=null;
 function palTap(type,strokeC,fillC,label){
   // On mobile: first tap selects element type, second tap on canvas places it
-  const d=document.getElementById('dorsal-input');
-  const num=String(parseInt(d?.value)||1);
+  const num=dorsalPara(type==='player'?label:null);
   const el={type,x:0,y:0};
   if(type==='player'){el.num=num;el.stroke=strokeC||'#3366CC';el.fill=fillC||'#0a1a40';}
   if(type==='ct'){el.label=label||'?';el.stroke=strokeC||'#00B050';el.fill=fillC||'#0a1f0a';}
@@ -2467,8 +2480,7 @@ function palDrag(e,type,strokeC,fillC,label){
   e.preventDefault();
   // Dónde se pulsó, para distinguir después un CLIC de un arrastre.
   const inicio={x:e.clientX, y:e.clientY};
-  const d=document.getElementById('dorsal-input');
-  const num=String(parseInt(d?.value)||1);
+  const num=dorsalPara(type==='player'?label:null);
   const el={type,x:0,y:0};
   if(type==='player'){el.num=num;el.stroke=strokeC||'#3366CC';el.fill=fillC||'#0a1a40';}
   if(type==='ct'){el.label=label||'?';el.stroke=strokeC||'#00B050';el.fill=fillC||'#0a1f0a';}
