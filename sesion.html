@@ -187,7 +187,7 @@
   @page { size:A4 landscape; margin:5mm 5mm; }
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   html,body { overflow:visible !important; height:auto !important; }
-  #topnav,#sessions-panel,#modal-overlay,#empty-state,#btn-print,
+  #topnav,#sessions-panel,#modal-overlay,#pl-overlay,#empty-state,#btn-print,.no-print,
   .btn-ghost,.btn-danger,.sess-hdr-arrow { display:none !important; }
   #app { display:block !important; height:auto !important; overflow:visible !important; }
   #session-editor { overflow:visible !important; height:auto !important; padding:0 !important; }
@@ -459,6 +459,10 @@
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="2" width="10" height="5" rx="1"/><rect x="2" y="7" width="12" height="7" rx="1"/><rect x="5" y="10" width="6" height="4"/></svg>
       Imprimir
     </button>
+    <button onclick="abrePlantilla()" title="Plantilla del equipo" style="background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.3);color:#C8A84B;padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="5" r="2.4"/><path d="M1.6 14c0-2.6 2-4.2 4.4-4.2s4.4 1.6 4.4 4.2"/><circle cx="12" cy="5.6" r="1.8"/><path d="M11 9.9c2 .2 3.4 1.7 3.4 4.1"/></svg>
+      <span id="pl-nombre-btn">Plantilla</span>
+    </button>
     <button onclick="openNewSession()" style="background:#C8A84B;border:none;color:#0d1530;padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
       + Nueva sesión
     </button>
@@ -488,6 +492,38 @@
 </div>
 
 <!-- MODAL -->
+<!-- MODAL PLANTILLA -->
+<div id="pl-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:120;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:560px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-hdr"><span>Plantilla del equipo</span>
+      <button class="btn btn-ghost" style="padding:4px 10px;" onclick="cierraPlantilla()">✕</button></div>
+    <div class="modal-body" style="overflow-y:auto;">
+      <div class="mf"><label>Nombre de la plantilla</label>
+        <input type="text" id="pl-nombre" placeholder="Ej: CD Teruel · Primer equipo"/></div>
+      <div class="mf">
+        <label>Traer jugadores de Captación</label>
+        <div style="display:flex;gap:6px;">
+          <select id="pl-club" style="flex:1;"></select>
+          <button class="btn btn-gold" style="white-space:nowrap;" onclick="plTraeDeCaptacion()">⤓ Traer</button>
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:3px;">Llega sin dorsal y ordenado por puesto: los números los pones tú.</div>
+      </div>
+      <div class="mf">
+        <label>Jugadores (<span id="pl-cuantos">0</span>)</label>
+        <div id="pl-lista" style="max-height:38vh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:6px;display:flex;flex-direction:column;gap:4px;"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <button class="btn btn-ghost" onclick="plAnade()">+ Añadir jugador</button>
+          <button class="btn btn-ghost" onclick="plVacia()">Vaciar</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cierraPlantilla()">Cancelar</button>
+      <button class="btn btn-gold" onclick="plGuarda()">Guardar plantilla</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-overlay">
   <div id="modal">
     <div class="modal-hdr">
@@ -755,8 +791,135 @@ let curSessionId=null;
 let players=JSON.parse(localStorage.getItem('pz_players')||
   JSON.stringify(Array.from({length:24},(_,i)=>({num:i+1,name:''}))));
 
+let plNombre=localStorage.getItem('pz_plantilla_nombre')||'';
 function saveSessions(){localStorage.setItem('pz_sessions',JSON.stringify(sessions));}
 function savePlayers(){localStorage.setItem('pz_players',JSON.stringify(players));}
+function savePlNombre(){localStorage.setItem('pz_plantilla_nombre',plNombre||'');}
+function pintaNombrePlantilla(){
+  const b=document.getElementById('pl-nombre-btn');
+  if(b) b.textContent = plNombre ? plNombre : 'Plantilla';
+}
+
+// ══════════ PLANTILLA DEL EQUIPO ══════════
+// Una sola plantilla activa, que se puede cambiar cuando se cambia de
+// equipo. Cada sesión guarda su propia copia al crearse (s.players), así
+// que cambiar de plantilla no reescribe las sesiones ya hechas.
+let plBorrador=[];
+const POS_CORTA={P1:'POR',P2:'LD',P3:'LI',P4:'DFC',P5:'DFC',P6:'MCD',P8:'MC',P10:'MP',P7:'ED',P11:'EI',P9:'DC'};
+const POS_ORDEN=['P1','P2','P3','P4','P5','P6','P8','P10','P7','P11','P9'];
+function capNorm(x){
+  return String(x==null?'':x).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\([^)]*\)\s*$/,'').replace(/\./g,'').replace(/\s+/g,' ').trim().toUpperCase();
+}
+function capJugadores(){
+  try{ const a=JSON.parse(localStorage.getItem('oi_jugadores_v1')||'[]'); return Array.isArray(a)?a:[]; }
+  catch(e){ return []; }
+}
+function abrePlantilla(){
+  document.getElementById('pl-nombre').value=plNombre||'';
+  plBorrador=players.map(p=>({num:p.num,name:p.name||''}));
+  // Clubes de Captación, los que más fichas tienen primero
+  const cuenta={};
+  capJugadores().forEach(j=>{ const e=(j.eq||'').trim(); if(e&&e!=='—') cuenta[e]=(cuenta[e]||0)+1; });
+  const sel=document.getElementById('pl-club');
+  const clubes=Object.entries(cuenta).sort((a,b)=>b[1]-a[1]);
+  sel.innerHTML = clubes.length
+    ? '<option value="">— Elige un club —</option>'+clubes.map(([c,n])=>`<option value="${c.replace(/"/g,'&quot;')}">${c} (${n})</option>`).join('')
+    : '<option value="">No hay jugadores en Captación</option>';
+  plPinta();
+  document.getElementById('pl-overlay').style.display='flex';
+}
+function cierraPlantilla(){ document.getElementById('pl-overlay').style.display='none'; }
+function plPinta(){
+  const c=document.getElementById('pl-lista'); c.innerHTML='';
+  document.getElementById('pl-cuantos').textContent=plBorrador.length;
+  plBorrador.forEach((p,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:6px;align-items:center;';
+    row.innerHTML=`<input type="text" value="${String(p.num==null?'':p.num).replace(/"/g,'&quot;')}" maxlength="3"
+        style="width:46px;text-align:center;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:4px;padding:5px;font-size:12px;color:var(--text);font-weight:700;"
+        oninput="plCampo(${i},'num',this.value)"/>
+      <input type="text" value="${String(p.name||'').replace(/"/g,'&quot;')}" placeholder="Nombre del jugador"
+        style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;color:var(--text);"
+        oninput="plCampo(${i},'name',this.value)"/>
+      <button class="btn btn-ghost" style="padding:4px 9px;" onclick="plQuita(${i})">✕</button>`;
+    c.appendChild(row);
+  });
+  if(!plBorrador.length) c.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3);">Sin jugadores. Tráelos de Captación o añádelos a mano.</div>';
+}
+function plCampo(i,campo,v){ if(plBorrador[i]) plBorrador[i][campo]=v; }
+function plQuita(i){ plBorrador.splice(i,1); plPinta(); }
+function plAnade(){
+  const usados=plBorrador.map(p=>parseInt(p.num,10)).filter(n=>!isNaN(n));
+  let n=1; while(usados.indexOf(n)>=0) n++;
+  plBorrador.push({num:n,name:''}); plPinta();
+}
+function plVacia(){
+  if(!plBorrador.length) return;
+  if(!confirm('¿Vaciar la lista de jugadores de la plantilla?')) return;
+  plBorrador=[]; plPinta();
+}
+function plTraeDeCaptacion(){
+  const club=document.getElementById('pl-club').value;
+  if(!club){ alert('Elige primero un club de la lista.'); return; }
+  const objetivo=capNorm(club);
+  const suyos=capJugadores().filter(j=>capNorm(j.eq)===objetivo);
+  if(!suyos.length){ alert('No hay jugadores de '+club+' en Captación.'); return; }
+  const sitio=j=>{
+    const pr=String(j.pos||'').split(',')[0].trim();
+    const i=POS_ORDEN.indexOf(pr); return i<0?99:i;
+  };
+  suyos.sort((a,b)=>sitio(a)-sitio(b)||String(a.n||'').localeCompare(String(b.n||'')));
+  // No se duplica a quien ya esté escrito en la lista
+  const yaEstan=plBorrador.map(p=>capNorm(p.name)).filter(Boolean);
+  const nuevos=suyos.filter(j=>yaEstan.indexOf(capNorm(j.n))<0);
+  if(!nuevos.length){ alert('Todos los jugadores de '+club+' ya están en la plantilla.'); return; }
+  // Las filas que no tienen nombre (los huecos vacíos) se quitan, para que
+  // los que llegan de Captación empiecen por el 1 y no detrás de 24 huecos.
+  plBorrador=plBorrador.filter(p=>String(p.name||'').trim());
+  const usados=plBorrador.map(p=>parseInt(p.num,10)).filter(n=>!isNaN(n));
+  let n=1;
+  nuevos.forEach(j=>{
+    while(usados.indexOf(n)>=0) n++;
+    usados.push(n);
+    const pr=String(j.pos||'').split(',')[0].trim();
+    const ab=POS_CORTA[pr]||'';
+    plBorrador.push({num:n, name:String(j.n||'').trim(), pos:ab});
+    n++;
+  });
+  if(!document.getElementById('pl-nombre').value.trim())
+    document.getElementById('pl-nombre').value=club;
+  plPinta();
+}
+function plGuarda(){
+  const lista=plBorrador
+    .map(p=>({num:(String(p.num).trim()||''), name:String(p.name||'').trim(), pos:p.pos||''}))
+    .filter(p=>p.num!=='' || p.name!=='');
+  const nums=lista.map(p=>String(p.num));
+  const rep=nums.filter((x,i)=>x&&nums.indexOf(x)!==i);
+  if(rep.length && !confirm('Hay dorsales repetidos ('+[...new Set(rep)].join(', ')+'). ¿Guardar igual?')) return;
+  players=lista.map(p=>({num:(isNaN(parseInt(p.num,10))?p.num:parseInt(p.num,10)), name:p.name, pos:p.pos}));
+  savePlayers();
+  plNombre=document.getElementById('pl-nombre').value.trim();
+  savePlNombre(); pintaNombrePlantilla();
+  cierraPlantilla();
+  // Si hay una sesión abierta, se repinta pero NO se le cambia su copia:
+  // para eso está el botón "Usar la plantilla actual" de la asistencia.
+  if(curSessionId){ const s=sessions.find(x=>x.id===curSessionId); if(s) renderSession(s); }
+}
+// Los jugadores que usa una sesión: su copia si la tiene, y si no la actual.
+function plDe(s){
+  return (Array.isArray(s.players)&&s.players.length) ? s.players : players;
+}
+function plRefresca(sid){
+  const s=sessions.find(x=>x.id===sid); if(!s) return;
+  if(!confirm('¿Poner en esta sesión la plantilla actual'+(plNombre?' ('+plNombre+')':'')+'?\nLa asistencia ya marcada se conserva por dorsal.')) return;
+  s.players=players.map(p=>({num:p.num,name:p.name||'',pos:p.pos||''}));
+  const vieja=s.attendance||{};
+  s.attendance=Object.fromEntries(s.players.map(p=>[p.num, vieja[p.num]||'E']));
+  s.plantilla=plNombre||'';
+  saveSessions(); renderSession(s);
+}
 
 // ── SESSION LIST ──
 function renderSessionList(){
@@ -818,6 +981,8 @@ function saveSession(){
     rival:document.getElementById('m-rival').value,
     taskIds:checkedIds,
     taskData:Object.fromEntries(checkedIds.map(id=>([id,{indice:'',tiempo:'',carga:'',distrib:Array(20).fill('')}]))),
+    players:players.map(p=>({num:p.num,name:p.name||'',pos:p.pos||''})),
+    plantilla:plNombre||'',
     attendance:Object.fromEntries(players.map(p=>[p.num,'E'])),
     objectives:Object.fromEntries(checkedIds.map(id=>{
       const t=tasks.find(t=>t.id===id)||{};
@@ -1049,7 +1214,9 @@ function renderSession(s){
 
   // Asistencia
   const attBlock=document.createElement('div');attBlock.className='att-block';
-  attBlock.innerHTML=`<div class="att-title">Asistencia
+  const jugSes=plDe(s);
+  attBlock.innerHTML=`<div class="att-title">Asistencia${(s.plantilla||plNombre)?' · '+(s.plantilla||plNombre):''}
+    <button class="btn btn-ghost no-print" onclick="plRefresca('${s.id}')" style="padding:2px 8px;font-size:9px;margin-left:8px;">↻ Usar la plantilla actual</button>
     <div style="margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;">
       ${['E','L','En','P','RA','E2'].map(st=>`<div style="display:flex;align-items:center;gap:2px;">
         <span class="att-status att-${st}">${st}</span>
@@ -1060,12 +1227,12 @@ function renderSession(s){
   <div class="att-grid" id="att-${s.id}"></div>`;
   page1.appendChild(attBlock);
   const ag=attBlock.querySelector('#att-'+s.id);
-  players.forEach(p=>{
-    const st=s.attendance[p.num]||'E';
+  jugSes.forEach(p=>{
+    const st=(s.attendance&&s.attendance[p.num])||'E';
     const cell=document.createElement('div');cell.className='att-player';
     cell.innerHTML=`<span class="att-num">${p.num}</span>
       <input style="background:transparent;border:none;font-size:9px;color:var(--text);width:55px;font-family:'Barlow',sans-serif;padding:0;"
-        value="${p.name||''}" placeholder="Jugador ${p.num}" onchange="updatePlayerName(${p.num},this.value)"/>
+        value="${p.name||''}" placeholder="Jugador ${p.num}" onchange="updatePlayerName('${s.id}',${JSON.stringify(String(p.num))},this.value)"/>
       <span class="att-status att-${st}" data-player="${p.num}" onclick="cycleAtt(this,'${s.id}')">${st}</span>`;
     ag.appendChild(cell);
   });
@@ -1168,7 +1335,14 @@ function renderSession(s){
 }
 
 // ── DATA UPDATES ──
-function updatePlayerName(num,name){const p=players.find(p=>p.num===num);if(p){p.name=name;savePlayers();}}
+function updatePlayerName(sid,num,name){
+  const s=sessions.find(x=>x.id===sid);
+  const mismo=p=>String(p.num)===String(num);
+  if(s && Array.isArray(s.players) && s.players.length){
+    const p=s.players.find(mismo); if(p){ p.name=name; saveSessions(); }
+  }
+  const g=players.find(mismo); if(g){ g.name=name; savePlayers(); }
+}
 function cycleAtt(el,sid){
   const s=sessions.find(s=>s.id===sid);if(!s)return;
   const num=parseInt(el.getAttribute('data-player'));
@@ -1340,9 +1514,14 @@ window.addEventListener('oi-datos', function(ev){
       var s2 = sessions.find(function(x){ return x.id === curSessionId; });
       if(s2 && typeof renderSession === 'function') renderSession(s2);
     }
+    if(hay('pz_plantilla_nombre')){
+      plNombre = localStorage.getItem('pz_plantilla_nombre')||'';
+      pintaNombrePlantilla();
+    }
     if(hay('oi_team_crest')) _loadOiCrest();
   }catch(e){}
 });
+pintaNombrePlantilla();
 </script>
 </body>
 </html>
