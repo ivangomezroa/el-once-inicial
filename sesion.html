@@ -103,6 +103,16 @@
 .att-num{font-size:9px;font-weight:700;color:var(--gold);min-width:14px;font-family:'Barlow Condensed',sans-serif;}
 .att-name{font-size:9px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .att-status{font-size:8px;font-weight:700;border-radius:2px;padding:1px 4px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;transition:all .15s;}
+.att-status:hover{outline:1px solid rgba(255,255,255,0.6);outline-offset:1px;}
+#est-menu{position:fixed;z-index:200;display:none;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:var(--radius);box-shadow:0 6px 22px rgba(0,0,0,0.55);padding:4px;min-width:150px;}
+#est-menu.abierto{display:block;}
+#est-menu .em-i{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer;
+  font-size:11px;color:var(--text);font-family:'Barlow',sans-serif;}
+#est-menu .em-i:hover{background:rgba(200,168,75,0.12);}
+#est-menu .em-i.sel{background:rgba(200,168,75,0.18);}
+#est-menu .em-i .att-status{cursor:pointer;min-width:22px;text-align:center;}
+@media print{ #est-menu{display:none !important;} }
 .att-E{background:#00B050;color:#fff;}
 .att-L{background:#e05252;color:#fff;}
 .att-En{background:#27ae60;color:#fff;}
@@ -493,6 +503,8 @@
 
 <!-- MODAL -->
 <!-- MODAL PLANTILLA -->
+<div id="est-menu"></div>
+
 <div id="pl-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:120;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:560px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;">
     <div class="modal-hdr"><span>Plantilla del equipo</span>
@@ -1233,7 +1245,7 @@ function renderSession(s){
     cell.innerHTML=`<span class="att-num">${p.num}</span>
       <input style="background:transparent;border:none;font-size:9px;color:var(--text);width:55px;font-family:'Barlow',sans-serif;padding:0;"
         value="${p.name||''}" placeholder="Jugador ${p.num}" onchange="updatePlayerName('${s.id}',${JSON.stringify(String(p.num))},this.value)"/>
-      <span class="att-status att-${st}" data-player="${p.num}" onclick="cycleAtt(this,'${s.id}')">${st}</span>`;
+      <span class="att-status att-${st}" data-player="${String(p.num).replace(/"/g,'&quot;')}" onclick="abreEstado(event,this,'${s.id}')">${st}</span>`;
     ag.appendChild(cell);
   });
 
@@ -1343,15 +1355,55 @@ function updatePlayerName(sid,num,name){
   }
   const g=players.find(mismo); if(g){ g.name=name; savePlayers(); }
 }
-function cycleAtt(el,sid){
-  const s=sessions.find(s=>s.id===sid);if(!s)return;
-  const num=parseInt(el.getAttribute('data-player'));
-  const cur=s.attendance[num]||'E';
-  const next=ATT_NEXT[cur]||'E';
-  s.attendance[num]=next;
-  el.className=`att-status att-${next}`;el.textContent=next;
-  saveSessions();
+// ── Estado de asistencia: desplegable al pulsar el estado ──
+// Antes el estado iba rotando a cada clic (E → L → En → …), así que para
+// poner "Permiso" desde "Asistencia" había que pulsar tres veces y era
+// fácil pasarse. Ahora se abre una lista y se elige directamente.
+const ATT_ESTADOS=[['E','Asistencia'],['L','Lesión'],['En','Enfermo'],
+                   ['P','Permiso'],['RA','Readaptando'],['E2','Otro equipo']];
+let estChip=null, estSid=null;
+function cierraEstado(){
+  const m=document.getElementById('est-menu');
+  if(m) m.classList.remove('abierto');
+  estChip=null; estSid=null;
 }
+function abreEstado(ev,el,sid){
+  ev.stopPropagation();
+  const m=document.getElementById('est-menu'); if(!m) return;
+  // Pulsar otra vez el mismo estado cierra la lista.
+  if(m.classList.contains('abierto') && estChip===el){ cierraEstado(); return; }
+  estChip=el; estSid=sid;
+  const actual=el.textContent.trim();
+  m.innerHTML=ATT_ESTADOS.map(([c,n])=>
+    `<div class="em-i${c===actual?' sel':''}" onclick="ponEstado('${c}')">`+
+    `<span class="att-status att-${c}">${c}</span><span>${n}</span></div>`).join('');
+  m.classList.add('abierto');
+  // Se coloca pegado al chip, y se mete para dentro si se sale de la ventana.
+  const r=el.getBoundingClientRect();
+  const mw=m.offsetWidth||150, mh=m.offsetHeight||180;
+  let left=r.left, top=r.bottom+4;
+  if(left+mw>window.innerWidth-8) left=window.innerWidth-mw-8;
+  if(top+mh>window.innerHeight-8) top=r.top-mh-4;
+  m.style.left=Math.max(8,left)+'px';
+  m.style.top=Math.max(8,top)+'px';
+}
+function ponEstado(c){
+  if(!estChip||!estSid){ cierraEstado(); return; }
+  const s=sessions.find(x=>x.id===estSid);
+  if(s){
+    const num=estChip.getAttribute('data-player');
+    if(!s.attendance) s.attendance={};
+    s.attendance[num]=c;
+    estChip.className='att-status att-'+c;
+    estChip.textContent=c;
+    saveSessions();
+  }
+  cierraEstado();
+}
+document.addEventListener('click',cierraEstado);
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') cierraEstado(); });
+window.addEventListener('resize',cierraEstado);
+document.addEventListener('scroll',cierraEstado,true);
 function updateITC(sid,tid,field,val){
   const s=sessions.find(s=>s.id===sid);if(!s)return;
   if(!s.taskData[tid])s.taskData[tid]={};
