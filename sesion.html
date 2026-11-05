@@ -294,10 +294,14 @@
     width: 960px;
     display: block;
   }
-  /* Reducir campo SVG para ahorrar tinta */
-  .lcard [style*="height:380px"] {
-    height: 260px !important;
-  }
+  /* El campo baja un poco y la fila sube, para que el desarrollo respire */
+  .tc-campo { height: 340px !important; }
+  /* Más ancho para el desarrollo: se lo quita el cuerpo técnico, no el campo */
+  .tc-cols { grid-template-columns: 250px 1fr 160px !important; }
+  /* Dentro de la columna izquierda, el desarrollo manda sobre la puntuación */
+  .tc-desarrollo { flex: 3 !important; padding: 8px 10px !important; }
+  .tc-punt { flex: 1 !important; padding: 6px 10px !important; }
+  .tc-texto { line-height: 1.45 !important; }
   /* Fondos oscuros → blanco para ahorrar tinta EXCEPTO banners de fase */
   .lcard [style*="background:#0c1828"],
   .lcard [style*="background:#0a1520"],
@@ -1667,6 +1671,25 @@ crestNavLoad();
 renderSessionList();
 
 // ── PRINT: scale cards to fit exactly ──
+// Al imprimir, el hueco del desarrollo es fijo. Si el texto no cabe, se le
+// baja la letra hasta que quepa (con un suelo, para que siga siendo legible).
+const DES_MAX = 10, DES_MIN = 6.5;
+function ajustaDesarrollos(){
+  document.querySelectorAll('.tc-desarrollo').forEach(caja=>{
+    const tx = caja.querySelector('.tc-texto');
+    if(!tx) return;
+    let f = DES_MAX;
+    tx.style.fontSize = f + 'px';
+    let vueltas = 0;
+    while(caja.scrollHeight > caja.clientHeight + 1 && f > DES_MIN && vueltas++ < 40){
+      f -= 0.25;
+      tx.style.fontSize = f + 'px';
+    }
+  });
+}
+function sueltaDesarrollos(){
+  document.querySelectorAll('.tc-desarrollo .tc-texto').forEach(tx=>{ tx.style.fontSize=''; });
+}
 function beforePrint(){
   document.querySelectorAll('.lcard-scale-wrap').forEach(wrap=>{
     const parent = wrap.closest('.print-task-wrap');
@@ -1676,8 +1699,10 @@ function beforePrint(){
     const z = availW / cardW;
     wrap.style.zoom = z.toFixed(4);
   });
+  ajustaDesarrollos();
 }
 function afterPrint(){
+  sueltaDesarrollos();
   document.querySelectorAll('.lcard-scale-wrap').forEach(wrap=>{
     wrap.style.zoom = '';
   });
