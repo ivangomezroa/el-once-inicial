@@ -294,8 +294,10 @@
     width: 960px;
     display: block;
   }
-  /* El campo baja un poco y la fila sube, para que el desarrollo respire */
-  .tc-campo { height: 340px !important; }
+  /* El campo más grande: la fila crece y la hoja se aprovecha mejor.
+     (Se probó estirar la tarjeta al alto del hueco y salía peor: el campo
+     quedaba con bandas enormes arriba y abajo.) */
+  .tc-campo { height: 520px !important; }
   /* Más ancho para el desarrollo: se lo quita el cuerpo técnico, no el campo */
   .tc-cols { grid-template-columns: 250px 1fr 160px !important; }
   /* Dentro de la columna izquierda, el desarrollo manda sobre la puntuación */
@@ -440,41 +442,51 @@
 
 /* ══ IMPRESIÓN SESIÓN — Amigable con la tinta ══ */
 @media print {
-  @page { size: A4 landscape; margin: 8mm; }
-  
+  /* 5 mm, igual que el bloque de arriba: con 8 mm la hoja de 287×200 mm no
+     cabía en el A4 y cada página se partía en dos (salían 4 hojas, dos casi
+     en blanco). */
+  @page { size: A4 landscape; margin: 5mm; }
+
   .oi-topnav, #sessions-panel { display: none !important; }
-  
+
   *, *::before, *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  
+
   body, html { background: white !important; overflow: visible !important; }
-  
-  /* Header de sesión */
-  .sess-header {
-    background: #1B2A6B !important;
-    color: white !important;
-    border-radius: 0 !important;
+
+  /* ── LEGIBILIDAD ──
+     Aquí había un `* { color:#222 !important }` que pisaba TODO: dejaba el
+     "SESIÓN 1" en gris oscuro sobre el azul marino, los tipos de tarea
+     (Conservación, Rondo…) en oscuro sobre fondo oscuro, las letras de la
+     leyenda de asistencia oscuras sobre su color, y las cabeceras de las
+     tablas de abajo también. Se quita y se dice el color donde hace falta. */
+
+  /* Cabecera de la sesión: blanco sobre azul */
+  .sess-hdr-block [style*="font-size:24px"] { color:#fff !important; }
+  .sess-hdr-block [style*="font-size:10px"] { color:rgba(255,255,255,0.75) !important; }
+
+  /* Tipos de tarea: fondo claro y letra azul marino */
+  .lcard span[style*="background:var(--surface2)"] {
+    background:#eef1f7 !important;
+    color:#1B2A6B !important;
+    border-color:rgba(27,42,107,0.4) !important;
   }
-  
-  /* Fondos oscuros → blanco */
-  .task-card { 
-    background: white !important; 
-    border: 1px solid #ccc !important;
-    box-shadow: none !important;
-  }
-  
-  /* Campo SVG — fondo blanco */
-  .field-wrap, .field-bg { background: white !important; }
-  .field-line { stroke: #333 !important; }
-  
-  /* Texto legible */
-  * { color: #222 !important; }
-  .phase-banner { -webkit-print-color-adjust: exact !important; }
-  
+  /* Grises flojos de la cabecera de la tarjeta (espacio, socioestructura…) */
+  .lcard [style*="color:var(--text2)"] { color:#333 !important; }
+
+  /* Asistencia: todo oscuro sobre la casilla blanca */
+  .att-title { color:#1B2A6B !important; }
+  .att-num   { color:#1B2A6B !important; }
+  .att-name, .att-player input { color:#111 !important; }
+
+  /* Tablas de abajo */
+  .distrib-cell { color:#222 !important; }
+  .obj-table [contenteditable] { color:#111 !important; }
+
   /* Evitar cortes */
-  .task-card { page-break-inside: avoid !important; }
+  .print-page, .lcard { page-break-inside: avoid !important; }
 }
 </style>
 <script src="/oi-sesion.js"></script>
@@ -1698,6 +1710,7 @@ function beforePrint(){
     const cardW = 960;
     const z = availW / cardW;
     wrap.style.zoom = z.toFixed(4);
+
   });
   ajustaDesarrollos();
 }
