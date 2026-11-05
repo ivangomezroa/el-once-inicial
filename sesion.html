@@ -112,6 +112,8 @@
 #est-menu .em-i:hover{background:rgba(200,168,75,0.12);}
 #est-menu .em-i.sel{background:rgba(200,168,75,0.18);}
 #est-menu .em-i .att-status{cursor:pointer;min-width:22px;text-align:center;}
+.tbot{padding:1px 7px !important;font-size:9px !important;letter-spacing:.5px !important;}
+.tbot[disabled]{opacity:.3;cursor:default;pointer-events:none;}
 @media print{ #est-menu{display:none !important;} }
 .att-E{background:#00B050;color:#fff;}
 .att-L{background:#e05252;color:#fff;}
@@ -504,6 +506,20 @@
 <!-- MODAL -->
 <!-- MODAL PLANTILLA -->
 <div id="est-menu"></div>
+
+<!-- MODAL: elegir tarea de la librería -->
+<div id="tp-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:130;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:520px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;">
+    <div class="modal-hdr"><span id="tp-titulo">Añadir tarea</span>
+      <button class="btn btn-ghost" style="padding:4px 10px;" onclick="cierraSelTarea()">✕</button></div>
+    <div class="modal-body" style="overflow:hidden;">
+      <div class="mf"><label>Buscar en la librería</label>
+        <input type="text" id="tp-buscar" placeholder="Nombre, tipo o fase…" oninput="tpPinta(this.value)"/></div>
+      <div class="task-pick-list" id="tp-lista" style="max-height:52vh;"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="cierraSelTarea()">Cancelar</button></div>
+  </div>
+</div>
 
 <div id="pl-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:120;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:560px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;">
@@ -1152,7 +1168,14 @@ function renderSession(s){
     const lbl=document.createElement('div');
     lbl.className='task-lbl';
     lbl.style.cssText="display:flex;align-items:center;gap:6px;margin:8px 0 3px;";
-    lbl.innerHTML=`<span style="background:var(--gold);color:#0d1530;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;padding:2px 10px;border-radius:4px;letter-spacing:1px;">TAREA ${num}</span>`;
+    const idx=num-1, ult=(s.taskIds||[]).length-1;
+    lbl.innerHTML=`<span style="background:var(--gold);color:#0d1530;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;padding:2px 10px;border-radius:4px;letter-spacing:1px;">TAREA ${num}</span>
+      <span class="no-print" style="display:flex;gap:4px;align-items:center;">
+        <button class="btn btn-ghost tbot" onclick="mueveTarea('${s.id}',${idx},-1)" ${idx===0?'disabled':''} title="Mover antes">←</button>
+        <button class="btn btn-ghost tbot" onclick="mueveTarea('${s.id}',${idx},1)" ${idx>=ult?'disabled':''} title="Mover después">→</button>
+        <button class="btn btn-ghost tbot" onclick="abreSelTarea('${s.id}',${idx})" title="Cambiar por otra tarea">⇄ Cambiar</button>
+        <button class="btn btn-ghost tbot" onclick="quitaTarea('${s.id}',${idx})" title="Quitar de la sesión">✕ Quitar</button>
+      </span>`;
     wrap.appendChild(lbl);
 
     // Card (exact librería) + extra dentro del wrapper de escala
@@ -1255,7 +1278,8 @@ function renderSession(s){
     if(taskObjs[i]) row1.appendChild(buildTaskWrap(taskObjs[i],i+1));
     else {
       const empty=document.createElement('div');empty.className='print-task-wrap';
-      empty.innerHTML=`<div style="border:1px dashed rgba(200,168,75,0.2);border-radius:4px;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">SIN TAREA</div>`;
+      empty.innerHTML=`<div style="border:1px dashed rgba(200,168,75,0.2);border-radius:4px;height:100%;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">SIN TAREA
+        <button class="btn btn-gold no-print" onclick="abreSelTarea('${s.id}',null)">+ Añadir tarea</button></div>`;
       row1.appendChild(empty);
     }
   });
@@ -1279,7 +1303,8 @@ function renderSession(s){
     if(taskObjs[i]) row2.appendChild(buildTaskWrap(taskObjs[i],i+1));
     else {
       const empty=document.createElement('div');empty.className='print-task-wrap';
-      empty.innerHTML=`<div style="border:1px dashed rgba(200,168,75,0.2);border-radius:4px;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">SIN TAREA</div>`;
+      empty.innerHTML=`<div style="border:1px dashed rgba(200,168,75,0.2);border-radius:4px;height:100%;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">SIN TAREA
+        <button class="btn btn-gold no-print" onclick="abreSelTarea('${s.id}',null)">+ Añadir tarea</button></div>`;
       row2.appendChild(empty);
     }
   });
@@ -1355,6 +1380,116 @@ function updatePlayerName(sid,num,name){
   }
   const g=players.find(mismo); if(g){ g.name=name; savePlayers(); }
 }
+// ══════════ TAREAS DE LA SESIÓN: añadir, cambiar, quitar y mover ══════════
+// Antes las tareas solo se elegían al crear la sesión y ya no se tocaban.
+const TAREAS_MAX = 4;   // la planilla imprime 2 tareas por página, 2 páginas
+let tpSid=null, tpIdx=null;
+
+function abreSelTarea(sid, idx){
+  const s=sessions.find(x=>x.id===sid); if(!s) return;
+  if(idx===null && (s.taskIds||[]).length>=TAREAS_MAX){
+    alert('La planilla admite '+TAREAS_MAX+' tareas. Quita una antes de añadir otra.');
+    return;
+  }
+  tpSid=sid; tpIdx=idx;
+  document.getElementById('tp-titulo').textContent = (idx===null)
+    ? 'Añadir tarea a la sesión' : 'Cambiar la tarea '+(idx+1);
+  const b=document.getElementById('tp-buscar'); b.value='';
+  tpPinta('');
+  document.getElementById('tp-overlay').style.display='flex';
+  setTimeout(function(){ b.focus(); },50);
+}
+function cierraSelTarea(){
+  document.getElementById('tp-overlay').style.display='none';
+  tpSid=null; tpIdx=null;
+}
+function tpPinta(filtro){
+  const cont=document.getElementById('tp-lista'); if(!cont) return;
+  const s=sessions.find(x=>x.id===tpSid)||{taskIds:[]};
+  const puestas=s.taskIds||[];
+  const f=capNorm(filtro||'');
+  const lista=tasks.filter(function(t){
+    if(!f) return true;
+    const texto=[t.name, FL[t.fasePrincipal||'']||'', (t.tipos||[]).join(' '), t.socio||''].join(' ');
+    return capNorm(texto).indexOf(f)>=0;
+  });
+  if(!tasks.length){
+    cont.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3);">No hay tareas en la librería. Créalas en la Pizarra.</div>';
+    return;
+  }
+  if(!lista.length){
+    cont.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3);">Ninguna tarea coincide con la búsqueda.</div>';
+    return;
+  }
+  cont.innerHTML=lista.map(function(t){
+    const fp=fc(t.fasePrincipal||'');
+    // La que ya está en la sesión no se puede poner dos veces (los datos de
+    // índice, tiempo y distribución van por tarea: se pisarían).
+    const ya = puestas.indexOf(t.id)>=0 && !(tpIdx!==null && puestas[tpIdx]===t.id);
+    return '<div class="task-pick-item"'+(ya?' style="opacity:.4;cursor:default;"':
+             ' onclick="tpElige(\''+t.id+'\')"')+'>'+
+      '<div style="flex:1;min-width:0;">'+
+        '<div class="tpi-name">'+esc2(t.name||'Sin nombre')+(ya?' · ya está en la sesión':'')+'</div>'+
+        '<div class="tpi-phase" style="color:'+fp.brd+';">'+(FL[t.fasePrincipal||'']||'—')+
+          (t.socio?' · '+esc2(t.socio):'')+'</div>'+
+      '</div></div>';
+  }).join('');
+}
+function esc2(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function tpDatosDe(s, tid){
+  if(!s.taskData) s.taskData={};
+  if(!s.taskData[tid]) s.taskData[tid]={indice:'',tiempo:'',carga:'',distrib:Array(20).fill('')};
+  if(!s.objectives) s.objectives={};
+  if(!s.objectives[tid]){
+    const t=tasks.find(x=>x.id===tid)||{};
+    s.objectives[tid]={
+      principal:(t.iP&&t.iP.length)?t.iP.join(' · '):'',
+      secundario:(t.iS&&t.iS.length)?t.iS.join(' · '):''
+    };
+  }
+}
+function tpElige(tid){
+  const s=sessions.find(x=>x.id===tpSid); if(!s){ cierraSelTarea(); return; }
+  if(!Array.isArray(s.taskIds)) s.taskIds=[];
+  if(tpIdx===null){
+    if(s.taskIds.length>=TAREAS_MAX){ cierraSelTarea(); return; }
+    s.taskIds.push(tid);
+  } else {
+    const viejo=s.taskIds[tpIdx];
+    s.taskIds[tpIdx]=tid;
+    tpLimpia(s, viejo);
+  }
+  tpDatosDe(s, tid);
+  saveSessions(); cierraSelTarea();
+  renderSessionList(); renderSession(s);
+}
+// Si una tarea ya no está en la sesión, se tiran sus datos (índice, tiempo,
+// carga, distribución y objetivos): si no, al volver a ponerla aparecerían
+// los de la vez anterior.
+function tpLimpia(s, tid){
+  if(!tid) return;
+  if((s.taskIds||[]).indexOf(tid)>=0) return;
+  if(s.taskData) delete s.taskData[tid];
+  if(s.objectives) delete s.objectives[tid];
+}
+function quitaTarea(sid, idx){
+  const s=sessions.find(x=>x.id===sid); if(!s) return;
+  const tid=(s.taskIds||[])[idx]; if(!tid) return;
+  const t=tasks.find(x=>x.id===tid);
+  if(!confirm('¿Quitar "'+((t&&t.name)||'esta tarea')+'" de la sesión?\nSe pierden su índice, tiempo, carga y distribución.')) return;
+  s.taskIds.splice(idx,1);
+  tpLimpia(s, tid);
+  saveSessions(); renderSessionList(); renderSession(s);
+}
+function mueveTarea(sid, idx, dir){
+  const s=sessions.find(x=>x.id===sid); if(!s) return;
+  const a=s.taskIds||[], j=idx+dir;
+  if(j<0 || j>=a.length) return;
+  const tmp=a[idx]; a[idx]=a[j]; a[j]=tmp;
+  saveSessions(); renderSession(s);
+}
+
 // ── Estado de asistencia: desplegable al pulsar el estado ──
 // Antes el estado iba rotando a cada clic (E → L → En → …), así que para
 // poner "Permiso" desde "Asistencia" había que pulsar tres veces y era
