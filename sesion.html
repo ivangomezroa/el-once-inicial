@@ -739,11 +739,11 @@ function makeFieldSVG(t){
     });
 
     // Lines
-    const LC={pass:'#3366CC',run:'#00B050',dribble:'#C8A84B',shot:'#FF0000',pressure:'#FFC000',dots:'#ffffff'};
+    const LC={pass:'#3366CC',run:'#00B050',dribble:'#C8A84B',shot:'#FF0000',pressure:'#FFC000',dots:'#ffffff',dash:'#ffffff'};
     allLns.forEach(l=>{
       const lx1=toSVGx(l.x1),ly1=toSVGy(l.y1),lx2=toSVGx(l.x2),ly2=toSVGy(l.y2);
       const lc=l.customColor||LC[l.lt]||'#3366CC', lw=l.lt==='shot'?2.5:2;
-      const da=l.lt==='run'?'stroke-dasharray="8,4"':l.lt==='pressure'?'stroke-dasharray="3,2.5"':l.lt==='dots'?'stroke-dasharray="2,5"':'';
+      const da=l.lt==='run'?'stroke-dasharray="8,4"':l.lt==='pressure'?'stroke-dasharray="3,2.5"':l.lt==='dots'?'stroke-dasharray="2,5"':l.lt==='dash'?'stroke-dasharray="10,6"':'';
       if(l.lt==='dribble'){
         const dx=lx2-lx1,dy=ly2-ly1,len=Math.sqrt(dx*dx+dy*dy)||1;
         const steps=Math.max(2,Math.floor(len/16));const amp=5;
@@ -753,7 +753,7 @@ function makeFieldSVG(t){
       } else {
         s+=`<line x1="${lx1.toFixed(1)}" y1="${ly1.toFixed(1)}" x2="${lx2.toFixed(1)}" y2="${ly2.toFixed(1)}" stroke="${lc}" stroke-width="${lw}" ${da}/>`;
       }
-      if(l.lt!=='dots'){const a=Math.atan2(ly2-ly1,lx2-lx1),sz=8;s+=`<polygon points="${lx2},${ly2} ${lx2-sz*Math.cos(a-.38)},${ly2-sz*Math.sin(a-.38)} ${lx2-sz*Math.cos(a+.38)},${ly2-sz*Math.sin(a+.38)}" fill="${lc}"/>`;}
+      if(l.lt!=='dots'&&l.lt!=='dash'){const a=Math.atan2(ly2-ly1,lx2-lx1),sz=8;s+=`<polygon points="${lx2},${ly2} ${lx2-sz*Math.cos(a-.38)},${ly2-sz*Math.sin(a-.38)} ${lx2-sz*Math.cos(a+.38)},${ly2-sz*Math.sin(a+.38)}" fill="${lc}"/>`;}
     });
 
     // Goals/hurdles/ladders
