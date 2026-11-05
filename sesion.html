@@ -112,6 +112,28 @@
 #est-menu .em-i:hover{background:rgba(200,168,75,0.12);}
 #est-menu .em-i.sel{background:rgba(200,168,75,0.18);}
 #est-menu .em-i .att-status{cursor:pointer;min-width:22px;text-align:center;}
+/* ── SOLO PANTALLA: que se lea todo y quepan más jugadores ──
+   La impresión no se toca: estas reglas van dentro de @media screen y los
+   estilos en línea de la tarjeta siguen intactos. */
+@media screen{
+  /* La tarjeta usa todo el ancho de la ventana, no 960px */
+  .lcard > div{ max-width:none !important; }
+  .tc-cols{ grid-template-columns:minmax(260px,1.1fr) minmax(380px,1.7fr) minmax(200px,0.9fr) !important; }
+  /* Nada de scroll dentro de las cajas: el texto entero a la vista */
+  .tc-caja{ overflow:visible !important; flex:0 0 auto !important; }
+  .tc-desarrollo{ padding:14px 18px !important; }
+  .tc-texto{ font-size:12px !important; line-height:1.7 !important; color:#cfc7b6 !important;
+             white-space:pre-wrap; word-break:break-word; }
+  /* El campo crece con la fila pero conserva su proporción */
+  .tc-campo{ height:auto !important; min-height:300px; display:flex; align-items:flex-start; }
+  .tc-campo svg{ height:auto !important; }
+  /* Asistencia: cuantas más columnas quepan, mejor, y el nombre ocupa el hueco */
+  .att-grid{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)) !important; gap:4px !important; }
+  .att-player{ padding:3px 6px !important; gap:5px !important; }
+  .att-num{ color:#8a6c1e !important; min-width:18px; text-align:center; font-size:10px !important; }
+  .att-name, .att-player input{ color:#1B2A6B !important; font-size:11px !important; font-weight:600; }
+  .att-player input{ flex:1 !important; width:auto !important; min-width:0; }
+}
 .tbot{padding:1px 7px !important;font-size:9px !important;letter-spacing:.5px !important;}
 .tbot[disabled]{opacity:.3;cursor:default;pointer-events:none;}
 @media print{ #est-menu{display:none !important;} }
@@ -1087,18 +1109,18 @@ function makeTaskCard(t){
     </div>
   </div>
   <!-- 3-COLUMN LAYOUT: desarrollo+punt | campo | CT+mat+botones -->
-  <div style="display:grid;grid-template-columns:180px 1fr 190px;border-top:2px solid rgba(200,168,75,0.3);align-items:stretch;">
+  <div class="tc-cols" style="display:grid;grid-template-columns:180px 1fr 190px;border-top:2px solid rgba(200,168,75,0.3);align-items:stretch;">
     <!-- LEFT COLUMN: desarrollo + puntuación -->
     <div style="display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.07);min-height:0;">
 
       <!-- DESARROLLO (amarillo) — flex:1 ocupa todo el espacio disponible -->
-      <div style="flex:2;padding:14px 16px;background:#0c1828;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
+      <div class="tc-caja tc-desarrollo" style="flex:2;padding:14px 16px;background:#0c1828;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
         <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Desarrollo</div>
-        <div style="font-size:10px;color:#b8b0a0;line-height:1.6;">${t.desarrollo||'—'}</div>
+        <div class="tc-texto" style="font-size:10px;color:#b8b0a0;line-height:1.6;">${t.desarrollo||'—'}</div>
       </div>
 
       <!-- PUNTUACIÓN (rojo) — flex:1 -->
-      <div style="flex:1;padding:12px 16px;background:#0a1520;overflow-y:auto;">
+      <div class="tc-caja tc-punt" style="flex:1;padding:12px 16px;background:#0a1520;overflow-y:auto;">
         <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Puntuación</div>
         ${punts.length?punts.map(p=>`<div style="font-size:10px;color:#b8b0a0;margin-bottom:3px;">· ${p}</div>`).join(''):'<span style="font-size:10px;color:var(--text3);">—</span>'}
       </div>
@@ -1106,7 +1128,7 @@ function makeTaskCard(t){
     </div>
 
     <!-- CENTRE: campo -->
-    <div style="background:#0d1a0d;overflow:hidden;height:380px;">
+    <div class="tc-campo" style="background:#0d1a0d;overflow:hidden;height:380px;">
       <svg viewBox="0 0 ${VW} ${VH}" style="width:100%;height:100%;display:block;" preserveAspectRatio="xMidYMid meet">${fieldSVG}</svg>
     </div>
 
@@ -1114,13 +1136,13 @@ function makeTaskCard(t){
     <div style="display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,0.07);">
 
       <!-- CT (azul) — flex:2 ocupa la mayor parte -->
-      <div style="flex:2;padding:10px 12px;background:#0c1828;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
+      <div class="tc-caja tc-ct" style="flex:2;padding:10px 12px;background:#0c1828;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
         <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Cuerpo Técnico</div>
         ${rolesArr.map(r=>`<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:7px;"><span style="background:#00B050;color:#0a1a08;font-size:8px;font-weight:800;padding:2px 5px;border-radius:3px;flex-shrink:0;margin-top:1px;">${r.l}</span><span style="font-size:10px;color:#b8b0a0;line-height:1.4;">${r.v}</span></div>`).join('')||'<span style="font-size:10px;color:var(--text3);">—</span>'}
       </div>
 
       <!-- MATERIALES (naranja) — flex:1 -->
-      <div style="flex:1;padding:8px 12px;background:#0a1520;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
+      <div class="tc-caja tc-mat" style="flex:1;padding:8px 12px;background:#0a1520;overflow-y:auto;border-bottom:1px solid rgba(255,255,255,0.1);">
         <div style="font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Materiales</div>
         <div style="font-size:10px;color:#b8b0a0;line-height:1.6;">${matList}</div>
       </div>
@@ -1266,7 +1288,7 @@ function renderSession(s){
     const st=(s.attendance&&s.attendance[p.num])||'E';
     const cell=document.createElement('div');cell.className='att-player';
     cell.innerHTML=`<span class="att-num">${p.num}</span>
-      <input style="background:transparent;border:none;font-size:9px;color:var(--text);width:55px;font-family:'Barlow',sans-serif;padding:0;"
+      <input style="background:transparent;border:none;font-size:9px;color:var(--text);width:55px;min-width:0;font-family:'Barlow',sans-serif;padding:0;"
         value="${p.name||''}" placeholder="Jugador ${p.num}" onchange="updatePlayerName('${s.id}',${JSON.stringify(String(p.num))},this.value)"/>
       <span class="att-status att-${st}" data-player="${String(p.num).replace(/"/g,'&quot;')}" onclick="abreEstado(event,this,'${s.id}')">${st}</span>`;
     ag.appendChild(cell);
