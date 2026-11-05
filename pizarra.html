@@ -783,6 +783,10 @@ function getElHandles(el){
     handles.push({type:'resize-tr',...toWorld( hw,-hh)});
     handles.push({type:'resize-bl',...toWorld(-hw, hh)});
     handles.push({type:'resize-br',...toWorld( hw, hh)});
+    handles.push({type:'resize-t', ...toWorld(  0,-hh)});
+    handles.push({type:'resize-b', ...toWorld(  0, hh)});
+    handles.push({type:'resize-l', ...toWorld(-hw,  0)});
+    handles.push({type:'resize-r', ...toWorld( hw,  0)});
     handles.push({type:'rot',     ...toWorld(0,-hh-22)});
   } else if(el.type==='goal-big'){
     const d=9,hw=(el.gw||70)/2,hh=(el.gh||28)/2;
@@ -790,6 +794,10 @@ function getElHandles(el){
     handles.push({type:'resize-tr',...toWorld( hw,-hh)});
     handles.push({type:'resize-bl',...toWorld(-hw, hh)});
     handles.push({type:'resize-br',...toWorld( hw, hh)});
+    handles.push({type:'resize-t', ...toWorld(  0,-hh)});
+    handles.push({type:'resize-b', ...toWorld(  0, hh)});
+    handles.push({type:'resize-l', ...toWorld(-hw,  0)});
+    handles.push({type:'resize-r', ...toWorld( hw,  0)});
     handles.push({type:'rot',     ...toWorld(0,-hh-d-22)});
   } else if(el.type==='goal-mini'){
     const d=6,hw=(el.gw||36)/2,hh=(el.gh||15)/2;
@@ -797,6 +805,10 @@ function getElHandles(el){
     handles.push({type:'resize-tr',...toWorld( hw,-hh)});
     handles.push({type:'resize-bl',...toWorld(-hw, hh)});
     handles.push({type:'resize-br',...toWorld( hw, hh)});
+    handles.push({type:'resize-t', ...toWorld(  0,-hh)});
+    handles.push({type:'resize-b', ...toWorld(  0, hh)});
+    handles.push({type:'resize-l', ...toWorld(-hw,  0)});
+    handles.push({type:'resize-r', ...toWorld( hw,  0)});
     handles.push({type:'rot',     ...toWorld(0,-hh-d-22)});
   } else if(el.type==='hurdle-s'||el.type==='hurdle-l'){
     const hw=(el.gw||30)/2,hh=(el.gh||14)/2;
@@ -804,6 +816,10 @@ function getElHandles(el){
     handles.push({type:'resize-tr',...toWorld( hw,-hh)});
     handles.push({type:'resize-bl',...toWorld(-hw, hh)});
     handles.push({type:'resize-br',...toWorld( hw, hh)});
+    handles.push({type:'resize-t', ...toWorld(  0,-hh)});
+    handles.push({type:'resize-b', ...toWorld(  0, hh)});
+    handles.push({type:'resize-l', ...toWorld(-hw,  0)});
+    handles.push({type:'resize-r', ...toWorld( hw,  0)});
     handles.push({type:'rot',     ...toWorld(0,-hh-22)});
   } else if(el.type==='ladder'){
     const hw=(el.gw||28)/2,hh=(el.gh||80)/2;
@@ -811,6 +827,10 @@ function getElHandles(el){
     handles.push({type:'resize-tr',...toWorld( hw,-hh)});
     handles.push({type:'resize-bl',...toWorld(-hw, hh)});
     handles.push({type:'resize-br',...toWorld( hw, hh)});
+    handles.push({type:'resize-t', ...toWorld(  0,-hh)});
+    handles.push({type:'resize-b', ...toWorld(  0, hh)});
+    handles.push({type:'resize-l', ...toWorld(-hw,  0)});
+    handles.push({type:'resize-r', ...toWorld( hw,  0)});
     handles.push({type:'rot',     ...toWorld(0,-hh-22)});
   } else if(el.type==='hoop'){
     const r=el.size||22;
@@ -1334,6 +1354,12 @@ function drawResizeHandles(c,rx,ry,rw,rh){
   c.setLineDash([]);c.fillStyle='#fff';c.strokeStyle='#C8A84B';c.lineWidth=1.5;
   [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]].forEach(([hx,hy])=>{
     c.beginPath();c.arc(hx,hy,hr,0,Math.PI*2);c.fill();c.stroke();
+  });
+  // Tiradores de los lados: estiran sólo a lo ancho o sólo a lo alto.
+  // En dorado, para distinguirlos del borde blanco discontinuo.
+  c.fillStyle='#C8A84B';c.strokeStyle='#fff';
+  [[rx+rw/2,ry],[rx+rw/2,ry+rh],[rx,ry+rh/2],[rx+rw,ry+rh/2]].forEach(([hx,hy])=>{
+    c.beginPath();c.arc(hx,hy,hr*0.85,0,Math.PI*2);c.fill();c.stroke();
   });
 }
 
@@ -1930,17 +1956,45 @@ function onMM(e){
       el.rot=Math.atan2(y-el.y,x-el.x)+Math.PI/2;
       render();return;
     }
+    // Se estira SÓLO por donde se tira: el lado (o la esquina) de enfrente
+    // se queda clavado, como en PowerPoint. Antes crecía por los dos lados
+    // a la vez porque el centro no se movía.
     const rot=el.rot||0;
-    const dx=x-el.x,dy=y-el.y;
     const cosR=Math.cos(-rot),sinR=Math.sin(-rot);
+    // Todo se mide respecto al centro que tenía al empezar a arrastrar.
+    const dx=x-elHnd.elX, dy=y-elHnd.elY;
     const lx=dx*cosR-dy*sinR;
     const ly=dx*sinR+dy*cosR;
     const minSz=20;
-    let newW,newH;
-    if(elHnd.type==='resize-br'){newW=Math.max(minSz,lx*2);newH=Math.max(minSz,ly*2);}
-    else if(elHnd.type==='resize-bl'){newW=Math.max(minSz,-lx*2);newH=Math.max(minSz,ly*2);}
-    else if(elHnd.type==='resize-tr'){newW=Math.max(minSz,lx*2);newH=Math.max(minSz,-ly*2);}
-    else if(elHnd.type==='resize-tl'){newW=Math.max(minSz,-lx*2);newH=Math.max(minSz,-ly*2);}
+    const hw0=(elHnd.origWW||80)/2, hh0=(elHnd.origHH||60)/2;
+    const t=elHnd.type;
+    let newW,newH,cxL=0,cyL=0;
+    if(t.indexOf('resize-')===0 && t!=='resize-rot'){
+      // Punto fijo en coordenadas locales (el lado/esquina de enfrente)
+      const fija = {
+        'resize-br':[-hw0,-hh0], 'resize-bl':[ hw0,-hh0],
+        'resize-tr':[-hw0, hh0], 'resize-tl':[ hw0, hh0],
+        'resize-r' :[-hw0, null],'resize-l' :[ hw0, null],
+        'resize-b' :[null,-hh0], 'resize-t' :[null, hh0]
+      }[t];
+      if(fija && el.type!=='hoop'){
+        const [fx,fy]=fija;
+        if(fx===null){ newW=elHnd.origWW; cxL=0; }
+        else{
+          newW=Math.max(minSz,Math.abs(lx-fx));
+          cxL=fx+(lx>=fx?1:-1)*newW/2;
+        }
+        if(fy===null){ newH=elHnd.origHH; cyL=0; }
+        else{
+          newH=Math.max(minSz,Math.abs(ly-fy));
+          cyL=fy+(ly>=fy?1:-1)*newH/2;
+        }
+        // El centro nuevo, de vuelta a coordenadas del campo
+        const co=Math.cos(rot), si=Math.sin(rot);
+        el.x=elHnd.elX+cxL*co-cyL*si;
+        el.y=elHnd.elY+cxL*si+cyL*co;
+      }
+    }
     if(newW!==undefined){
       if(el.type==='zone'){el.zw=newW;el.zh=newH;}
       else if(el.type==='goal-big'){el.gw=newW;el.gh=newH;}
