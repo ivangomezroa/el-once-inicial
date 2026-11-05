@@ -1310,7 +1310,7 @@ function drawPlayer(el,s){
   ctx.save();if(s){ctx.shadowColor='#fff';ctx.shadowBlur=10;}
   ctx.fillStyle=fill;ctx.beginPath();ctx.arc(el.x,el.y,r,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle=s?'#fff':stroke;ctx.lineWidth=s?2.5:2;ctx.beginPath();ctx.arc(el.x,el.y,r,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='#fff';ctx.font=`bold ${(el.num||'').length>2?9:11}px 'Segoe UI',sans-serif`;
+  ctx.fillStyle=el.numColor||'#fff';ctx.font=`bold ${(el.num||'').length>2?9:11}px 'Segoe UI',sans-serif`;
   ctx.textAlign='center';ctx.textBaseline='middle';vTexto(el.num||'?',el.x,el.y+0.5);
   ctx.restore();
 }
@@ -1320,7 +1320,7 @@ function drawCT(el,s){
   ctx.save();if(s){ctx.shadowColor=stroke;ctx.shadowBlur=8;}
   ctx.fillStyle=fill;ctx.strokeStyle=s?'#fff':stroke;ctx.lineWidth=s?2:1.8;
   ctx.beginPath();ctx.roundRect(el.x-sz,el.y-sz,sz*2,sz*2,4);ctx.fill();ctx.stroke();
-  ctx.fillStyle=stroke;ctx.font=`bold ${(el.label||'').length>2?9:11}px 'Segoe UI',sans-serif`;
+  ctx.fillStyle=el.numColor||stroke;ctx.font=`bold ${(el.label||'').length>2?9:11}px 'Segoe UI',sans-serif`;
   ctx.textAlign='center';ctx.textBaseline='middle';vTexto(el.label||'?',el.x,el.y+0.5);
   ctx.restore();
 }
@@ -2152,7 +2152,9 @@ function openColorProps(el){
   let html='';
   if(isPlayer){
     html+=`<div class="fg" style="margin-bottom:8px;"><label class="fl">Color borde/texto</label><div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><input type="color" id="cp-stroke" value="${el.stroke||'#3366CC'}"><span style="font-size:10px;color:var(--text2);">Borde</span></div></div>`;
-    html+=`<div class="fg"><label class="fl">Color fondo</label><div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><input type="color" id="cp-fill" value="${el.fill||'#0a1a40'}"><span style="font-size:10px;color:var(--text2);">Relleno</span></div></div>`;
+    html+=`<div class="fg" style="margin-bottom:8px;"><label class="fl">Color fondo</label><div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><input type="color" id="cp-fill" value="${el.fill||'#0a1a40'}"><span style="font-size:10px;color:var(--text2);">Relleno</span></div></div>`;
+    const numPorDef = el.type==='ct' ? (el.stroke||'#00B050') : '#fff';
+    html+=`<div class="fg"><label class="fl">Color del ${el.type==='ct'?'texto':'dorsal'}</label><div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><input type="color" id="cp-num" value="${el.numColor||numPorDef}"><span style="font-size:10px;color:var(--text2);">${el.type==='ct'?'Siglas':'Número o letra'}</span></div></div>`;
   } else if(isCone){
     html+=`<div class="fg" style="margin-bottom:8px;"><label class="fl">Color principal</label><div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><input type="color" id="cp-cone" value="${el.coneColor||'#ff9500'}"></div></div>`;
     html+=`<div class="fg"><label class="fl">Color oscuro/borde</label><div style="display:flex;align-items:center;gap:8px;margin-top:3px;"><input type="color" id="cp-cone-dark" value="${el.coneDark||'#cc7000'}"></div></div>`;
@@ -2179,7 +2181,8 @@ function applyColor(){
     } else if(isPlayer){
       const s=document.getElementById('cp-stroke')?.value;
       const f=document.getElementById('cp-fill')?.value;
-      if(s)t.stroke=s;if(f)t.fill=f;
+      const n=document.getElementById('cp-num')?.value;
+      if(s)t.stroke=s;if(f)t.fill=f;if(n)t.numColor=n;
     } else {
       const s=document.getElementById('cp-stroke')?.value;
       const f=document.getElementById('cp-fill')?.value;
@@ -3110,14 +3113,14 @@ function renderLib(){
     allEls.filter(el=>el.type==='ct').forEach(el=>{
       const ex=toSVGx(el.x),ey=toSVGy(el.y),sz=13;
       s+=`<rect x="${ex-sz}" y="${ey-sz}" width="${sz*2}" height="${sz*2}" rx="3" fill="${el.fill||'#0a1f0a'}" stroke="${el.stroke||'#00B050'}" stroke-width="1.5"/>`;
-      s+=`<text x="${ex}" y="${ey+4}" text-anchor="middle" fill="${el.stroke||'#00B050'}" font-size="${(el.label||'').length>2?7:9}" font-weight="bold" font-family="sans-serif">${el.label||'?'}</text>`;
+      s+=`<text x="${ex}" y="${ey+4}" text-anchor="middle" fill="${el.numColor||el.stroke||'#00B050'}" font-size="${(el.label||'').length>2?7:9}" font-weight="bold" font-family="sans-serif">${el.label||'?'}</text>`;
     });
 
     // Players (on top of everything)
     allEls.filter(el=>el.type==='player').forEach(el=>{
       const ex=toSVGx(el.x),ey=toSVGy(el.y),r=16;
       s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="${el.fill||'#1a3060'}" stroke="${el.stroke||'#3366CC'}" stroke-width="2"/>`;
-      s+=`<text x="${ex}" y="${ey+4.5}" text-anchor="middle" fill="#fff" font-size="${(el.num||'').length>2?9:12}" font-weight="bold" font-family="sans-serif">${el.num||'?'}</text>`;
+      s+=`<text x="${ex}" y="${ey+4.5}" text-anchor="middle" fill="${el.numColor||'#fff'}" font-size="${(el.num||'').length>2?9:12}" font-weight="bold" font-family="sans-serif">${el.num||'?'}</text>`;
     });
 
     return {svg:s, vw:VW, vh:VH};

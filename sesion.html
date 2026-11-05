@@ -811,14 +811,14 @@ function makeFieldSVG(t){
     allEls.filter(el=>el.type==='ct').forEach(el=>{
       const ex=toSVGx(el.x),ey=toSVGy(el.y),sz=13;
       s+=`<rect x="${ex-sz}" y="${ey-sz}" width="${sz*2}" height="${sz*2}" rx="3" fill="${el.fill||'#0a1f0a'}" stroke="${el.stroke||'#00B050'}" stroke-width="1.5"/>`;
-      s+=`<text x="${ex}" y="${ey+4}" text-anchor="middle" fill="${el.stroke||'#00B050'}" font-size="${(el.label||'').length>2?7:9}" font-weight="bold" font-family="sans-serif">${el.label||'?'}</text>`;
+      s+=`<text x="${ex}" y="${ey+4}" text-anchor="middle" fill="${el.numColor||el.stroke||'#00B050'}" font-size="${(el.label||'').length>2?7:9}" font-weight="bold" font-family="sans-serif">${el.label||'?'}</text>`;
     });
 
     // Players (on top of everything)
     allEls.filter(el=>el.type==='player').forEach(el=>{
       const ex=toSVGx(el.x),ey=toSVGy(el.y),r=16;
       s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="${el.fill||'#1a3060'}" stroke="${el.stroke||'#3366CC'}" stroke-width="2"/>`;
-      s+=`<text x="${ex}" y="${ey+4.5}" text-anchor="middle" fill="#fff" font-size="${(el.num||'').length>2?9:12}" font-weight="bold" font-family="sans-serif">${el.num||'?'}</text>`;
+      s+=`<text x="${ex}" y="${ey+4.5}" text-anchor="middle" fill="${el.numColor||'#fff'}" font-size="${(el.num||'').length>2?9:12}" font-weight="bold" font-family="sans-serif">${el.num||'?'}</text>`;
     });
 
     return {svg:s, vw:VW, vh:VH};
