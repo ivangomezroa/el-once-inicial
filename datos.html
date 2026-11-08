@@ -94,12 +94,11 @@
 .val:empty:before{content:attr(data-ph);color:var(--text3);font-style:italic;}
 
 /* Cabecera de la ficha */
-.cab{display:grid;grid-template-columns:120px 1fr 120px;gap:12px;align-items:stretch;margin-bottom:12px;}
-.cab-escudo,.cab-foto{border:1px dashed var(--border2);border-radius:var(--radius);display:flex;
+.cab{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:stretch;margin-bottom:12px;}
+.cab-foto{border:1px dashed var(--border2);border-radius:var(--radius);display:flex;
   align-items:center;justify-content:center;overflow:hidden;background:rgba(200,168,75,0.04);
   min-height:112px;cursor:pointer;position:relative;}
-.cab-escudo img,.cab-foto img{width:100%;height:100%;object-fit:contain;}
-.cab-foto img{object-fit:cover;}
+.cab-foto img{width:100%;height:100%;object-fit:cover;}
 .cab-ph{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1.5px;color:var(--text3);
   text-transform:uppercase;text-align:center;padding:6px;}
 .cab-centro{display:flex;flex-direction:column;gap:6px;}
@@ -107,7 +106,7 @@
   color:#fff;text-align:center;text-transform:uppercase;}
 .quitar-foto{position:absolute;top:3px;right:3px;width:17px;height:17px;border-radius:50%;background:#7a1a1a;
   color:#fff;font-size:11px;line-height:17px;text-align:center;display:none;}
-.cab-escudo:hover .quitar-foto,.cab-foto:hover .quitar-foto{display:block;}
+.cab-foto:hover .quitar-foto{display:block;}
 
 /* Dos columnas de aspectos */
 .dos{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -191,8 +190,8 @@ table.t td .val{min-height:28px;}
   .et.oscura{ background:#1B2A6B !important; color:#fff !important; }
   .banda{ background:#1B2A6B !important; color:#fff !important; font-size:7.5pt !important; padding:3px 8px !important; }
   .cab-tit{ color:#1B2A6B !important; font-size:15pt !important; }
-  .cab{ grid-template-columns:70px 1fr 70px !important; gap:6px !important; margin-bottom:6px !important; }
-  .cab-escudo,.cab-foto{ min-height:62px !important; border-style:solid !important;
+  .cab{ grid-template-columns:74px 1fr !important; gap:6px !important; margin-bottom:6px !important; }
+  .cab-foto{ min-height:62px !important; border-style:solid !important;
     border-color:rgba(27,42,107,0.25) !important; background:#fff !important; }
   .cab-ph{ display:none !important; }
   table.t th{ background:#1B2A6B !important; color:#fff !important; font-size:6.5pt !important; padding:3px 6px !important; }
@@ -546,13 +545,19 @@ function edad(iso){
   if(m<0 || (m===0 && h.getDate()<d.getDate())) a--;
   return (a>=0&&a<120)? a+' años' : '';
 }
+// La foto del jugador manda en la cabecera: el escudo del equipo ya está
+// en la barra de arriba y repetirlo aquí no aportaba nada.
+function cajaFoto(){
+  const d=datosDe(actual);
+  return '<div class="cab-foto" onclick="pideFoto()" title="Foto del jugador">'
+    +(d.foto?'<img src="'+d.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
+            :'<div class="cab-ph">Foto<br>jugador</div>')+'</div>';
+}
 function hojaFicha(p){
   const d=datosDe(actual);
-  const escudo=localStorage.getItem('oi_team_crest')||'';
   let html='<div class="pag">';
   html+='<div class="cab">'
-    +'<div class="cab-escudo" title="El escudo se cambia desde la pizarra o la sesión">'
-      +(escudo?'<img src="'+escudo+'" alt="Escudo">':'<div class="cab-ph">Escudo del equipo</div>')+'</div>'
+    +cajaFoto()
     +'<div class="cab-centro">'
       +'<div class="cab-tit">Ficha de jugador</div>'
       +'<div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
@@ -567,9 +572,6 @@ function hojaFicha(p){
           +'<div class="et">Edad</div><div class="val" style="color:var(--text2);">'+esc(edad(d.nacimiento))+'</div></div>'
       +'</div>'
     +'</div>'
-    +'<div class="cab-foto" onclick="pideFoto()" title="Foto del jugador">'
-      +(d.foto?'<img src="'+d.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
-              :'<div class="cab-ph">Foto<br>jugador</div>')+'</div>'
   +'</div>';
 
   html+='<div class="dos">'
@@ -711,14 +713,12 @@ function hojaEntrenos(p){
 function hojaOoii(p){
   const f=fichaDe(actual);
   const d=datosDe(actual);
-  const escudo=localStorage.getItem('oi_team_crest')||'';
 
   let html='<div class="pag">';
 
   // ── Cabecera ──
   html+='<div class="cab">'
-    +'<div class="cab-escudo" title="El escudo se cambia desde la pizarra o la sesión">'
-      +(escudo?'<img src="'+escudo+'" alt="Escudo">':'<div class="cab-ph">Escudo del equipo</div>')+'</div>'
+    +cajaFoto()
     +'<div class="cab-centro">'
       +'<div class="cab-tit">Valoración individual · Objetivos individuales</div>'
       +'<div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
@@ -735,9 +735,6 @@ function hojaOoii(p){
           +'<div class="et">Hobbies</div>'+campoF('hobbies','')+'</div>'
       +'</div>'
     +'</div>'
-    +'<div class="cab-foto" onclick="pideFoto()" title="Foto del jugador">'
-      +(d.foto?'<img src="'+d.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
-              :'<div class="cab-ph">Foto<br>jugador</div>')+'</div>'
   +'</div>';
 
   // ── Carácter ──
