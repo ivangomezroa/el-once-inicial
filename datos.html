@@ -122,6 +122,10 @@ table.t td{border-bottom:1px solid rgba(255,255,255,0.06);padding:0;vertical-ali
 table.t td .val{min-height:28px;}
 .tnum{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--gold);
   text-align:center;padding:7px 4px;}
+.mini{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.8px;
+  text-transform:uppercase;padding:2px 7px;border-radius:3px;cursor:pointer;}
+.mini:hover{background:rgba(255,255,255,0.25);}
 .quitar-fila{background:none;border:none;color:#e05252;cursor:pointer;font-size:12px;padding:6px 8px;opacity:.5;}
 .quitar-fila:hover{opacity:1;}
 
@@ -152,9 +156,13 @@ table.t td .val{min-height:28px;}
   #ficha{ overflow:visible !important; height:auto !important; }
   .hoja{ padding:0 !important; }
 
-  .pag{ width:287mm; height:200mm; page-break-after:always; page-break-inside:avoid;
-        overflow:hidden; border:1.2pt solid #C8A84B; padding:3mm; box-sizing:border-box; }
+  /* El número de objetivos es variable, así que la hoja fluye: si no caben
+     en una página, siguen en la siguiente en vez de quedarse cortados.
+     Lo que no se parte nunca es un bloque ni una fila de tabla. */
+  .pag{ width:287mm; min-height:195mm; page-break-after:always;
+        overflow:visible; border:1.2pt solid #C8A84B; padding:3mm; box-sizing:border-box; }
   .pag:last-child{ page-break-after:avoid; }
+  .bloque, .obj, .cab, table.t tr{ page-break-inside:avoid !important; }
 
   /* Oscuro → claro, para no gastar tinta y que se lea */
   .caja{ background:#fff !important; border-color:rgba(27,42,107,0.3) !important; }
@@ -275,17 +283,31 @@ function fichaNueva(){
     foto:'', ct:'', temporada:'', mote:'', posiciones:'', hobbies:'',
     defectos:'', virtudes:'', razones:'',
     destJug:'', mejJug:'', destCT:'', mejCT:'',
-    aspectos:[vacioAspecto(),vacioAspecto(),vacioAspecto(),vacioAspecto()],
+    objetivos:[objetivoNuevo()],
     reuniones:[{fecha:'',proxima:'',feedback:''}],
     jornadas:[]
   };
 }
 function vacioAspecto(){ return {titulo:'',a:'',b:'',c:''}; }
+function hoyISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function objetivoNuevo(){
+  return {id:'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+          titulo:'',a:'',b:'',c:'',estado:'activo',alta:hoyISO(),logro:'',nota:''};
+}
 function fichaDe(id){
   if(!ooii[id]) ooii[id]=fichaNueva();
   const f=ooii[id];
-  if(!Array.isArray(f.aspectos)) f.aspectos=[vacioAspecto(),vacioAspecto(),vacioAspecto(),vacioAspecto()];
-  while(f.aspectos.length<4) f.aspectos.push(vacioAspecto());
+  // Las fichas antiguas tenían cuatro aspectos fijos; se pasan a la lista
+  // de objetivos sin tocar el campo viejo, por si acaso.
+  if(!Array.isArray(f.objetivos)){
+    const v=(Array.isArray(f.aspectos)?f.aspectos:[])
+      .filter(a=>a && ((a.titulo||'')+(a.a||'')+(a.b||'')+(a.c||'')).trim())
+      .map(a=>Object.assign(objetivoNuevo(),{titulo:a.titulo||'',a:a.a||'',b:a.b||'',c:a.c||''}));
+    f.objetivos = v.length?v:[objetivoNuevo()];
+    f.__mig = true;   // para guardarlo en cuanto se abra la ficha
+  }
+  f.objetivos.forEach(o=>{ if(!o.id) o.id='o'+Math.random().toString(36).slice(2,9);
+                           if(!o.estado) o.estado='activo'; });
   if(!Array.isArray(f.reuniones)) f.reuniones=[{fecha:'',proxima:'',feedback:''}];
   if(!Array.isArray(f.jornadas)) f.jornadas=[];
   return f;
@@ -294,7 +316,7 @@ function fichaDe(id){
 function tieneAlgo(id){
   const f=ooii[id]; if(!f) return false;
   const txt=[f.defectos,f.virtudes,f.razones,f.destJug,f.mejJug,f.destCT,f.mejCT]
-    .concat((f.aspectos||[]).map(a=>a&&a.titulo))
+    .concat((f.objetivos||[]).map(a=>a&&a.titulo))
     .join('').trim();
   return !!txt;
 }
@@ -324,6 +346,8 @@ function pintaLista(filtro){
 // ── Abrir la ficha de un jugador ───────────────────────────────
 function abre(id){
   actual=id;
+  const f=fichaDe(id);
+  if(f.__mig){ delete f.__mig; guardaOoii(); }
   document.getElementById('vacio').style.display='none';
   document.getElementById('hoja').style.display='';
   document.getElementById('btn-imp').style.display='';
@@ -359,19 +383,63 @@ function pon(ruta,valor){
   guardaPronto();
 }
 
-function bloqueAspecto(i,titulo){
-  return '<div class="bloque">'
-    +'<div class="banda">'+titulo+'</div>'
+function fechaCorta(iso){
+  if(!iso) return '';
+  const p=String(iso).slice(0,10).split('-');
+  return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0].slice(2)) : iso;
+}
+function bloqueObjetivo(i,o,n){
+  return '<div class="bloque obj">'
+    +'<div class="banda" style="display:flex;align-items:center;gap:8px;">'
+      +'<span style="flex:1;text-align:left;">Objetivo '+n+' · ¿por qués?</span>'
+      +'<span class="no-print" style="display:flex;gap:4px;">'
+        +'<button class="mini" title="Dar por conseguido" onclick="consigue('+i+')">✓ Conseguido</button>'
+        +'<button class="mini" title="Quitar objetivo" onclick="quitaObjetivo('+i+')">✕</button>'
+      +'</span></div>'
     +'<div class="caja">'
       +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et oscura">Aspecto</div>'
-        +campo('aspectos.'+i+'.titulo','Define el objetivo en una frase')+'</div>'
+        +campo('objetivos.'+i+'.titulo','Define el objetivo en una frase')+'</div>'
       +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">A / Por qué 1</div>'
-        +campo('aspectos.'+i+'.a','')+'</div>'
+        +campo('objetivos.'+i+'.a','')+'</div>'
       +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">B / Por qué 2</div>'
-        +campo('aspectos.'+i+'.b','')+'</div>'
+        +campo('objetivos.'+i+'.b','')+'</div>'
       +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">C / Por qué 3</div>'
-        +campo('aspectos.'+i+'.c','')+'</div>'
+        +campo('objetivos.'+i+'.c','')+'</div>'
     +'</div></div>';
+}
+
+// ── Conseguir, reabrir y quitar ──
+function consigue(i){
+  const f=fichaDe(actual), o=f.objetivos[i]; if(!o) return;
+  if(!(o.titulo||'').trim()){ avisa('Escribe primero el objetivo'); return; }
+  if(!confirm('¿Dar por conseguido "'+o.titulo+'"?\nPasa a la lista de conseguidos y se puede reabrir.')) return;
+  o.estado='conseguido'; o.logro=hoyISO();
+  if(!f.objetivos.some(x=>x.estado==='activo')) f.objetivos.push(objetivoNuevo());
+  guardaOoii(); pintaFicha(); pintaLista(document.getElementById('buscador').value);
+  avisa('Objetivo conseguido');
+}
+function reabre(id){
+  const f=fichaDe(actual), o=f.objetivos.find(x=>x.id===id); if(!o) return;
+  o.estado='activo'; o.logro='';
+  guardaOoii(); pintaFicha(); avisa('Objetivo reabierto');
+}
+function masObjetivo(){
+  fichaDe(actual).objetivos.push(objetivoNuevo());
+  guardaOoii(); pintaFicha();
+}
+function quitaObjetivo(i){
+  const f=fichaDe(actual), o=f.objetivos[i]; if(!o) return;
+  if(!confirm('¿Quitar este objetivo del todo?\nSi lo que quieres es archivarlo, usa "Conseguido".')) return;
+  f.objetivos.splice(i,1);
+  if(!f.objetivos.some(x=>x.estado==='activo')) f.objetivos.push(objetivoNuevo());
+  guardaOoii(); pintaFicha(); pintaLista(document.getElementById('buscador').value);
+}
+function borraConseguido(id){
+  const f=fichaDe(actual);
+  const o=f.objetivos.find(x=>x.id===id); if(!o) return;
+  if(!confirm('¿Borrar del historial "'+o.titulo+'"?\nEsto sí que no se puede deshacer.')) return;
+  f.objetivos=f.objetivos.filter(x=>x.id!==id);
+  guardaOoii(); pintaFicha();
 }
 
 function pintaFicha(){
@@ -426,11 +494,39 @@ function pintaFicha(){
       +campo('destCT','')+campo('mejCT','')+'</div>'
   +'</div></div>';
 
-  // ── Los cuatro aspectos ──
-  html+='<div class="dos">'
-    +'<div>'+bloqueAspecto(0,'¿Por qués? de aspectos a mejorar')+bloqueAspecto(1,'¿Por qués? de aspectos a mejorar')+'</div>'
-    +'<div>'+bloqueAspecto(2,'¿Por qués? de aspectos a mejorar')+bloqueAspecto(3,'¿Por qués? de aspectos a mejorar')+'</div>'
-  +'</div>';
+  // ── Objetivos en marcha ──
+  const activos=[], logrados=[];
+  f.objetivos.forEach((o,i)=>{ (o.estado==='conseguido'?logrados:activos).push({o:o,i:i}); });
+
+  html+='<div class="bloque no-print" style="display:flex;align-items:center;gap:10px;margin:14px 0 6px;">'
+    +'<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;'
+      +'text-transform:uppercase;color:var(--gold);">Objetivos en marcha ('+activos.length+')</span>'
+    +'<button class="btn btn-ghost" onclick="masObjetivo()">+ Añadir objetivo</button></div>';
+
+  const col1=[], col2=[];
+  activos.forEach((x,k)=>{ (k%2?col2:col1).push(bloqueObjetivo(x.i,x.o,k+1)); });
+  html+='<div class="dos"><div>'+col1.join('')+'</div><div>'+col2.join('')+'</div></div>';
+
+  // ── Conseguidos: archivados, pero a la vista ──
+  if(logrados.length){
+    html+='<div class="bloque logrados"><div class="banda" style="background:#1a5c1a;border-bottom-color:#2ecc40;">'
+      +'Objetivos conseguidos ('+logrados.length+')</div>'
+      +'<table class="t"><thead><tr>'
+        +'<th style="width:40px;text-align:center;">Nº</th><th>Objetivo</th>'
+        +'<th style="width:200px;">Por qués</th><th style="width:85px;">Conseguido</th>'
+        +'<th class="no-print" style="width:90px;"></th></tr></thead><tbody>'
+      +logrados.map((x,k)=>'<tr>'
+        +'<td class="tnum">'+(k+1)+'</td>'
+        +'<td><div class="val" style="color:#8fd18f;">'+esc(x.o.titulo)+'</div></td>'
+        +'<td><div class="val" style="font-size:10px;color:var(--text2);">'
+          +esc([x.o.a,x.o.b,x.o.c].filter(Boolean).join(' · '))+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+esc(fechaCorta(x.o.logro))+'</div></td>'
+        +'<td class="no-print" style="white-space:nowrap;">'
+          +'<button class="mini" title="Volver a ponerlo en marcha" onclick="reabre(\''+x.o.id+'\')">↩</button>'
+          +'<button class="quitar-fila" title="Borrar del historial" onclick="borraConseguido(\''+x.o.id+'\')">✕</button>'
+        +'</td></tr>').join('')
+      +'</tbody></table></div>';
+  }
 
   html+='</div>';   // fin página 1
 
