@@ -501,9 +501,9 @@ var PZ_LISTAS = {
       return {id_local:String(s.id), numero:(parseInt(s.num,10)||null),
               fecha:String(s.date||''), datos:s}; }}
 };
-var PZ_SUELTAS = ['pz_mdj','pz_tipos','pz_players','pz_plantilla_nombre','oi_team_crest'];
+var PZ_SUELTAS = ['pz_mdj','pz_tipos','pz_players','pz_plantilla_nombre','oi_ooii','oi_team_crest'];
 var PZ_CLAVES  = {'pz_tasks_v3':1,'pz_sessions':1,'pz_mdj':1,'pz_tipos':1,
-                  'pz_players':1,'pz_plantilla_nombre':1,'oi_team_crest':1};
+                  'pz_players':1,'pz_plantilla_nombre':1,'oi_ooii':1,'oi_team_crest':1};
 
 var pzT = null, pzEnCurso = false;
 

@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Once Inicial · Datos · Objetivos Individuales</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --navy:#0d1a4a;--navy2:#1B2A6B;--gold:#C8A84B;
+  --surface:#0c1828;--surface2:#0f1e30;--bg:#080e1a;--bg2:#0a1020;
+  --border:rgba(200,168,75,0.15);--border2:rgba(200,168,75,0.3);
+  --text:#c8c0b0;--text2:#8890a0;--text3:#556070;
+  --radius:6px;--radius-lg:10px;
+}
+
+@media screen{
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;}
+}
+
+/* ── BARRA SUPERIOR (igual que el resto de pantallas) ── */
+.oi-topnav{
+  height:52px;background:#0d1530 !important;
+  border-bottom:2px solid #C8A84B !important;
+  display:flex !important;align-items:center !important;
+  padding:0 14px !important;gap:10px !important;
+  flex-shrink:0;z-index:200;position:relative;
+}
+.oi-nav-left{display:flex;align-items:center;gap:10px;text-decoration:none;color:#ddd8cc;min-width:0;}
+.oi-logo-circle{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#1B2A6B,#0d1530);
+  border:1.5px solid rgba(200,168,75,0.5);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.oi-logo-circle img{width:26px;height:26px;object-fit:contain;}
+.oi-nav-text{display:flex;flex-direction:column;line-height:1.15;}
+.oi-nav-sub{font-size:8px;letter-spacing:2px;color:#C8A84B;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.oi-nav-main{font-size:14px;font-weight:700;letter-spacing:1.5px;color:#ddd8cc;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.oi-nav-sep{flex:1;}
+.oi-nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.oi-nav-crest{
+  width:36px;height:36px;border-radius:6px;flex-shrink:0;
+  border:1.5px solid rgba(200,168,75,0.3);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(200,168,75,0.05);overflow:hidden;
+}
+.oi-nav-crest img{width:100%;height:100%;object-fit:contain;display:none;}
+.oi-nav-crest svg{opacity:0.35;}
+.nav-btn{background:rgba(200,168,75,0.1);border:1px solid var(--border2);color:var(--gold);
+  padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+.nav-btn:hover{background:rgba(200,168,75,0.2);}
+
+/* ── ESTRUCTURA ── */
+#app{display:flex;height:calc(100vh - 52px);overflow:hidden;}
+#panel{width:230px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;}
+.panel-hdr{padding:10px 12px;border-bottom:1px solid var(--border);font-family:'Barlow Condensed',sans-serif;
+  font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+#buscador{margin:8px;padding:6px 9px;background:rgba(255,255,255,0.05);border:1px solid var(--border);
+  border-radius:5px;color:var(--text);font-size:12px;font-family:'Barlow',sans-serif;}
+#buscador:focus{outline:none;border-color:var(--gold);}
+#lista{flex:1;overflow-y:auto;padding:4px 6px 10px;}
+.jug{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--radius);cursor:pointer;
+  margin-bottom:3px;border:1px solid transparent;transition:all .15s;}
+.jug:hover{background:rgba(200,168,75,0.07);border-color:var(--border);}
+.jug.activo{background:rgba(27,42,107,0.5);border-color:rgba(200,168,75,0.35);}
+.jug-dor{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--gold);
+  min-width:22px;text-align:center;}
+.jug-nom{font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.jug-ok{width:7px;height:7px;border-radius:50%;background:#00B050;flex-shrink:0;}
+#ficha{flex:1;overflow-y:auto;min-height:0;}
+#vacio{display:flex;flex-direction:column;align-items:center;justify-content:center;height:70%;gap:12px;color:var(--text3);}
+#vacio .ic{font-size:46px;opacity:.3;}
+#vacio .tx{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:2px;text-transform:uppercase;}
+
+/* ── LA HOJA ── */
+.hoja{padding:16px 22px 40px;}
+.bloque{margin-bottom:12px;}
+.banda{background:var(--navy2);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;
+  font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:5px 12px;border-radius:4px 4px 0 0;
+  border-bottom:2px solid var(--gold);text-align:center;}
+.caja{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;}
+.fila{display:grid;align-items:stretch;border-bottom:1px solid rgba(255,255,255,0.06);}
+.fila:last-child{border-bottom:none;}
+.et{background:var(--navy2);color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:10px;
+  font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:7px 10px;display:flex;align-items:center;}
+.et.oscura{background:#0d1530;color:#fff;}
+.val{padding:7px 10px;font-size:12px;color:var(--text);outline:none;min-height:30px;line-height:1.45;}
+.val:focus{background:rgba(200,168,75,0.07);}
+.val:empty:before{content:attr(data-ph);color:var(--text3);font-style:italic;}
+
+/* Cabecera de la ficha */
+.cab{display:grid;grid-template-columns:120px 1fr 120px;gap:12px;align-items:stretch;margin-bottom:12px;}
+.cab-escudo,.cab-foto{border:1px dashed var(--border2);border-radius:var(--radius);display:flex;
+  align-items:center;justify-content:center;overflow:hidden;background:rgba(200,168,75,0.04);
+  min-height:112px;cursor:pointer;position:relative;}
+.cab-escudo img,.cab-foto img{width:100%;height:100%;object-fit:contain;}
+.cab-foto img{object-fit:cover;}
+.cab-ph{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1.5px;color:var(--text3);
+  text-transform:uppercase;text-align:center;padding:6px;}
+.cab-centro{display:flex;flex-direction:column;gap:6px;}
+.cab-tit{font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:700;letter-spacing:1.5px;
+  color:#fff;text-align:center;text-transform:uppercase;}
+.quitar-foto{position:absolute;top:3px;right:3px;width:17px;height:17px;border-radius:50%;background:#7a1a1a;
+  color:#fff;font-size:11px;line-height:17px;text-align:center;display:none;}
+.cab-escudo:hover .quitar-foto,.cab-foto:hover .quitar-foto{display:block;}
+
+/* Dos columnas de aspectos */
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media screen and (max-width:1100px){ .dos{grid-template-columns:1fr;} }
+
+/* Tablas */
+table.t{width:100%;border-collapse:collapse;}
+table.t th{background:var(--navy2);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:10px;
+  font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:6px 9px;text-align:left;
+  border-bottom:2px solid var(--gold);}
+table.t td{border-bottom:1px solid rgba(255,255,255,0.06);padding:0;vertical-align:top;}
+table.t td .val{min-height:28px;}
+.tnum{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--gold);
+  text-align:center;padding:7px 4px;}
+.quitar-fila{background:none;border:none;color:#e05252;cursor:pointer;font-size:12px;padding:6px 8px;opacity:.5;}
+.quitar-fila:hover{opacity:1;}
+
+.btn{border-radius:5px;padding:6px 14px;font-size:11px;font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase;border:1px solid;}
+.btn-gold{background:var(--gold);color:#0d1530;border-color:var(--gold);}
+.btn-gold:hover{background:#e0c068;}
+.btn-ghost{background:transparent;color:var(--text2);border-color:rgba(255,255,255,0.15);}
+.btn-ghost:hover{border-color:rgba(255,255,255,0.3);color:var(--text);}
+
+#aviso{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy2);
+  border:1px solid var(--gold);color:var(--gold);padding:8px 18px;border-radius:6px;font-size:12px;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;
+  opacity:0;pointer-events:none;transition:opacity .25s;z-index:300;}
+#aviso.ver{opacity:1;}
+
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(200,168,75,0.2);border-radius:3px;}
+
+/* ══════════ IMPRESIÓN — A4 horizontal, 2 páginas ══════════ */
+@media print{
+  @page{ size:A4 landscape; margin:5mm; }
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  html,body{ overflow:visible !important; height:auto !important; background:#fff !important; }
+  .oi-topnav,#panel,.no-print{ display:none !important; }
+  #app{ display:block !important; height:auto !important; overflow:visible !important; }
+  #ficha{ overflow:visible !important; height:auto !important; }
+  .hoja{ padding:0 !important; }
+
+  .pag{ width:287mm; height:200mm; page-break-after:always; page-break-inside:avoid;
+        overflow:hidden; border:1.2pt solid #C8A84B; padding:3mm; box-sizing:border-box; }
+  .pag:last-child{ page-break-after:avoid; }
+
+  /* Oscuro → claro, para no gastar tinta y que se lea */
+  .caja{ background:#fff !important; border-color:rgba(27,42,107,0.3) !important; }
+  .val{ color:#111 !important; font-size:8.5pt !important; }
+  .val:empty:before{ content:'' !important; }
+  .et{ background:#e9ecf4 !important; color:#1B2A6B !important; font-size:6.5pt !important; padding:3px 6px !important; }
+  .et.oscura{ background:#1B2A6B !important; color:#fff !important; }
+  .banda{ background:#1B2A6B !important; color:#fff !important; font-size:7.5pt !important; padding:3px 8px !important; }
+  .cab-tit{ color:#1B2A6B !important; font-size:15pt !important; }
+  .cab{ grid-template-columns:70px 1fr 70px !important; gap:6px !important; margin-bottom:6px !important; }
+  .cab-escudo,.cab-foto{ min-height:62px !important; border-style:solid !important;
+    border-color:rgba(27,42,107,0.25) !important; background:#fff !important; }
+  .cab-ph{ display:none !important; }
+  table.t th{ background:#1B2A6B !important; color:#fff !important; font-size:6.5pt !important; padding:3px 6px !important; }
+  table.t td{ border-color:rgba(27,42,107,0.18) !important; }
+  table.t td .val{ min-height:14px !important; }
+  .tnum{ color:#1B2A6B !important; font-size:7pt !important; padding:3px !important; }
+  .bloque{ margin-bottom:4px !important; }
+  /* La hoja impresa mide 287 mm (~1085 px), por debajo del corte de
+     pantalla: sin esto los cuatro bloques se apilaban y el cuarto se
+     salía de la página. */
+  .dos{ grid-template-columns:1fr 1fr !important; gap:6px !important; }
+  .fila .val{ min-height:14px !important; padding:3px 6px !important; }
+}
+@media screen{ .pag{ display:block; } }
+</style>
+<script src="/oi-sesion.js"></script>
+</head>
+<body>
+
+<div class="oi-topnav">
+  <a href="inicio.html" class="oi-nav-left">
+    <div class="oi-logo-circle"><img src="logo.png" alt=""></div>
+    <div class="oi-nav-text">
+      <span class="oi-nav-sub">El Once Inicial</span>
+      <span class="oi-nav-main">Datos · Objetivos Individuales</span>
+    </div>
+  </a>
+  <div class="oi-nav-sep"></div>
+  <div class="oi-nav-right">
+    <button class="nav-btn" id="btn-imp" onclick="window.print()" style="display:none;">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="2" width="10" height="5" rx="1"/><rect x="2" y="7" width="12" height="7" rx="1"/><rect x="5" y="10" width="6" height="4"/></svg>
+      Imprimir
+    </button>
+    <a class="nav-btn" href="sesion.html" style="text-decoration:none;">Sesiones</a>
+    <div class="oi-nav-crest">
+      <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1L13 4V8C13 12 10.5 14.5 7 15.5C3.5 14.5 1 12 1 8V4Z"/></svg>
+      <img alt="Escudo">
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="panel">
+    <div class="panel-hdr"><span id="pl-nombre">Plantilla</span><span id="pl-cuantos" style="color:var(--text3);font-weight:400;">0</span></div>
+    <input type="text" id="buscador" placeholder="Buscar jugador…" oninput="pintaLista(this.value)">
+    <div id="lista"></div>
+  </div>
+  <div id="ficha">
+    <div id="vacio">
+      <div class="ic">🎯</div>
+      <div class="tx">Elige un jugador de la plantilla</div>
+    </div>
+    <div id="hoja" class="hoja" style="display:none;"></div>
+  </div>
+</div>
+
+<input type="file" id="file-foto" accept="image/*" style="display:none;" onchange="fotoElegida(event)">
+<div id="aviso"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  DATOS · OBJETIVOS INDIVIDUALES (OOII)
+//  Una ficha por jugador, con la misma estructura que la planilla
+//  de Excel de Iván: datos personales, a destacar / a mejorar,
+//  cuatro aspectos con sus tres "por qués", reuniones con feedback
+//  y seguimiento por jornada.
+//  Se guarda en 'oi_ooii' (una entrada por jugador) y sube a la
+//  nube con el mismo motor que la pizarra y la sesión.
+// ══════════════════════════════════════════════════════════════
+
+const K_OOII='oi_ooii';
+let jugadores=[], ooii={}, actual=null, tGuardar=null;
+
+function lee(k,pordef){ try{ const v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?pordef:v; }catch(e){ return pordef; } }
+function avisa(t){ const a=document.getElementById('aviso'); a.textContent=t; a.classList.add('ver'); setTimeout(()=>a.classList.remove('ver'),1600); }
+function esc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function sinTildes(x){ return String(x==null?'':x).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim(); }
+
+// ── Plantilla ──────────────────────────────────────────────────
+// Se usa la misma que la planilla de sesión (pz_players). A cada
+// jugador se le pone un id estable la primera vez, para que su
+// ficha no se pierda si le cambias el dorsal o corriges el nombre.
+function cargaPlantilla(){
+  jugadores = lee('pz_players',[]) || [];
+  if(!Array.isArray(jugadores)) jugadores=[];
+  let nuevos=false;
+  jugadores.forEach(p=>{ if(!p.id){ p.id='j'+Math.random().toString(36).slice(2,9); nuevos=true; } });
+  if(nuevos) localStorage.setItem('pz_players',JSON.stringify(jugadores));
+  const nom=localStorage.getItem('pz_plantilla_nombre')||'';
+  document.getElementById('pl-nombre').textContent = nom || 'Plantilla';
+  document.getElementById('pl-cuantos').textContent = jugadores.length;
+}
+
+function cargaOoii(){ ooii = lee(K_OOII,{}) || {}; }
+function guardaOoii(){
+  try{ localStorage.setItem(K_OOII,JSON.stringify(ooii)); }
+  catch(e){ avisa('No se ha podido guardar: falta espacio'); }
+}
+function guardaPronto(){
+  if(tGuardar) clearTimeout(tGuardar);
+  tGuardar=setTimeout(()=>{ guardaOoii(); pintaLista(document.getElementById('buscador').value); }, 450);
+}
+
+// Ficha vacía
+function fichaNueva(){
+  return {
+    foto:'', ct:'', temporada:'', mote:'', posiciones:'', hobbies:'',
+    defectos:'', virtudes:'', razones:'',
+    destJug:'', mejJug:'', destCT:'', mejCT:'',
+    aspectos:[vacioAspecto(),vacioAspecto(),vacioAspecto(),vacioAspecto()],
+    reuniones:[{fecha:'',proxima:'',feedback:''}],
+    jornadas:[]
+  };
+}
+function vacioAspecto(){ return {titulo:'',a:'',b:'',c:''}; }
+function fichaDe(id){
+  if(!ooii[id]) ooii[id]=fichaNueva();
+  const f=ooii[id];
+  if(!Array.isArray(f.aspectos)) f.aspectos=[vacioAspecto(),vacioAspecto(),vacioAspecto(),vacioAspecto()];
+  while(f.aspectos.length<4) f.aspectos.push(vacioAspecto());
+  if(!Array.isArray(f.reuniones)) f.reuniones=[{fecha:'',proxima:'',feedback:''}];
+  if(!Array.isArray(f.jornadas)) f.jornadas=[];
+  return f;
+}
+// ¿Tiene algo escrito? (para el puntito verde de la lista)
+function tieneAlgo(id){
+  const f=ooii[id]; if(!f) return false;
+  const txt=[f.defectos,f.virtudes,f.razones,f.destJug,f.mejJug,f.destCT,f.mejCT]
+    .concat((f.aspectos||[]).map(a=>a&&a.titulo))
+    .join('').trim();
+  return !!txt;
+}
+
+// ── Lista de la plantilla ──────────────────────────────────────
+function pintaLista(filtro){
+  const c=document.getElementById('lista'); c.innerHTML='';
+  const f=sinTildes(filtro||'');
+  const vis=jugadores.filter(p=>!f || sinTildes(p.name).indexOf(f)>=0 || String(p.num).indexOf(f)>=0);
+  if(!jugadores.length){
+    c.innerHTML='<div style="padding:16px 10px;text-align:center;font-size:11px;color:var(--text3);line-height:1.6;">'
+      +'No hay plantilla.<br>Cárgala desde la <a href="sesion.html" style="color:var(--gold);">planilla de sesión</a>.</div>';
+    return;
+  }
+  if(!vis.length){ c.innerHTML='<div style="padding:16px 10px;text-align:center;font-size:11px;color:var(--text3);">Ningún jugador coincide.</div>'; return; }
+  vis.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='jug'+(actual===p.id?' activo':'');
+    d.onclick=()=>abre(p.id);
+    d.innerHTML='<span class="jug-dor">'+esc(p.num)+'</span>'
+      +'<span class="jug-nom">'+esc(p.name||'(sin nombre)')+'</span>'
+      +(tieneAlgo(p.id)?'<span class="jug-ok" title="Con objetivos"></span>':'');
+    c.appendChild(d);
+  });
+}
+
+// ── Abrir la ficha de un jugador ───────────────────────────────
+function abre(id){
+  actual=id;
+  document.getElementById('vacio').style.display='none';
+  document.getElementById('hoja').style.display='';
+  document.getElementById('btn-imp').style.display='';
+  pintaLista(document.getElementById('buscador').value);
+  pintaFicha();
+}
+
+function campo(ruta, ph, estilo){
+  const v=valorDe(ruta);
+  return '<div class="val" contenteditable="true" data-ph="'+esc(ph||'')+'"'
+    +(estilo?' style="'+estilo+'"':'')
+    +' oninput="pon(\''+ruta+'\', this.textContent)">'+esc(v)+'</div>';
+}
+function valorDe(ruta){
+  const f=fichaDe(actual); let o=f;
+  const p=ruta.split('.');
+  for(let i=0;i<p.length;i++){
+    const k=/^\d+$/.test(p[i])?parseInt(p[i],10):p[i];
+    if(o==null) return ''; o=o[k];
+  }
+  return o==null?'':o;
+}
+function pon(ruta,valor){
+  const f=fichaDe(actual); let o=f;
+  const p=ruta.split('.');
+  for(let i=0;i<p.length-1;i++){
+    const k=/^\d+$/.test(p[i])?parseInt(p[i],10):p[i];
+    if(o[k]==null) o[k]={};
+    o=o[k];
+  }
+  const ult=p[p.length-1];
+  o[/^\d+$/.test(ult)?parseInt(ult,10):ult]=valor;
+  guardaPronto();
+}
+
+function bloqueAspecto(i,titulo){
+  return '<div class="bloque">'
+    +'<div class="banda">'+titulo+'</div>'
+    +'<div class="caja">'
+      +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et oscura">Aspecto</div>'
+        +campo('aspectos.'+i+'.titulo','Define el objetivo en una frase')+'</div>'
+      +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">A / Por qué 1</div>'
+        +campo('aspectos.'+i+'.a','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">B / Por qué 2</div>'
+        +campo('aspectos.'+i+'.b','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">C / Por qué 3</div>'
+        +campo('aspectos.'+i+'.c','')+'</div>'
+    +'</div></div>';
+}
+
+function pintaFicha(){
+  const p=jugadores.find(x=>x.id===actual); if(!p) return;
+  const f=fichaDe(actual);
+  const escudo=localStorage.getItem('oi_team_crest')||'';
+  const h=document.getElementById('hoja');
+
+  let html='<div class="pag">';
+
+  // ── Cabecera ──
+  html+='<div class="cab">'
+    +'<div class="cab-escudo" title="El escudo se cambia desde la pizarra o la sesión">'
+      +(escudo?'<img src="'+escudo+'" alt="Escudo">':'<div class="cab-ph">Escudo del equipo</div>')+'</div>'
+    +'<div class="cab-centro">'
+      +'<div class="cab-tit">Valoración individual · Objetivos individuales</div>'
+      +'<div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
+        +'<div class="fila" style="grid-template-columns:110px 1fr;"><div class="et oscura">Cuerpo técnico</div>'
+          +campo('ct','Nombres del cuerpo técnico')+'</div>'
+        +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
+          +'<div class="et">Temporada</div>'+campo('temporada','2026-2027')
+          +'<div class="et">Mote</div>'+campo('mote','')+'</div>'
+        +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
+          +'<div class="et">Nombre</div><div class="val" style="color:#fff;font-weight:600;">'+esc(p.name||'')+'</div>'
+          +'<div class="et">Dorsal</div><div class="val" style="color:var(--gold);font-weight:700;">'+esc(p.num)+'</div></div>'
+        +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
+          +'<div class="et">Posiciones</div>'+campo('posiciones',p.pos||'')
+          +'<div class="et">Hobbies</div>'+campo('hobbies','')+'</div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="cab-foto" onclick="pideFoto()" title="Foto del jugador">'
+      +(f.foto?'<img src="'+f.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
+              :'<div class="cab-ph">Foto<br>jugador</div>')+'</div>'
+  +'</div>';
+
+  // ── Carácter ──
+  html+='<div class="bloque"><div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
+    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">Defectos</div>'+campo('defectos','')+'</div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">Virtudes</div>'+campo('virtudes','')+'</div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et oscura">Razones</div>'+campo('razones','Por qué está aquí')+'</div>'
+  +'</div></div>';
+
+  // ── A destacar / A mejorar ──
+  html+='<div class="bloque"><div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
+    +'<div class="fila" style="grid-template-columns:150px 1fr 1fr;">'
+      +'<div class="et oscura"></div>'
+      +'<div class="et" style="justify-content:center;">A destacar</div>'
+      +'<div class="et" style="justify-content:center;">A mejorar</div></div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr 1fr;"><div class="et">Jugador</div>'
+      +campo('destJug','')+campo('mejJug','')+'</div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr 1fr;"><div class="et">CT + Jugador</div>'
+      +campo('destCT','')+campo('mejCT','')+'</div>'
+  +'</div></div>';
+
+  // ── Los cuatro aspectos ──
+  html+='<div class="dos">'
+    +'<div>'+bloqueAspecto(0,'¿Por qués? de aspectos a mejorar')+bloqueAspecto(1,'¿Por qués? de aspectos a mejorar')+'</div>'
+    +'<div>'+bloqueAspecto(2,'¿Por qués? de aspectos a mejorar')+bloqueAspecto(3,'¿Por qués? de aspectos a mejorar')+'</div>'
+  +'</div>';
+
+  html+='</div>';   // fin página 1
+
+  // ── Página 2: reuniones y seguimiento ──
+  html+='<div class="pag">';
+
+  html+='<div class="bloque"><div class="banda">Reuniones</div>'
+    +'<table class="t"><thead><tr>'
+      +'<th style="width:40px;text-align:center;">Nº</th><th style="width:130px;">Fecha reunión</th>'
+      +'<th style="width:130px;">Próxima reunión</th><th>Feedback</th><th class="no-print" style="width:34px;"></th>'
+    +'</tr></thead><tbody>'
+    +f.reuniones.map((r,i)=>'<tr>'
+      +'<td class="tnum">'+(i+1)+'</td>'
+      +'<td>'+campo('reuniones.'+i+'.fecha','')+'</td>'
+      +'<td>'+campo('reuniones.'+i+'.proxima','')+'</td>'
+      +'<td>'+campo('reuniones.'+i+'.feedback','')+'</td>'
+      +'<td class="no-print"><button class="quitar-fila" onclick="quitaReunion('+i+')" title="Quitar">✕</button></td>'
+    +'</tr>').join('')
+    +'</tbody></table>'
+    +'<div class="no-print" style="padding:7px;"><button class="btn btn-ghost" onclick="masReunion()">+ Añadir reunión</button></div>'
+  +'</div>';
+
+  html+='<div class="bloque"><div class="banda">Seguimiento por jornada</div>'
+    +'<table class="t"><thead><tr>'
+      +'<th style="width:60px;text-align:center;">Jornada</th><th style="width:190px;">Partido</th>'
+      +'<th>A destacar</th><th>A mejorar</th><th class="no-print" style="width:34px;"></th>'
+    +'</tr></thead><tbody id="tb-jor">'
+    +f.jornadas.map((j,i)=>'<tr>'
+      +'<td>'+campo('jornadas.'+i+'.j','','text-align:center;font-weight:700;color:var(--gold);')+'</td>'
+      +'<td>'+campo('jornadas.'+i+'.partido','')+'</td>'
+      +'<td>'+campo('jornadas.'+i+'.destacar','')+'</td>'
+      +'<td>'+campo('jornadas.'+i+'.mejorar','')+'</td>'
+      +'<td class="no-print"><button class="quitar-fila" onclick="quitaJornada('+i+')" title="Quitar">✕</button></td>'
+    +'</tr>').join('')
+    +'</tbody></table>'
+    +(f.jornadas.length?'':'<div style="padding:12px;text-align:center;font-size:11px;color:var(--text3);">Sin jornadas todavía.</div>')
+    +'<div class="no-print" style="padding:7px;display:flex;gap:6px;">'
+      +'<button class="btn btn-ghost" onclick="masJornada()">+ Añadir jornada</button>'
+      +'<button class="btn btn-ghost" onclick="masJornadas(13)">+ Añadir 13 jornadas</button></div>'
+  +'</div>';
+
+  html+='</div>';   // fin página 2
+
+  h.innerHTML=html;
+}
+
+// ── Filas ──
+function masReunion(){ fichaDe(actual).reuniones.push({fecha:'',proxima:'',feedback:''}); guardaOoii(); pintaFicha(); }
+function quitaReunion(i){
+  const f=fichaDe(actual);
+  if(f.reuniones.length<=1){ avisa('Tiene que quedar al menos una'); return; }
+  if(!confirm('¿Quitar esta reunión?')) return;
+  f.reuniones.splice(i,1); guardaOoii(); pintaFicha();
+}
+function masJornada(){
+  const f=fichaDe(actual);
+  f.jornadas.push({j:String(f.jornadas.length+1),partido:'',destacar:'',mejorar:''});
+  guardaOoii(); pintaFicha();
+}
+function masJornadas(n){
+  const f=fichaDe(actual);
+  for(let i=0;i<n;i++) f.jornadas.push({j:String(f.jornadas.length+1),partido:'',destacar:'',mejorar:''});
+  guardaOoii(); pintaFicha();
+}
+function quitaJornada(i){
+  if(!confirm('¿Quitar esta jornada?')) return;
+  fichaDe(actual).jornadas.splice(i,1); guardaOoii(); pintaFicha();
+}
+
+// ── Foto del jugador ──
+function pideFoto(){ document.getElementById('file-foto').click(); }
+function quitaFoto(ev){
+  ev.stopPropagation();
+  if(!confirm('¿Quitar la foto?')) return;
+  fichaDe(actual).foto=''; guardaOoii(); pintaFicha();
+}
+function fotoElegida(ev){
+  const file=ev.target.files&&ev.target.files[0]; ev.target.value='';
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ avisa('Eso no es una imagen'); return; }
+  const r=new FileReader();
+  r.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      // Se recorta cuadrada y se baja a 320 px: si no, cuatro fotos
+      // llenan el almacenamiento del navegador.
+      const L=320, lado=Math.min(img.width,img.height);
+      const cv=document.createElement('canvas'); cv.width=L; cv.height=L;
+      const c=cv.getContext('2d');
+      c.drawImage(img,(img.width-lado)/2,(img.height-lado)/2,lado,lado,0,0,L,L);
+      fichaDe(actual).foto=cv.toDataURL('image/jpeg',0.82);
+      guardaOoii(); pintaFicha(); avisa('Foto puesta');
+    };
+    img.onerror=function(){ avisa('No se ha podido leer la imagen'); };
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+// ── Escudo del equipo en la barra ──
+function pintaEscudo(){
+  const d=localStorage.getItem('oi_team_crest');
+  const c=document.querySelector('.oi-nav-crest'); if(!c) return;
+  const img=c.querySelector('img'), svg=c.querySelector('svg');
+  if(d){ img.src=d; img.style.display='block'; if(svg) svg.style.display='none'; }
+  else { img.style.display='none'; if(svg) svg.style.display=''; }
+}
+
+// ── Cuando la nube trae datos ──
+window.addEventListener('oi-datos', function(ev){
+  const cl=(ev.detail&&ev.detail.claves)||[];
+  const hay=k=>cl.indexOf(k)>=0;
+  try{
+    if(hay('pz_players')||hay('pz_plantilla_nombre')){ cargaPlantilla(); pintaLista(document.getElementById('buscador').value); }
+    if(hay(K_OOII)){
+      cargaOoii();
+      pintaLista(document.getElementById('buscador').value);
+      if(actual) pintaFicha();
+      avisa('Objetivos traídos de la nube');
+    }
+    if(hay('oi_team_crest')) pintaEscudo();
+  }catch(e){}
+});
+
+// ── Arranque ──
+cargaPlantilla(); cargaOoii(); pintaLista(''); pintaEscudo();
+</script>
+</body>
+</html>
