@@ -206,6 +206,23 @@ table.t td .val{min-height:28px;}
   .fila .val{ min-height:14px !important; padding:3px 6px !important; }
 }
 @media screen{ .pag{ display:block; } }
+
+/* ── Ventana (actas) ── */
+#velo{position:fixed;inset:0;background:rgba(6,10,20,.74);z-index:60;display:none;align-items:center;justify-content:center;padding:16px;}
+#velo.ver{display:flex;}
+.mdl{background:var(--surface);border:1px solid var(--border);border-radius:8px;width:min(560px,94vw);max-height:84vh;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.6);}
+.mdl-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);
+  font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);}
+.mdl-x{background:none;border:0;color:var(--text3);font-size:21px;line-height:1;cursor:pointer;padding:0 2px;}
+.mdl-x:hover{color:var(--text);}
+.mdl-cnt{padding:14px;}
+.acta-f{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--border);border-radius:5px;margin-bottom:6px;font-size:12px;}
+.acta-f b{font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.04em;color:var(--gold);}
+.acta-f .quien{margin-left:auto;color:var(--text3);font-size:11px;}
+.acta-x{background:none;border:0;color:#e05252;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;}
+.elige{display:flex;gap:8px;}
+.elige button{flex:1;padding:10px 8px;}
+@media print{ #velo{display:none !important;} }
 </style>
 <script src="/oi-sesion.js"></script>
 </head>
@@ -225,6 +242,7 @@ table.t td .val{min-height:28px;}
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="2" width="10" height="5" rx="1"/><rect x="2" y="7" width="12" height="7" rx="1"/><rect x="5" y="10" width="6" height="4"/></svg>
       Imprimir
     </button>
+    <button class="nav-btn" onclick="abreActas()">Actas</button>
     <a class="nav-btn" href="sesion.html" style="text-decoration:none;">Sesiones</a>
     <div class="oi-nav-crest">
       <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1L13 4V8C13 12 10.5 14.5 7 15.5C3.5 14.5 1 12 1 8V4Z"/></svg>
@@ -249,6 +267,8 @@ table.t td .val{min-height:28px;}
 </div>
 
 <input type="file" id="file-foto" accept="image/*" style="display:none;" onchange="fotoElegida(event)">
+<input type="file" id="file-acta" accept="application/pdf,.pdf" style="display:none;" onchange="actaElegida(event)">
+<div id="velo" onclick="if(event.target===this) cierraMdl();"><div class="mdl" id="mdl"></div></div>
 <div id="aviso"></div>
 
 <script>
@@ -526,12 +546,13 @@ function borraConseguido(id){
 function pintaFicha(){
   const p=jugadores.find(x=>x.id===actual); if(!p) return;
   const h=document.getElementById('hoja');
-  const pestanas=[['ficha','Ficha'],['ooii','Objetivos'],['entrenos','Entrenamientos']];
+  const pestanas=[['ficha','Ficha'],['ooii','Objetivos'],['entrenos','Entrenamientos'],['partidos','Partidos']];
   let html='<div class="tabs no-print">'
     +pestanas.map(x=>'<button class="tab'+(tab===x[0]?' sel':'')+'" onclick="veTab(\''+x[0]+'\')">'+x[1]+'</button>').join('')
     +'</div>';
   if(tab==='ficha')      html+=hojaFicha(p);
   else if(tab==='entrenos') html+=hojaEntrenos(p);
+  else if(tab==='partidos') html+=hojaPartidos(p);
   else                   html+=hojaOoii(p);
   h.innerHTML=html;
 }
@@ -705,6 +726,455 @@ function hojaEntrenos(p){
       +'</tr>').join('')
       +'</tbody></table></div>';
   }
+  html+='</div>';
+  return html;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PARTIDOS · LECTOR DE ACTAS DE LA RFEF
+//  El acta oficial ("Ficha del Partido", el PDF que se descarga de
+//  marcadores.rfef.es) es una plantilla fija de dos columnas: local a la
+//  izquierda, visitante a la derecha y los datos del partido por el medio.
+//  De ahí salen alineaciones, cambios, goles, tarjetas y, con eso, los
+//  MINUTOS de cada jugador. Se guarda en 'oi_partidos' y sube a la nube.
+// ══════════════════════════════════════════════════════════════
+const K_PART='oi_partidos';
+let partidos={}, actaPend=null;
+
+function cargaPartidos(){ partidos = lee(K_PART,{}) || {}; }
+function guardaPartidos(){
+  try{ localStorage.setItem(K_PART,JSON.stringify(partidos)); }
+  catch(e){ avisa('No se ha podido guardar: falta espacio'); }
+}
+
+// ── pdf.js, que se trae sólo cuando hace falta ──
+const PDFJS_JS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WK='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let pdfjsPide=null;
+function cargaPdfJs(){
+  if(pdfjsPide) return pdfjsPide;
+  pdfjsPide=new Promise(function(ok,mal){
+    const lib=window.pdfjsLib||window['pdfjs-dist/build/pdf'];
+    if(lib){ lib.GlobalWorkerOptions.workerSrc=PDFJS_WK; return ok(lib); }
+    const s=document.createElement('script'); s.src=PDFJS_JS;
+    s.onload=function(){
+      const l=window.pdfjsLib||window['pdfjs-dist/build/pdf'];
+      if(!l) return mal(new Error('pdf.js no ha cargado'));
+      l.GlobalWorkerOptions.workerSrc=PDFJS_WK; ok(l);
+    };
+    s.onerror=function(){ pdfjsPide=null; mal(new Error('sin conexión para leer el PDF')); };
+    document.head.appendChild(s);
+  });
+  return pdfjsPide;
+}
+// Texto del PDF con su posición. La y de pdf.js va de abajo arriba: se le da la vuelta.
+function itemsDelPdf(buf){
+  return cargaPdfJs().then(function(lib){
+    return lib.getDocument({data:new Uint8Array(buf)}).promise.then(function(doc){
+      const items=[]; let cad=Promise.resolve();
+      for(let n=1;n<=doc.numPages;n++){
+        cad=cad.then(function(){ return doc.getPage(this.n); }.bind({n:n})).then(function(pg){
+          const vp=pg.getViewport({scale:1});
+          return pg.getTextContent().then(function(tc){
+            tc.items.forEach(function(it){
+              const t=(it.str||'').trim(); if(!t) return;
+              items.push({p:pg.pageNumber, x:it.transform[4], y:vp.height-it.transform[5], t:t});
+            });
+          });
+        });
+      }
+      return cad.then(function(){ return items; });
+    });
+  });
+}
+
+/* ------------------------------------------------------------------
+   leeActa(items) → objeto partido. Ver cabecera de este apartado.
+   ------------------------------------------------------------------ */
+function leeActa(items){
+  const IZQ=210, DER=395;                 // fronteras de las tres columnas
+  const col = x => x<IZQ ? 'L' : (x<DER ? 'C' : 'R');
+  const p1 = items.filter(i=>i.p===1);
+  const p2 = items.filter(i=>i.p!==1);
+  const limpia = s => String(s||'').replace(/\s+/g,' ').trim();
+
+  function lineas(lista, holgura){
+    const h = holgura||4.5;
+    const ord=[...lista].sort((a,b)=> a.y-b.y || a.x-b.x);
+    const out=[]; let act=null;
+    for(const it of ord){
+      if(!act || it.y-act.y0 > h){ act={y0:it.y, items:[it]}; out.push(act); }
+      else act.items.push(it);
+    }
+    return out.map(l=>({ y:l.y0,
+      items:l.items.sort((a,b)=>a.x-b.x),
+      txt: limpia(l.items.map(i=>i.t).join(' ')) }));
+  }
+  const texto = lista => lineas(lista).map(l=>l.txt).join('\n');
+
+  const tit = p1.filter(i=>/^TITULARES$/.test(i.t)).sort((a,b)=>a.y-b.y)[0];
+  const yTit = tit ? tit.y : 190;
+  const cab = lineas(p1.filter(i=>i.y < yTit-4));
+  const tCab = cab.map(l=>l.txt).join('\n');
+
+  const mCat = tCab.match(/Campeonato[^\n]*?de\s+Liga\s+de\s+([^\n(]+?)\s*(?:\(([^)]*)\))?\s*(?:\n|$)/i);
+  const partido = {
+    competicion: mCat ? limpia(mCat[1]) : '',
+    grupo:       mCat && mCat[2] ? limpia(mCat[2]) : '',
+    jornada: (tCab.match(/Jornada\s+(\d+)/i)||[])[1] || '',
+    fecha:   (tCab.match(/Fecha:\s*(\d{2}-\d{2}-\d{4})/i)||[])[1] || '',
+    hora:    (tCab.match(/Hora:\s*(\d{1,2}:\d{2})/i)||[])[1] || '',
+    temporada:(tCab.match(/(\d{4}-\d{4})/)||[])[1] || '',
+    estadio:'', ciudad:'', arbitros:[], nuestro:'',
+    local:{nombre:'',goles:null,titulares:[],suplentes:[],cambios:[],tarjetas:[],ct:{},jugadores:[]},
+    visitante:{nombre:'',goles:null,titulares:[],suplentes:[],cambios:[],tarjetas:[],ct:{},jugadores:[]},
+    goles:[]
+  };
+  for(const l of cab.slice().reverse()){
+    const iz=limpia(l.items.filter(i=>col(i.x)==='L').map(i=>i.t).join(' '));
+    const de=limpia(l.items.filter(i=>col(i.x)==='R').map(i=>i.t).join(' '));
+    if(iz && de && !/Fecha|Jornada|Temporada|\d{4}-\d{4}/i.test(iz+de)){
+      partido.local.nombre=iz; partido.visitante.nombre=de; break;
+    }
+  }
+  const lRes = lineas(p1.filter(i=>Math.abs(i.y-yTit)<6 && col(i.x)==='C'));
+  const mRes = (lRes[0]?lRes[0].txt:'').match(/(\d+)\s*-\s*(\d+)/);
+  if(mRes){ partido.local.goles=+mRes[1]; partido.visitante.goles=+mRes[2]; }
+
+  const centro = texto(p1.filter(i=>col(i.x)==='C' && i.y>yTit+4));
+  partido.estadio = limpia((centro.match(/ESTADIO:\s*([^\n]*?)(?:\s*Ciudad:|\n|$)/i)||[])[1]||'');
+  partido.ciudad  = limpia((centro.match(/Ciudad:\s*([^\n]*)/i)||[])[1]||'');
+  const reArb=/(Árbitro(?:\s+Asistente)?|Arbitro(?:\s+Asistente)?|Cuarto\s+Árbitro)\s+([A-ZÁÉÍÓÚÜÑ][^\n]*?)(?=\s*(?:Árbitro|Arbitro|Cuarto|GOLES|ESTADIO|\n|$))/g;
+  let mA; while((mA=reArb.exec(centro))) partido.arbitros.push({cargo:limpia(mA[1]), nombre:limpia(mA[2])});
+  const reGol=/(\d+)\s*-\s*(\d+)\s+([A-ZÁÉÍÓÚÜÑ][^()\n]*?)\s*\((\d+)'\)/g;
+  let mG; while((mG=reGol.exec(centro)))
+    partido.goles.push({marcador:mG[1]+'-'+mG[2], jugador:limpia(mG[3]), minuto:+mG[4]});
+
+  const TITULOS=['TITULARES','SUPLENTES','CUERPO TÉCNICO','CUERPO TECNICO','SUSTITUCIONES','TARJETAS'];
+  function apartados(lista){
+    const ls=lineas(lista.filter(i=>i.y>yTit-6));
+    const res={}; let act=null;
+    for(const l of ls){
+      const t=l.txt.toUpperCase();
+      const hit=TITULOS.find(h=> t===h || t.indexOf(h+' ')===0 );
+      if(hit){ act=hit.replace('TECNICO','TÉCNICO'); res[act]=res[act]||[];
+               const resto=limpia(l.txt.slice(hit.length)); if(resto) res[act].push(resto); continue; }
+      if(act) res[act].push(l.txt);
+    }
+    const o={}; for(const k in res) o[k]=res[k].join('\n');
+    return o;
+  }
+  function porDorsal(txt){
+    const s=limpia(String(txt||'').replace(/\n/g,' '));
+    const re=/(?:^|\s)(\d{1,2})\s+(?=[A-ZÁÉÍÓÚÜÑ])/g;
+    const cortes=[]; let m;
+    while((m=re.exec(s))) cortes.push({i:m.index, ini:re.lastIndex, dorsal:m[1]});
+    const out=[];
+    for(let k=0;k<cortes.length;k++){
+      const fin = k+1<cortes.length ? cortes[k+1].i : s.length;
+      const resto = limpia(s.slice(cortes[k].ini, fin));
+      const mm = resto.match(/\((\d+)'\)/);
+      const nombre = limpia(resto.replace(/\((\d+)'\)/,''));
+      if(nombre) out.push({dorsal:cortes[k].dorsal, nombre:nombre, minuto: mm?+mm[1]:null});
+    }
+    return out;
+  }
+  const mismo=(a,b)=>limpia(a).toUpperCase()===limpia(b).toUpperCase();
+
+  function equipo(lado, lista){
+    const ap = apartados(lista), eq = partido[lado];
+    eq.titulares = porDorsal(ap['TITULARES']).map(j=>({dorsal:j.dorsal,nombre:j.nombre}));
+    eq.suplentes = porDorsal(ap['SUPLENTES']).map(j=>({dorsal:j.dorsal,nombre:j.nombre}));
+    const ent = porDorsal(ap['SUSTITUCIONES']);
+    for(let k=0;k<ent.length;k++){
+      if(ent[k].minuto==null && ent[k+1] && ent[k+1].minuto!=null){
+        eq.cambios.push({ entra:{dorsal:ent[k].dorsal,nombre:ent[k].nombre},
+                          sale: {dorsal:ent[k+1].dorsal,nombre:ent[k+1].nombre},
+                          minuto: ent[k+1].minuto });
+        k++;
+      }
+    }
+    const reT=/([A-ZÁÉÍÓÚÜÑ][^()\n]*?)\s*\((\d+)'\)/g; let mT;
+    while((mT=reT.exec(ap['TARJETAS']||'')))
+      eq.tarjetas.push({dorsal:'', nombre:limpia(mT[1]), minuto:+mT[2], tipo:'amarilla'});
+    const ct=(ap['CUERPO TÉCNICO']||'').split('\n').map(limpia).filter(Boolean);
+    for(let k=0;k<ct.length-1;k++){
+      if(ct[k].indexOf(',')<0 && ct[k+1].indexOf(',')>=0){ eq.ct[ct[k]]=ct[k+1]; k++; }
+    }
+  }
+  equipo('local',     p1.filter(i=>col(i.x)==='L'));
+  equipo('visitante', p1.filter(i=>col(i.x)==='R'));
+
+  // Página 2: las incidencias traen el dorsal y el motivo, y distinguen roja de amarilla
+  const t2 = texto(p2).replace(/\n/g,' ');
+  const corte = t2.search(/DIRIGENTES\s+y\s+T[EÉ]CNICOS/i);
+  const zona = corte>0 ? t2.slice(0,corte) : t2;
+  const reInc=/-\s*([^:]{3,60}?)\s*:\s*En el minuto\s+(\d+)\s+el jugador\s+\((\d+)\)\s+(.+?)\s+fue\s+(amonestado|expulsado)\s+por el siguiente motivo:\s*(.*?)(?=\s*-\s*[^:]{3,60}?\s*:\s*En el minuto|\s*(?:EXPULSIONES|OTRAS INCIDENCIAS|AMONESTACIONES)\b|$)/gi;
+  const inc=[]; let mI;
+  while((mI=reInc.exec(zona)))
+    inc.push({equipo:limpia(mI[1]), minuto:+mI[2], dorsal:mI[3], nombre:limpia(mI[4]),
+              tipo:/expulsado/i.test(mI[5])?'roja':'amarilla', motivo:limpia(mI[6])});
+  partido.incidencias=inc;
+  for(const lado of ['local','visitante']){
+    const eq=partido[lado];
+    const mias=inc.filter(i=>mismo(i.equipo, eq.nombre));
+    if(mias.length) eq.tarjetas = mias.map(i=>({dorsal:i.dorsal,nombre:i.nombre,minuto:i.minuto,tipo:i.tipo,motivo:i.motivo}));
+  }
+
+  // Minutos: el titular entra en el 0; el que sale, hasta el minuto del cambio
+  const FIN=90;
+  for(const lado of ['local','visitante']){
+    const eq=partido[lado], fichas={};
+    const mete=(j,titular)=>{ if(!fichas[j.dorsal]) fichas[j.dorsal]={dorsal:j.dorsal,nombre:j.nombre,
+      titular:titular, entra:titular?0:null, sale:null, goles:0, amarillas:0, rojas:0, jid:''}; };
+    eq.titulares.forEach(j=>mete(j,true));
+    eq.suplentes.forEach(j=>mete(j,false));
+    eq.cambios.forEach(c=>{
+      if(fichas[c.entra.dorsal] && fichas[c.entra.dorsal].entra==null) fichas[c.entra.dorsal].entra=c.minuto;
+      if(fichas[c.sale.dorsal]  && fichas[c.sale.dorsal].sale==null)   fichas[c.sale.dorsal].sale=c.minuto;
+    });
+    eq.tarjetas.forEach(t=>{
+      const f = (t.dorsal && fichas[t.dorsal]) || Object.keys(fichas).map(k=>fichas[k]).find(x=>mismo(x.nombre,t.nombre));
+      if(!f) return;
+      if(t.tipo==='roja'){ f.rojas++; if(f.sale==null) f.sale=Math.min(t.minuto,FIN); }
+      else f.amarillas++;
+    });
+    partido.goles.forEach(g=>{
+      const f=Object.keys(fichas).map(k=>fichas[k]).find(x=>mismo(x.nombre,g.jugador));
+      if(f) f.goles++;
+    });
+    eq.jugadores = Object.keys(fichas).map(k=>fichas[k]).map(f=>{
+      const jugo=f.entra!=null, sale=f.sale==null?FIN:Math.min(f.sale,FIN);
+      return Object.assign({},f,{minutos: jugo?Math.max(0,sale-f.entra):0, jugo:jugo});
+    }).sort((a,b)=>(+a.dorsal)-(+b.dorsal));
+  }
+  return partido;
+}
+
+// ── Emparejar el acta con la plantilla ─────────────────────────
+// Los nombres del acta vienen "APELLIDOS, NOMBRE" y la plantilla suele
+// tener nombres cortos, así que se comparan palabra por palabra y se le
+// suma peso al dorsal, que casi siempre coincide.
+function trozos(n){ return sinTildes(n).replace(/[^A-ZÑ\s]/g,' ').split(/\s+/).filter(t=>t.length>=3); }
+function puntua(jActa, p, unicas){
+  const ta=trozos(jActa.nombre), tp=trozos(p.name);
+  const com=tp.filter(t=>ta.indexOf(t)>=0);
+  // Sin ninguna palabra en común no es él: el dorsal solo no vale, porque los
+  // dos equipos del acta llevan los mismos dorsales.
+  if(!com.length) return 0;
+  let pts=com.length*2;
+  if(String(p.num)===String(jActa.dorsal)) pts+=3;
+  if(com.length===1 && unicas[com[0]]===1) pts+=1;
+  return pts;
+}
+function cuentaUnicas(){
+  const c={}; jugadores.forEach(p=>trozos(p.name).forEach(t=>c[t]=(c[t]||0)+1)); return c;
+}
+function emparejaActa(part){
+  const eq=part[part.nuestro]; if(!eq) return 0;
+  const unicas=cuentaUnicas(); const usado={}; let n=0;
+  (eq.jugadores||[]).forEach(j=>{
+    let mejor=null, pts=0;
+    jugadores.forEach(p=>{ const q=puntua(j,p,unicas); if(q>pts){ pts=q; mejor=p; } });
+    j.jid = (mejor && pts>=3) ? mejor.id : '';
+    if(j.jid){
+      if(usado[j.jid]!==undefined && usado[j.jid]>=pts){ j.jid=''; }
+      else { usado[j.jid]=pts; n++; }
+    }
+  });
+  return n;
+}
+function ladoProbable(part){
+  const unicas=cuentaUnicas();
+  const cuenta=lado=>(part[lado].jugadores||[]).filter(j=>
+    jugadores.some(p=>puntua(j,p,unicas)>=3)).length;
+  const l=cuenta('local'), v=cuenta('visitante');
+  if(l===v) return '';
+  return l>v ? 'local' : 'visitante';
+}
+
+// ── Importar un acta ──────────────────────────────────────────
+function pideActa(){ document.getElementById('file-acta').click(); }
+function actaElegida(ev){
+  const f=ev.target.files&&ev.target.files[0]; ev.target.value='';
+  if(!f) return;
+  avisa('Leyendo el acta…');
+  const r=new FileReader();
+  r.onload=function(e){
+    itemsDelPdf(e.target.result).then(function(items){
+      const p=leeActa(items);
+      if(!p.local.nombre || !p.visitante.nombre || p.local.titulares.length<7){
+        avisa('Ese PDF no parece un acta de la RFEF'); return;
+      }
+      actaPend=p;
+      p.nuestro=ladoProbable(p);
+      ventanaElige(p);
+    }).catch(function(err){ avisa(err&&err.message?err.message:'No se ha podido leer el PDF'); });
+  };
+  r.onerror=function(){ avisa('No se ha podido abrir el archivo'); };
+  r.readAsArrayBuffer(f);
+}
+function idActa(p){
+  return sinTildes(p.fecha+' '+p.local.nombre+' '+p.visitante.nombre).replace(/[^A-Z0-9]+/g,'_');
+}
+function confirmaLado(lado){
+  const p=actaPend; if(!p) return;
+  p.nuestro=lado;
+  const n=emparejaActa(p);
+  const total=(p[lado].jugadores||[]).length;
+  partidos[idActa(p)]=p;
+  guardaPartidos(); actaPend=null;
+  avisa('Acta guardada · '+n+' de '+total+' jugadores reconocidos');
+  if(actual){ tab='partidos'; pintaFicha(); }
+  abreActas();
+}
+function borraActa(id){
+  const p=partidos[id]; if(!p) return;
+  if(!confirm('¿Quitar el acta de la jornada '+(p.jornada||'?')+' ('+p.local.nombre+' - '+p.visitante.nombre+')?')) return;
+  delete partidos[id]; guardaPartidos();
+  if(actual) pintaFicha();
+  abreActas();
+}
+
+// ── Ventanas ──────────────────────────────────────────────────
+function cierraMdl(){ document.getElementById('velo').classList.remove('ver'); actaPend=null; }
+function ponMdl(titulo, cuerpo){
+  document.getElementById('mdl').innerHTML=
+    '<div class="mdl-hdr"><span>'+titulo+'</span><button class="mdl-x" onclick="cierraMdl()">×</button></div>'
+    +'<div class="mdl-cnt">'+cuerpo+'</div>';
+  document.getElementById('velo').classList.add('ver');
+}
+function ventanaElige(p){
+  ponMdl('¿Cuál es tu equipo?',
+    '<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:4px;">'
+    +esc(p.competicion)+(p.grupo?' · '+esc(p.grupo):'')+' · Jornada '+esc(p.jornada)+' · '+esc(fechaActa(p.fecha))+'</div>'
+    +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:19px;letter-spacing:.04em;margin-bottom:10px;">'
+    +esc(p.local.nombre)+' <span style="color:var(--gold);">'+p.local.goles+' - '+p.visitante.goles+'</span> '+esc(p.visitante.nombre)+'</div>'
+    +'<div class="elige">'
+    +'<button class="btn'+(p.nuestro==='local'?'':' btn-ghost')+'" onclick="confirmaLado(\'local\')">'+esc(p.local.nombre)+'</button>'
+    +'<button class="btn'+(p.nuestro==='visitante'?'':' btn-ghost')+'" onclick="confirmaLado(\'visitante\')">'+esc(p.visitante.nombre)+'</button>'
+    +'</div>'
+    +(p.nuestro?'<div style="font-size:11px;color:var(--text3);margin-top:8px;">Marcado el que encaja con tu plantilla. Si no es ése, pulsa el otro.</div>':''));
+}
+function abreActas(){
+  const ids=Object.keys(partidos).sort((a,b)=>ordenActa(partidos[b])-ordenActa(partidos[a]));
+  let c='<button class="btn" onclick="pideActa()">Elegir acta en PDF…</button>'
+    +'<div style="font-size:11px;color:var(--text3);line-height:1.6;margin:8px 0 14px;">'
+    +'El acta oficial se descarga de <b>marcadores.rfef.es</b> (en la ficha del partido, "Acta"). '
+    +'De ella salen la alineación, los cambios, los goles, las tarjetas y los minutos de cada jugador.</div>';
+  if(!ids.length) c+='<div style="font-size:12px;color:var(--text3);">Todavía no hay actas cargadas.</div>';
+  else c+=ids.map(function(id){ const p=partidos[id]; const eq=p[p.nuestro]||{};
+      return '<div class="acta-f"><b>J'+esc(p.jornada||'—')+'</b>'
+        +'<span>'+esc(p.local.nombre)+' '+esc(p.local.goles)+'-'+esc(p.visitante.goles)+' '+esc(p.visitante.nombre)+'</span>'
+        +'<span class="quien">'+esc(eq.nombre||'')+'</span>'
+        +'<button class="acta-x" title="Quitar" onclick="borraActa(\''+id+'\')">×</button></div>';
+    }).join('');
+  ponMdl('Actas de partido', c);
+}
+
+// ── Lo que sale en la pestaña Partidos ────────────────────────
+function fechaActa(f){   // 08-11-2026 → 08/11/2026
+  const m=String(f||'').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m? m[1]+'/'+m[2]+'/'+m[3] : (f||'—');
+}
+function ordenActa(p){
+  const m=String(p.fecha||'').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m? +(m[3]+m[2]+m[1]) : 0;
+}
+function suFila(part,p){
+  const eq=part[part.nuestro]; if(!eq) return null;
+  const js=eq.jugadores||[];
+  let q=js.find(x=>x.jid && x.jid===p.id);
+  if(!q) q=js.find(x=>sinTildes(x.nombre)===sinTildes(p.name));
+  if(!q){ const tp=trozos(p.name);
+    if(tp.length) q=js.find(x=>{ const t=trozos(x.nombre);
+      return tp.filter(z=>t.indexOf(z)>=0).length >= Math.min(2,tp.length); }); }
+  if(!q) q=js.find(x=>String(x.dorsal)===String(p.num));
+  return q||null;
+}
+function resumenPartidos(p){
+  const r={convocado:0, jugados:0, titular:0, minutos:0, goles:0, amarillas:0, rojas:0, filas:[]};
+  Object.keys(partidos).map(k=>partidos[k]).forEach(function(part){
+    if(!part.nuestro) return;
+    const j=suFila(part,p); if(!j) return;
+    r.convocado++;
+    if(j.minutos>0){ r.jugados++; r.minutos+=j.minutos; }
+    if(j.titular) r.titular++;
+    r.goles+=j.goles||0; r.amarillas+=j.amarillas||0; r.rojas+=j.rojas||0;
+    const casa = part.nuestro==='local';
+    r.filas.push({ jornada:part.jornada, fecha:part.fecha,
+      rival: casa? part.visitante.nombre : part.local.nombre, casa:casa,
+      marcador: part.local.goles+'-'+part.visitante.goles,
+      favor: casa? part.local.goles : part.visitante.goles,
+      contra: casa? part.visitante.goles : part.local.goles,
+      titular:j.titular, minutos:j.minutos, goles:j.goles, amarillas:j.amarillas, rojas:j.rojas,
+      dorsal:j.dorsal });
+  });
+  r.filas.sort((a,b)=>ordenActa(b)-ordenActa(a));
+  r.media = r.jugados? Math.round(r.minutos/r.jugados) : 0;
+  return r;
+}
+function hojaPartidos(p){
+  const r=resumenPartidos(p);
+  const nActas=Object.keys(partidos).length;
+  let html='<div class="pag">';
+  html+='<div class="cab-tit" style="margin-bottom:10px;">'+esc(p.name||'')+' · Partidos</div>';
+  if(!nActas){
+    html+='<div class="bloque"><div class="caja" style="padding:22px;text-align:center;font-size:12px;color:var(--text3);line-height:1.7;">'
+      +'Todavía no hay actas cargadas.<br>'
+      +'Baja el acta del partido de <b>marcadores.rfef.es</b> y súbela aquí: la app saca sola la alineación, los cambios, los goles, las tarjetas y los minutos.'
+      +'<div style="margin-top:12px;"><button class="btn" onclick="abreActas()">Importar un acta</button></div>'
+      +'</div></div></div>';
+    return html;
+  }
+  html+='<div class="bloque"><div class="caja" style="padding:10px;border-top:1px solid var(--border);border-radius:4px;">'
+    +'<div class="kpis">'
+    +tarjeta(r.convocado,'Convocado')
+    +tarjeta(r.jugados,'Jugados','#00B050')
+    +tarjeta(r.titular,'Titular')
+    +tarjeta(Math.round(r.minutos)+"'",'Minutos')
+    +tarjeta(r.media?r.media+"'":'—','Media')
+    +tarjeta(r.goles,'Goles',r.goles?'#C8A84B':'')
+    +'</div></div></div>';
+  html+='<div class="bloque"><div class="banda">Disciplina</div><div class="caja" style="padding:10px;">'
+    +'<div class="kpis">'
+    +tarjeta(r.amarillas,'Amarillas',r.amarillas?'#FFC000':'')
+    +tarjeta(r.rojas,'Rojas',r.rojas?'#e05252':'')
+    +'</div></div></div>';
+  if(!r.filas.length){
+    html+='<div class="bloque"><div class="caja" style="padding:20px;text-align:center;font-size:12px;color:var(--text3);line-height:1.7;">'
+      +'Este jugador no aparece en ninguna de las '+nActas+' actas cargadas.<br>'
+      +'Si el nombre de tu plantilla no se parece al del acta, cámbialo y vuelve a importarla.'
+      +'</div></div>';
+  } else {
+    html+='<div class="bloque"><div class="banda">Partido a partido ('+r.filas.length+')</div>'
+      +'<table class="t"><thead><tr>'
+      +'<th style="width:50px;text-align:center;">J</th><th style="width:90px;">Fecha</th>'
+      +'<th>Rival</th><th style="width:70px;text-align:center;">Res.</th>'
+      +'<th style="width:70px;text-align:center;">Rol</th>'
+      +'<th style="width:70px;text-align:center;">Min.</th>'
+      +'<th style="width:60px;text-align:center;">Goles</th>'
+      +'<th style="width:80px;text-align:center;">Tarj.</th></tr></thead><tbody>'
+      +r.filas.map(function(f){
+        const sig = f.favor>f.contra? '#00B050' : (f.favor<f.contra? '#e05252' : '#FFC000');
+        const rol = f.minutos>0 ? (f.titular?'Titular':'Suplente') : 'No jugó';
+        return '<tr>'
+        +'<td class="tnum">'+esc(f.jornada||'—')+'</td>'
+        +'<td><div class="val">'+esc(fechaActa(f.fecha))+'</div></td>'
+        +'<td><div class="val">'+(f.casa?'':'en ')+esc(f.rival)+'</div></td>'
+        +'<td><div class="val" style="text-align:center;color:'+sig+';">'+esc(f.marcador)+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+rol+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+(f.minutos?f.minutos+"'":'—')+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+(f.goles||'—')+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'
+          +(f.amarillas?'<span class="est est-L" style="background:#FFC000;color:#222;">'+f.amarillas+'</span> ':'')
+          +(f.rojas?'<span class="est est-L" style="background:#e05252;">'+f.rojas+'</span>':'')
+          +(!f.amarillas&&!f.rojas?'—':'')
+        +'</div></td></tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }
+  html+='<div class="no-print" style="margin-top:8px;"><button class="btn btn-ghost" onclick="abreActas()">Actas cargadas ('+nActas+')</button></div>';
   html+='</div>';
   return html;
 }
@@ -910,12 +1380,13 @@ window.addEventListener('oi-datos', function(ev){
       if(actual) pintaFicha();
       avisa('Objetivos traídos de la nube');
     }
+    if(hay(K_PART)){ cargaPartidos(); if(actual) pintaFicha(); }
     if(hay('oi_team_crest')) pintaEscudo();
   }catch(e){}
 });
 
 // ── Arranque ──
-cargaPlantilla(); cargaOoii(); cargaFichas(); pintaLista(''); pintaEscudo();
+cargaPlantilla(); cargaOoii(); cargaFichas(); cargaPartidos(); pintaLista(''); pintaEscudo();
 </script>
 </body>
 </html>
