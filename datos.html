@@ -122,6 +122,22 @@ table.t td{border-bottom:1px solid rgba(255,255,255,0.06);padding:0;vertical-ali
 table.t td .val{min-height:28px;}
 .tnum{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--gold);
   text-align:center;padding:7px 4px;}
+.tabs{display:flex;gap:4px;padding:12px 22px 0;border-bottom:1px solid var(--border);}
+.tab{background:transparent;border:1px solid transparent;border-bottom:none;color:var(--text2);
+  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.2px;
+  text-transform:uppercase;padding:8px 18px;border-radius:6px 6px 0 0;cursor:pointer;}
+.tab:hover{color:var(--text);background:rgba(200,168,75,0.06);}
+.tab.sel{color:var(--gold);background:var(--surface);border-color:var(--border);
+  box-shadow:inset 0 2px 0 var(--gold);}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;}
+.kpi{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px 8px;text-align:center;}
+.kpi-v{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:#fff;line-height:1;}
+.kpi-p{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-top:4px;}
+.est{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;
+  padding:1px 5px;border-radius:3px;color:#fff;min-width:20px;text-align:center;}
+.est-E{background:#00B050;}.est-L{background:#e05252;}.est-En{background:#27ae60;}
+.est-P{background:#7f8c8d;}.est-RA{background:#e67e22;}.est-E2{background:#2980b9;}
 .mini{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;
   font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.8px;
   text-transform:uppercase;padding:2px 7px;border-radius:3px;cursor:pointer;}
@@ -163,6 +179,9 @@ table.t td .val{min-height:28px;}
         overflow:visible; border:1.2pt solid #C8A84B; padding:3mm; box-sizing:border-box; }
   .pag:last-child{ page-break-after:avoid; }
   .bloque, .obj, .cab, table.t tr{ page-break-inside:avoid !important; }
+  .kpi{ background:#f3f5fa !important; border-color:rgba(27,42,107,0.25) !important; }
+  .kpi-v{ color:#1B2A6B !important; font-size:13pt !important; }
+  .kpi-p{ color:#555 !important; font-size:5.5pt !important; }
 
   /* Oscuro → claro, para no gastar tinta y que se lea */
   .caja{ background:#fff !important; border-color:rgba(27,42,107,0.3) !important; }
@@ -244,8 +263,9 @@ table.t td .val{min-height:28px;}
 //  nube con el mismo motor que la pizarra y la sesión.
 // ══════════════════════════════════════════════════════════════
 
-const K_OOII='oi_ooii';
-let jugadores=[], ooii={}, actual=null, tGuardar=null;
+const K_OOII='oi_ooii';          // objetivos individuales, por jugador
+const K_FICHAS='oi_fichas';      // ficha del jugador, compartida por toda la app
+let jugadores=[], ooii={}, fichas={}, actual=null, tab='ficha', tGuardar=null;
 
 function lee(k,pordef){ try{ const v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?pordef:v; }catch(e){ return pordef; } }
 function avisa(t){ const a=document.getElementById('aviso'); a.textContent=t; a.classList.add('ver'); setTimeout(()=>a.classList.remove('ver'),1600); }
@@ -268,6 +288,34 @@ function cargaPlantilla(){
 }
 
 function cargaOoii(){ ooii = lee(K_OOII,{}) || {}; }
+function cargaFichas(){ fichas = lee(K_FICHAS,{}) || {}; }
+function guardaFichas(){
+  try{ localStorage.setItem(K_FICHAS,JSON.stringify(fichas)); }
+  catch(e){ avisa('No se ha podido guardar: falta espacio'); }
+}
+
+// La ficha del jugador. Es la fuente única: la foto, el mote, las
+// posiciones y el carácter se escriben aquí y los objetivos los leen de
+// aquí, para que no haya dos versiones de lo mismo por la app.
+function datosNuevos(){
+  return {foto:'', mote:'', posiciones:'', hobbies:'', nacimiento:'', nacionalidad:'',
+          altura:'', peso:'', pie:'', procedencia:'', telefono:'', email:'',
+          defectos:'', virtudes:'', razones:'', notas:''};
+}
+function datosDe(id){
+  if(!fichas[id]){
+    fichas[id]=datosNuevos();
+    // Lo que antes vivía dentro de los objetivos se trae aquí una vez.
+    const v=ooii[id];
+    if(v){
+      ['foto','mote','posiciones','hobbies','defectos','virtudes','razones'].forEach(k=>{
+        if(v[k]) fichas[id][k]=v[k];
+      });
+      fichas[id].__migF=true;
+    }
+  }
+  return fichas[id];
+}
 function guardaOoii(){
   try{ localStorage.setItem(K_OOII,JSON.stringify(ooii)); }
   catch(e){ avisa('No se ha podido guardar: falta espacio'); }
@@ -314,7 +362,10 @@ function fichaDe(id){
 }
 // ¿Tiene algo escrito? (para el puntito verde de la lista)
 function tieneAlgo(id){
-  const f=ooii[id]; if(!f) return false;
+  const d=fichas[id]||{};
+  const f=ooii[id]; if(!f && !Object.keys(d).length) return false;
+  if([d.foto,d.mote,d.defectos,d.virtudes,d.razones,d.nacimiento].join('').trim()) return true;
+  if(!f) return false;
   const txt=[f.defectos,f.virtudes,f.razones,f.destJug,f.mejJug,f.destCT,f.mejCT]
     .concat((f.objetivos||[]).map(a=>a&&a.titulo))
     .join('').trim();
@@ -344,10 +395,14 @@ function pintaLista(filtro){
 }
 
 // ── Abrir la ficha de un jugador ───────────────────────────────
+function veTab(t){ tab=t; pintaFicha(); }
+
 function abre(id){
   actual=id;
   const f=fichaDe(id);
   if(f.__mig){ delete f.__mig; guardaOoii(); }
+  const d=datosDe(id);
+  if(d.__migF){ delete d.__migF; guardaFichas(); }
   document.getElementById('vacio').style.display='none';
   document.getElementById('hoja').style.display='';
   document.getElementById('btn-imp').style.display='';
@@ -355,6 +410,33 @@ function abre(id){
   pintaFicha();
 }
 
+// Campo que escribe en la FICHA del jugador (compartida)
+function campoF(ruta, ph, estilo){
+  const v=valorEn(datosDe(actual),ruta);
+  return '<div class="val" contenteditable="true" data-ph="'+esc(ph||'')+'"'
+    +(estilo?' style="'+estilo+'"':'')
+    +' oninput="ponF(\''+ruta+'\', this.textContent)">'+esc(v)+'</div>';
+}
+function valorEn(o,ruta){
+  const p=ruta.split('.');
+  for(let i=0;i<p.length;i++){
+    const k=/^\d+$/.test(p[i])?parseInt(p[i],10):p[i];
+    if(o==null) return ''; o=o[k];
+  }
+  return o==null?'':o;
+}
+function ponF(ruta,valor){
+  const d=datosDe(actual); let o=d;
+  const p=ruta.split('.');
+  for(let i=0;i<p.length-1;i++){
+    const k=p[i]; if(o[k]==null) o[k]={}; o=o[k];
+  }
+  o[p[p.length-1]]=valor;
+  if(tGuardar) clearTimeout(tGuardar);
+  tGuardar=setTimeout(()=>{ guardaFichas(); pintaLista(document.getElementById('buscador').value); },450);
+}
+
+// Campo que escribe en los OBJETIVOS
 function campo(ruta, ph, estilo){
   const v=valorDe(ruta);
   return '<div class="val" contenteditable="true" data-ph="'+esc(ph||'')+'"'
@@ -444,9 +526,192 @@ function borraConseguido(id){
 
 function pintaFicha(){
   const p=jugadores.find(x=>x.id===actual); if(!p) return;
-  const f=fichaDe(actual);
-  const escudo=localStorage.getItem('oi_team_crest')||'';
   const h=document.getElementById('hoja');
+  const pestanas=[['ficha','Ficha'],['ooii','Objetivos'],['entrenos','Entrenamientos']];
+  let html='<div class="tabs no-print">'
+    +pestanas.map(x=>'<button class="tab'+(tab===x[0]?' sel':'')+'" onclick="veTab(\''+x[0]+'\')">'+x[1]+'</button>').join('')
+    +'</div>';
+  if(tab==='ficha')      html+=hojaFicha(p);
+  else if(tab==='entrenos') html+=hojaEntrenos(p);
+  else                   html+=hojaOoii(p);
+  h.innerHTML=html;
+}
+
+// ══════════ PESTAÑA · FICHA DEL JUGADOR ══════════
+function edad(iso){
+  if(!iso) return '';
+  const d=new Date(iso); if(isNaN(d)) return '';
+  const h=new Date(); let a=h.getFullYear()-d.getFullYear();
+  const m=h.getMonth()-d.getMonth();
+  if(m<0 || (m===0 && h.getDate()<d.getDate())) a--;
+  return (a>=0&&a<120)? a+' años' : '';
+}
+function hojaFicha(p){
+  const d=datosDe(actual);
+  const escudo=localStorage.getItem('oi_team_crest')||'';
+  let html='<div class="pag">';
+  html+='<div class="cab">'
+    +'<div class="cab-escudo" title="El escudo se cambia desde la pizarra o la sesión">'
+      +(escudo?'<img src="'+escudo+'" alt="Escudo">':'<div class="cab-ph">Escudo del equipo</div>')+'</div>'
+    +'<div class="cab-centro">'
+      +'<div class="cab-tit">Ficha de jugador</div>'
+      +'<div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
+        +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
+          +'<div class="et oscura">Nombre</div><div class="val" style="color:#fff;font-weight:600;">'+esc(p.name||'')+'</div>'
+          +'<div class="et oscura">Dorsal</div><div class="val" style="color:var(--gold);font-weight:700;">'+esc(p.num)+'</div></div>'
+        +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
+          +'<div class="et">Mote</div>'+campoF('mote','')
+          +'<div class="et">Posiciones</div>'+campoF('posiciones',p.pos||'')+'</div>'
+        +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
+          +'<div class="et">Nacimiento</div>'+campoF('nacimiento','AAAA-MM-DD')
+          +'<div class="et">Edad</div><div class="val" style="color:var(--text2);">'+esc(edad(d.nacimiento))+'</div></div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="cab-foto" onclick="pideFoto()" title="Foto del jugador">'
+      +(d.foto?'<img src="'+d.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
+              :'<div class="cab-ph">Foto<br>jugador</div>')+'</div>'
+  +'</div>';
+
+  html+='<div class="dos">'
+    +'<div class="bloque"><div class="banda">Datos</div><div class="caja">'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Nacionalidad</div>'+campoF('nacionalidad','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr 90px 1fr;"><div class="et">Altura</div>'+campoF('altura','cm')
+        +'<div class="et">Peso</div>'+campoF('peso','kg')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Pie</div>'+campoF('pie','Diestro / Zurdo / Ambidiestro')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Procedencia</div>'+campoF('procedencia','Club anterior')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Teléfono</div>'+campoF('telefono','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Email</div>'+campoF('email','')+'</div>'
+    +'</div></div>'
+    +'<div class="bloque"><div class="banda">Cómo es</div><div class="caja">'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Hobbies</div>'+campoF('hobbies','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Defectos</div>'+campoF('defectos','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et">Virtudes</div>'+campoF('virtudes','')+'</div>'
+      +'<div class="fila" style="grid-template-columns:130px 1fr;"><div class="et oscura">Razones</div>'+campoF('razones','Por qué está aquí')+'</div>'
+    +'</div></div>'
+  +'</div>';
+
+  const r=resumenEntrenos(p);
+  html+='<div class="bloque"><div class="banda">Entrenamientos de la temporada</div>'
+    +'<div class="caja" style="padding:10px;">'+tarjetasEntreno(r)
+    +'<div class="no-print" style="margin-top:8px;"><button class="btn btn-ghost" onclick="veTab(\'entrenos\')">Ver el detalle</button></div>'
+    +'</div></div>';
+
+  html+='<div class="bloque"><div class="banda">Notas</div><div class="caja">'
+    +'<div class="fila"><div style="padding:0;">'+campoF('notas','Lo que quieras apuntar','min-height:70px;')+'</div></div>'
+  +'</div></div>';
+
+  html+='</div>';
+  return html;
+}
+
+// ══════════ PESTAÑA · ENTRENAMIENTOS ══════════
+// Todo sale de las sesiones ya guardadas (pz_sessions): no hay que
+// meter nada a mano. Cada sesión guarda su propia copia de la plantilla
+// y la asistencia por dorsal, así que al jugador se le busca primero por
+// id, luego por nombre y, en último caso, por dorsal.
+const ESTADOS={E:'Entrena',L:'Lesión',En:'Enfermo',P:'Permiso',RA:'Readaptando',E2:'Otro equipo'};
+function sesionesGuardadas(){
+  const a=lee('pz_sessions',[]); return Array.isArray(a)?a:[];
+}
+function dorsalEnSesion(s,p){
+  const lista=Array.isArray(s.players)&&s.players.length?s.players:null;
+  if(lista){
+    let q=lista.find(x=>x.id&&x.id===p.id);
+    if(!q) q=lista.find(x=>sinTildes(x.name)&&sinTildes(x.name)===sinTildes(p.name));
+    if(!q) q=lista.find(x=>String(x.num)===String(p.num));
+    return q?String(q.num):null;
+  }
+  return String(p.num);
+}
+function minutosDe(s){
+  let min=0, carga=0;
+  (s.taskIds||[]).forEach(t=>{
+    const d=(s.taskData||{})[t]||{};
+    min  += parseFloat(d.tiempo)||0;
+    carga+= parseFloat(d.carga)||0;
+  });
+  return {min:min, carga:carga};
+}
+function resumenEntrenos(p){
+  const r={total:0, porEstado:{}, minutos:0, carga:0, filas:[]};
+  Object.keys(ESTADOS).forEach(k=>r.porEstado[k]=0);
+  sesionesGuardadas().forEach(s=>{
+    const dor=dorsalEnSesion(s,p);
+    if(dor===null) return;
+    const st=(s.attendance||{})[dor];
+    if(st===undefined) return;          // esa sesión no le incluía
+    r.total++;
+    if(r.porEstado[st]===undefined) r.porEstado[st]=0;
+    r.porEstado[st]++;
+    const m=minutosDe(s);
+    if(st==='E'){ r.minutos+=m.min; r.carga+=m.carga; }
+    r.filas.push({id:s.id, num:s.num, fecha:s.date, dia:s.dia, semana:s.semana,
+                  estado:st, min:m.min, carga:m.carga, tareas:(s.taskIds||[]).length});
+  });
+  r.filas.sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
+  r.pct = r.total? Math.round((r.porEstado.E||0)/r.total*100) : 0;
+  return r;
+}
+function tarjeta(valor,pie,color){
+  return '<div class="kpi"><div class="kpi-v"'+(color?' style="color:'+color+';"':'')+'>'+valor+'</div>'
+    +'<div class="kpi-p">'+pie+'</div></div>';
+}
+function tarjetasEntreno(r){
+  return '<div class="kpis">'
+    +tarjeta(r.total,'Sesiones')
+    +tarjeta((r.porEstado.E||0),'Entrenadas','#00B050')
+    +tarjeta(r.pct+'%','Asistencia',r.pct>=85?'#00B050':(r.pct>=60?'#FFC000':'#e05252'))
+    +tarjeta(Math.round(r.minutos)+"'",'Minutos')
+    +tarjeta(r.carga?r.carga.toFixed(1):'—','Carga')
+    +'</div>';
+}
+function hojaEntrenos(p){
+  const r=resumenEntrenos(p);
+  let html='<div class="pag">';
+  html+='<div class="cab-tit" style="margin-bottom:10px;">'+esc(p.name||'')+' · Entrenamientos</div>';
+  html+='<div class="bloque"><div class="caja" style="padding:10px;border-top:1px solid var(--border);border-radius:4px;">'
+    +tarjetasEntreno(r)+'</div></div>';
+
+  // Desglose por estado
+  html+='<div class="bloque"><div class="banda">Por qué faltó</div><div class="caja" style="padding:10px;">'
+    +'<div class="kpis">'
+    +Object.keys(ESTADOS).map(k=>tarjeta((r.porEstado[k]||0),ESTADOS[k])).join('')
+    +'</div></div></div>';
+
+  if(!r.filas.length){
+    html+='<div class="bloque"><div class="caja" style="padding:20px;text-align:center;font-size:12px;color:var(--text3);">'
+      +'Este jugador todavía no aparece en ninguna sesión guardada.<br>'
+      +'Las sesiones se crean en la <a href="sesion.html" style="color:var(--gold);">planilla de sesión</a>.'
+      +'</div></div>';
+  } else {
+    html+='<div class="bloque"><div class="banda">Sesión a sesión ('+r.filas.length+')</div>'
+      +'<table class="t"><thead><tr>'
+        +'<th style="width:60px;text-align:center;">Sesión</th><th style="width:110px;">Fecha</th>'
+        +'<th style="width:110px;">Semana</th><th style="width:120px;">Estado</th>'
+        +'<th style="width:80px;text-align:center;">Tareas</th>'
+        +'<th style="width:80px;text-align:center;">Minutos</th>'
+        +'<th style="width:80px;text-align:center;">Carga</th></tr></thead><tbody>'
+      +r.filas.map(f=>'<tr>'
+        +'<td class="tnum">'+esc(f.num||'—')+'</td>'
+        +'<td><div class="val">'+esc(fechaCorta(f.fecha))+'</div></td>'
+        +'<td><div class="val">'+esc(f.semana||'—')+'</div></td>'
+        +'<td><div class="val"><span class="est est-'+esc(f.estado)+'">'+esc(f.estado)+'</span> '
+          +esc(ESTADOS[f.estado]||f.estado)+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+f.tareas+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+(f.min?Math.round(f.min)+"'":'—')+'</div></td>'
+        +'<td><div class="val" style="text-align:center;">'+(f.carga?f.carga.toFixed(1):'—')+'</div></td>'
+      +'</tr>').join('')
+      +'</tbody></table></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+// ══════════ PESTAÑA · OBJETIVOS (OOII) ══════════
+function hojaOoii(p){
+  const f=fichaDe(actual);
+  const d=datosDe(actual);
+  const escudo=localStorage.getItem('oi_team_crest')||'';
 
   let html='<div class="pag">';
 
@@ -461,25 +726,25 @@ function pintaFicha(){
           +campo('ct','Nombres del cuerpo técnico')+'</div>'
         +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
           +'<div class="et">Temporada</div>'+campo('temporada','2026-2027')
-          +'<div class="et">Mote</div>'+campo('mote','')+'</div>'
+          +'<div class="et">Mote</div>'+campoF('mote','')+'</div>'
         +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
           +'<div class="et">Nombre</div><div class="val" style="color:#fff;font-weight:600;">'+esc(p.name||'')+'</div>'
           +'<div class="et">Dorsal</div><div class="val" style="color:var(--gold);font-weight:700;">'+esc(p.num)+'</div></div>'
         +'<div class="fila" style="grid-template-columns:110px 1fr 110px 1fr;">'
-          +'<div class="et">Posiciones</div>'+campo('posiciones',p.pos||'')
-          +'<div class="et">Hobbies</div>'+campo('hobbies','')+'</div>'
+          +'<div class="et">Posiciones</div>'+campoF('posiciones',p.pos||'')
+          +'<div class="et">Hobbies</div>'+campoF('hobbies','')+'</div>'
       +'</div>'
     +'</div>'
     +'<div class="cab-foto" onclick="pideFoto()" title="Foto del jugador">'
-      +(f.foto?'<img src="'+f.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
+      +(d.foto?'<img src="'+d.foto+'" alt="Foto"><div class="quitar-foto no-print" onclick="quitaFoto(event)">×</div>'
               :'<div class="cab-ph">Foto<br>jugador</div>')+'</div>'
   +'</div>';
 
   // ── Carácter ──
   html+='<div class="bloque"><div class="caja" style="border-top:1px solid var(--border);border-radius:4px;">'
-    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">Defectos</div>'+campo('defectos','')+'</div>'
-    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">Virtudes</div>'+campo('virtudes','')+'</div>'
-    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et oscura">Razones</div>'+campo('razones','Por qué está aquí')+'</div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">Defectos</div>'+campoF('defectos','')+'</div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et">Virtudes</div>'+campoF('virtudes','')+'</div>'
+    +'<div class="fila" style="grid-template-columns:150px 1fr;"><div class="et oscura">Razones</div>'+campoF('razones','Por qué está aquí')+'</div>'
   +'</div></div>';
 
   // ── A destacar / A mejorar ──
@@ -569,8 +834,7 @@ function pintaFicha(){
   +'</div>';
 
   html+='</div>';   // fin página 2
-
-  h.innerHTML=html;
+  return html;
 }
 
 // ── Filas ──
@@ -601,7 +865,7 @@ function pideFoto(){ document.getElementById('file-foto').click(); }
 function quitaFoto(ev){
   ev.stopPropagation();
   if(!confirm('¿Quitar la foto?')) return;
-  fichaDe(actual).foto=''; guardaOoii(); pintaFicha();
+  datosDe(actual).foto=''; guardaFichas(); pintaFicha();
 }
 function fotoElegida(ev){
   const file=ev.target.files&&ev.target.files[0]; ev.target.value='';
@@ -617,8 +881,8 @@ function fotoElegida(ev){
       const cv=document.createElement('canvas'); cv.width=L; cv.height=L;
       const c=cv.getContext('2d');
       c.drawImage(img,(img.width-lado)/2,(img.height-lado)/2,lado,lado,0,0,L,L);
-      fichaDe(actual).foto=cv.toDataURL('image/jpeg',0.82);
-      guardaOoii(); pintaFicha(); avisa('Foto puesta');
+      datosDe(actual).foto=cv.toDataURL('image/jpeg',0.82);
+      guardaFichas(); pintaFicha(); avisa('Foto puesta');
     };
     img.onerror=function(){ avisa('No se ha podido leer la imagen'); };
     img.src=e.target.result;
@@ -641,6 +905,8 @@ window.addEventListener('oi-datos', function(ev){
   const hay=k=>cl.indexOf(k)>=0;
   try{
     if(hay('pz_players')||hay('pz_plantilla_nombre')){ cargaPlantilla(); pintaLista(document.getElementById('buscador').value); }
+    if(hay('pz_sessions') && actual && tab!=='ooii') pintaFicha();
+    if(hay(K_FICHAS)){ cargaFichas(); if(actual) pintaFicha(); }
     if(hay(K_OOII)){
       cargaOoii();
       pintaLista(document.getElementById('buscador').value);
@@ -652,7 +918,7 @@ window.addEventListener('oi-datos', function(ev){
 });
 
 // ── Arranque ──
-cargaPlantilla(); cargaOoii(); pintaLista(''); pintaEscudo();
+cargaPlantilla(); cargaOoii(); cargaFichas(); pintaLista(''); pintaEscudo();
 </script>
 </body>
 </html>

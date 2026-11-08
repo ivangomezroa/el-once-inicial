@@ -980,7 +980,7 @@ function plDe(s){
 function plRefresca(sid){
   const s=sessions.find(x=>x.id===sid); if(!s) return;
   if(!confirm('¿Poner en esta sesión la plantilla actual'+(plNombre?' ('+plNombre+')':'')+'?\nLa asistencia ya marcada se conserva por dorsal.')) return;
-  s.players=players.map(p=>({num:p.num,name:p.name||'',pos:p.pos||''}));
+  s.players=players.map(p=>({id:p.id||'',num:p.num,name:p.name||'',pos:p.pos||''}));
   const vieja=s.attendance||{};
   s.attendance=Object.fromEntries(s.players.map(p=>[p.num, vieja[p.num]||'E']));
   s.plantilla=plNombre||'';
@@ -1047,7 +1047,7 @@ function saveSession(){
     rival:document.getElementById('m-rival').value,
     taskIds:checkedIds,
     taskData:Object.fromEntries(checkedIds.map(id=>([id,{indice:'',tiempo:'',carga:'',distrib:Array(20).fill('')}]))),
-    players:players.map(p=>({num:p.num,name:p.name||'',pos:p.pos||''})),
+    players:players.map(p=>({id:p.id||'',num:p.num,name:p.name||'',pos:p.pos||''})),
     plantilla:plNombre||'',
     attendance:Object.fromEntries(players.map(p=>[p.num,'E'])),
     objectives:Object.fromEntries(checkedIds.map(id=>{
