@@ -5622,11 +5622,20 @@ function plantillaDeActa(r,eq){
   (eq.jugadores||[]).forEach(j=>{
     const corto=actaNombreCorto(j.nombre);
     const nn=capNorm(corto);
+    // Primero por NOMBRE, que es lo que no cambia de una jornada a otra:
+    // un jugador puede cambiar de dorsal, y un dorsal puede cambiar de
+    // dueño. Buscando por dorsal lo primero, un fichaje que heredase el
+    // número de otro se quedaba fuera de la lista sin avisar.
     let fila=null;
     for(const pg of pgs){
-      fila=pg.rows.find(x=>String(x.num).trim()===String(j.dorsal) && String(x.name||'').trim());
-      if(!fila) fila=pg.rows.find(x=>capNorm(x.name)===nn && nn);
+      if(nn) fila=pg.rows.find(x=>capNorm(x.name)===nn);
       if(fila) break;
+    }
+    if(!fila){           // una fila con ese dorsal apuntado y aún sin nombre
+      for(const pg of pgs){
+        fila=pg.rows.find(x=>String(x.num).trim()===String(j.dorsal) && !String(x.name||'').trim());
+        if(fila) break;
+      }
     }
     if(!fila){
       fila=dest.rows.find(filaVacia);
