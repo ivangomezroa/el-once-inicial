@@ -822,6 +822,7 @@ body.fe-full-abierto{overflow:hidden;}
   <!-- acciones informes -->
   <div class="nav-group" id="nav-informes" hidden>
     <button class="nav-btn" onclick="openCalModal()">📅 Desde calendario</button>
+    <button class="nav-btn" onclick="pideActaInforme()" title="Cargar el acta de la RFEF: coloca el once, rellena la plantilla y crea las fichas en Captación">📄 Cargar acta</button>
     <button class="nav-btn" onclick="openTraitsModal()">⚙ Características</button>
     <button class="nav-btn" onclick="exportReportsJSON()">⬇ Exportar</button>
     <button class="nav-btn" onclick="document.getElementById('import-json-input').click()">⬆ Importar</button>
@@ -847,6 +848,7 @@ body.fe-full-abierto{overflow:hidden;}
   <input type="file" id="crest-nav-file-input" accept="image/*" style="display:none;" onchange="crestNavFileChosen(event)"/>
   <input type="file" id="video-file-input" accept="video/*" style="display:none;" onchange="videoFileChosen(event)"/>
   <input type="file" id="import-json-input" accept="application/json,.json" style="display:none;" onchange="importReportsJSON(event)"/>
+<input type="file" id="file-acta-inf" accept="application/pdf,.pdf" style="display:none;" onchange="actaElegidaInforme(event)">
   <input type="file" id="img-file-input" accept="image/*" style="display:none;"/>
   <input type="file" id="esp-restore-input" accept="application/json,.json" style="display:none;" onchange="restaurarCopia(event)"/>
 </div>
@@ -5204,6 +5206,471 @@ function createReportFromMatch(m, cual){
   r.competicion=m.competicion||'';
   saveReports(); renderReportList(); renderReport();
   toast('Informe creado sobre '+r.rival);
+}
+
+// ── pdf.js, que se trae sólo cuando hace falta ──
+const PDFJS_JS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WK='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let pdfjsPide=null;
+function cargaPdfJs(){
+  if(pdfjsPide) return pdfjsPide;
+  pdfjsPide=new Promise(function(ok,mal){
+    const lib=window.pdfjsLib||window['pdfjs-dist/build/pdf'];
+    if(lib){ lib.GlobalWorkerOptions.workerSrc=PDFJS_WK; return ok(lib); }
+    const s=document.createElement('script'); s.src=PDFJS_JS;
+    s.onload=function(){
+      const l=window.pdfjsLib||window['pdfjs-dist/build/pdf'];
+      if(!l) return mal(new Error('pdf.js no ha cargado'));
+      l.GlobalWorkerOptions.workerSrc=PDFJS_WK; ok(l);
+    };
+    s.onerror=function(){ pdfjsPide=null; mal(new Error('sin conexión para leer el PDF')); };
+    document.head.appendChild(s);
+  });
+  return pdfjsPide;
+}
+// Texto del PDF con su posición. La y de pdf.js va de abajo arriba: se le da la vuelta.
+function itemsDelPdf(buf){
+  return cargaPdfJs().then(function(lib){
+    return lib.getDocument({data:new Uint8Array(buf)}).promise.then(function(doc){
+      const items=[]; let cad=Promise.resolve();
+      for(let n=1;n<=doc.numPages;n++){
+        cad=cad.then(function(){ return doc.getPage(this.n); }.bind({n:n})).then(function(pg){
+          const vp=pg.getViewport({scale:1});
+          return pg.getTextContent().then(function(tc){
+            tc.items.forEach(function(it){
+              const t=(it.str||'').trim(); if(!t) return;
+              items.push({p:pg.pageNumber, x:it.transform[4], y:vp.height-it.transform[5], t:t});
+            });
+          });
+        });
+      }
+      return cad.then(function(){ return items; });
+    });
+  });
+}
+
+/* ------------------------------------------------------------------
+   leeActa(items) → objeto partido. Ver cabecera de este apartado.
+   ------------------------------------------------------------------ */
+function leeActa(items){
+  const IZQ=210, DER=395;                 // fronteras de las tres columnas
+  const col = x => x<IZQ ? 'L' : (x<DER ? 'C' : 'R');
+  const p1 = items.filter(i=>i.p===1);
+  const p2 = items.filter(i=>i.p!==1);
+  const limpia = s => String(s||'').replace(/\s+/g,' ').trim();
+
+  function lineas(lista, holgura){
+    const h = holgura||4.5;
+    const ord=[...lista].sort((a,b)=> a.y-b.y || a.x-b.x);
+    const out=[]; let act=null;
+    for(const it of ord){
+      if(!act || it.y-act.y0 > h){ act={y0:it.y, items:[it]}; out.push(act); }
+      else act.items.push(it);
+    }
+    return out.map(l=>({ y:l.y0,
+      items:l.items.sort((a,b)=>a.x-b.x),
+      txt: limpia(l.items.map(i=>i.t).join(' ')) }));
+  }
+  const texto = lista => lineas(lista).map(l=>l.txt).join('\n');
+
+  const tit = p1.filter(i=>/^TITULARES$/.test(i.t)).sort((a,b)=>a.y-b.y)[0];
+  const yTit = tit ? tit.y : 190;
+  const cab = lineas(p1.filter(i=>i.y < yTit-4));
+  const tCab = cab.map(l=>l.txt).join('\n');
+
+  const mCat = tCab.match(/Campeonato[^\n]*?de\s+Liga\s+de\s+([^\n(]+?)\s*(?:\(([^)]*)\))?\s*(?:\n|$)/i);
+  const partido = {
+    competicion: mCat ? limpia(mCat[1]) : '',
+    grupo:       mCat && mCat[2] ? limpia(mCat[2]) : '',
+    jornada: (tCab.match(/Jornada\s+(\d+)/i)||[])[1] || '',
+    fecha:   (tCab.match(/Fecha:\s*(\d{2}-\d{2}-\d{4})/i)||[])[1] || '',
+    hora:    (tCab.match(/Hora:\s*(\d{1,2}:\d{2})/i)||[])[1] || '',
+    temporada:(tCab.match(/(\d{4}-\d{4})/)||[])[1] || '',
+    estadio:'', ciudad:'', arbitros:[], nuestro:'',
+    local:{nombre:'',goles:null,titulares:[],suplentes:[],cambios:[],tarjetas:[],ct:{},jugadores:[]},
+    visitante:{nombre:'',goles:null,titulares:[],suplentes:[],cambios:[],tarjetas:[],ct:{},jugadores:[]},
+    goles:[]
+  };
+  for(const l of cab.slice().reverse()){
+    const iz=limpia(l.items.filter(i=>col(i.x)==='L').map(i=>i.t).join(' '));
+    const de=limpia(l.items.filter(i=>col(i.x)==='R').map(i=>i.t).join(' '));
+    if(iz && de && !/Fecha|Jornada|Temporada|\d{4}-\d{4}/i.test(iz+de)){
+      partido.local.nombre=iz; partido.visitante.nombre=de; break;
+    }
+  }
+  const lRes = lineas(p1.filter(i=>Math.abs(i.y-yTit)<6 && col(i.x)==='C'));
+  const mRes = (lRes[0]?lRes[0].txt:'').match(/(\d+)\s*-\s*(\d+)/);
+  if(mRes){ partido.local.goles=+mRes[1]; partido.visitante.goles=+mRes[2]; }
+
+  const centro = texto(p1.filter(i=>col(i.x)==='C' && i.y>yTit+4));
+  partido.estadio = limpia((centro.match(/ESTADIO:\s*([^\n]*?)(?:\s*Ciudad:|\n|$)/i)||[])[1]||'');
+  partido.ciudad  = limpia((centro.match(/Ciudad:\s*([^\n]*)/i)||[])[1]||'');
+  const reArb=/(Árbitro(?:\s+Asistente)?|Arbitro(?:\s+Asistente)?|Cuarto\s+Árbitro)\s+([A-ZÁÉÍÓÚÜÑ][^\n]*?)(?=\s*(?:Árbitro|Arbitro|Cuarto|GOLES|ESTADIO|\n|$))/g;
+  let mA; while((mA=reArb.exec(centro))) partido.arbitros.push({cargo:limpia(mA[1]), nombre:limpia(mA[2])});
+  const reGol=/(\d+)\s*-\s*(\d+)\s+([A-ZÁÉÍÓÚÜÑ][^()\n]*?)\s*\((\d+)'\)/g;
+  let mG; while((mG=reGol.exec(centro)))
+    partido.goles.push({marcador:mG[1]+'-'+mG[2], jugador:limpia(mG[3]), minuto:+mG[4]});
+
+  const TITULOS=['TITULARES','SUPLENTES','CUERPO TÉCNICO','CUERPO TECNICO','SUSTITUCIONES','TARJETAS'];
+  function apartados(lista){
+    const ls=lineas(lista.filter(i=>i.y>yTit-6));
+    const res={}; let act=null;
+    for(const l of ls){
+      const t=l.txt.toUpperCase();
+      const hit=TITULOS.find(h=> t===h || t.indexOf(h+' ')===0 );
+      if(hit){ act=hit.replace('TECNICO','TÉCNICO'); res[act]=res[act]||[];
+               const resto=limpia(l.txt.slice(hit.length)); if(resto) res[act].push(resto); continue; }
+      if(act) res[act].push(l.txt);
+    }
+    const o={}; for(const k in res) o[k]=res[k].join('\n');
+    return o;
+  }
+  function porDorsal(txt){
+    const s=limpia(String(txt||'').replace(/\n/g,' '));
+    const re=/(?:^|\s)(\d{1,2})\s+(?=[A-ZÁÉÍÓÚÜÑ])/g;
+    const cortes=[]; let m;
+    while((m=re.exec(s))) cortes.push({i:m.index, ini:re.lastIndex, dorsal:m[1]});
+    const out=[];
+    for(let k=0;k<cortes.length;k++){
+      const fin = k+1<cortes.length ? cortes[k+1].i : s.length;
+      const resto = limpia(s.slice(cortes[k].ini, fin));
+      const mm = resto.match(/\((\d+)'\)/);
+      const nombre = limpia(resto.replace(/\((\d+)'\)/,''));
+      if(nombre) out.push({dorsal:cortes[k].dorsal, nombre:nombre, minuto: mm?+mm[1]:null});
+    }
+    return out;
+  }
+  const mismo=(a,b)=>limpia(a).toUpperCase()===limpia(b).toUpperCase();
+
+  function equipo(lado, lista){
+    const ap = apartados(lista), eq = partido[lado];
+    eq.titulares = porDorsal(ap['TITULARES']).map(j=>({dorsal:j.dorsal,nombre:j.nombre}));
+    eq.suplentes = porDorsal(ap['SUPLENTES']).map(j=>({dorsal:j.dorsal,nombre:j.nombre}));
+    const ent = porDorsal(ap['SUSTITUCIONES']);
+    for(let k=0;k<ent.length;k++){
+      if(ent[k].minuto==null && ent[k+1] && ent[k+1].minuto!=null){
+        eq.cambios.push({ entra:{dorsal:ent[k].dorsal,nombre:ent[k].nombre},
+                          sale: {dorsal:ent[k+1].dorsal,nombre:ent[k+1].nombre},
+                          minuto: ent[k+1].minuto });
+        k++;
+      }
+    }
+    const reT=/([A-ZÁÉÍÓÚÜÑ][^()\n]*?)\s*\((\d+)'\)/g; let mT;
+    while((mT=reT.exec(ap['TARJETAS']||'')))
+      eq.tarjetas.push({dorsal:'', nombre:limpia(mT[1]), minuto:+mT[2], tipo:'amarilla'});
+    const ct=(ap['CUERPO TÉCNICO']||'').split('\n').map(limpia).filter(Boolean);
+    for(let k=0;k<ct.length-1;k++){
+      if(ct[k].indexOf(',')<0 && ct[k+1].indexOf(',')>=0){ eq.ct[ct[k]]=ct[k+1]; k++; }
+    }
+  }
+  equipo('local',     p1.filter(i=>col(i.x)==='L'));
+  equipo('visitante', p1.filter(i=>col(i.x)==='R'));
+
+  // Página 2: las incidencias traen el dorsal y el motivo, y distinguen roja de amarilla
+  const t2 = texto(p2).replace(/\n/g,' ');
+  const corte = t2.search(/DIRIGENTES\s+y\s+T[EÉ]CNICOS/i);
+  const zona = corte>0 ? t2.slice(0,corte) : t2;
+  const reInc=/-\s*([^:]{3,60}?)\s*:\s*En el minuto\s+(\d+)\s+el jugador\s+\((\d+)\)\s+(.+?)\s+fue\s+(amonestado|expulsado)\s+por el siguiente motivo:\s*(.*?)(?=\s*-\s*[^:]{3,60}?\s*:\s*En el minuto|\s*(?:EXPULSIONES|OTRAS INCIDENCIAS|AMONESTACIONES)\b|$)/gi;
+  const inc=[]; let mI;
+  while((mI=reInc.exec(zona)))
+    inc.push({equipo:limpia(mI[1]), minuto:+mI[2], dorsal:mI[3], nombre:limpia(mI[4]),
+              tipo:/expulsado/i.test(mI[5])?'roja':'amarilla', motivo:limpia(mI[6])});
+  partido.incidencias=inc;
+  for(const lado of ['local','visitante']){
+    const eq=partido[lado];
+    const mias=inc.filter(i=>mismo(i.equipo, eq.nombre));
+    if(mias.length) eq.tarjetas = mias.map(i=>({dorsal:i.dorsal,nombre:i.nombre,minuto:i.minuto,tipo:i.tipo,motivo:i.motivo}));
+  }
+
+  // Minutos: el titular entra en el 0; el que sale, hasta el minuto del cambio
+  const FIN=90;
+  for(const lado of ['local','visitante']){
+    const eq=partido[lado], fichas={};
+    const mete=(j,titular)=>{ if(!fichas[j.dorsal]) fichas[j.dorsal]={dorsal:j.dorsal,nombre:j.nombre,
+      titular:titular, entra:titular?0:null, sale:null, goles:0, amarillas:0, rojas:0, jid:''}; };
+    eq.titulares.forEach(j=>mete(j,true));
+    eq.suplentes.forEach(j=>mete(j,false));
+    eq.cambios.forEach(c=>{
+      if(fichas[c.entra.dorsal] && fichas[c.entra.dorsal].entra==null) fichas[c.entra.dorsal].entra=c.minuto;
+      if(fichas[c.sale.dorsal]  && fichas[c.sale.dorsal].sale==null)   fichas[c.sale.dorsal].sale=c.minuto;
+    });
+    eq.tarjetas.forEach(t=>{
+      const f = (t.dorsal && fichas[t.dorsal]) || Object.keys(fichas).map(k=>fichas[k]).find(x=>mismo(x.nombre,t.nombre));
+      if(!f) return;
+      if(t.tipo==='roja'){ f.rojas++; if(f.sale==null) f.sale=Math.min(t.minuto,FIN); }
+      else f.amarillas++;
+    });
+    partido.goles.forEach(g=>{
+      const f=Object.keys(fichas).map(k=>fichas[k]).find(x=>mismo(x.nombre,g.jugador));
+      if(f) f.goles++;
+    });
+    eq.jugadores = Object.keys(fichas).map(k=>fichas[k]).map(f=>{
+      const jugo=f.entra!=null, sale=f.sale==null?FIN:Math.min(f.sale,FIN);
+      return Object.assign({},f,{minutos: jugo?Math.max(0,sale-f.entra):0, jugo:jugo});
+    }).sort((a,b)=>(+a.dorsal)-(+b.dorsal));
+  }
+  return partido;
+}
+
+// ══════════════════════════════════════════════════════════
+// ACTAS DE LA RFEF DENTRO DEL INFORME
+//   Se sube el PDF del acta ("Ficha del Partido" de marcadores.rfef.es)
+//   y de él salen, del equipo que se está analizando y sólo de ése:
+//     · el once inicial colocado sobre el campo de ÚLTIMAS ALINEACIONES,
+//     · la hoja de PLANTILLA con dorsal, nombre y puesto,
+//     · las fichas en la base de datos de Captación.
+//   Se pueden subir varias actas: cada una ocupa el siguiente bloque de
+//   alineaciones libre y los jugadores nuevos se añaden a los que ya
+//   estaban, sin duplicar ni pisar lo escrito a mano.
+// ══════════════════════════════════════════════════════════
+
+// "SOLER GANDIA, JAVIER" → "JAVIER SOLER". En el campo cabe el nombre y
+// un apellido; el nombre completo del acta se guarda en Captación.
+const ACTA_PARTICULAS=['DE','DEL','LA','LAS','LO','LOS','SAN','SANTA','DA','DAS','DO','DOS',
+  'VAN','VON','DER','MC','MAC',"D'",'EL','AL','BEN','IBN','SAINT','ST'];
+function actaNombreCorto(nombre){
+  const s=String(nombre||'').replace(/\s+/g,' ').trim();
+  const c=s.indexOf(',');
+  if(c<0) return s;
+  // El primer apellido puede llevar partícula: "DE PEDRO MARROQUI" es
+  // "DE PEDRO", no "DE".
+  const ap=s.slice(0,c).trim().split(' ').filter(Boolean);
+  let ape=[], k=0;
+  while(k<ap.length){
+    ape.push(ap[k]);
+    const esPart=ACTA_PARTICULAS.indexOf(ap[k].toUpperCase())>=0;
+    k++;
+    if(!esPart) break;
+  }
+  const nom=s.slice(c+1).trim().split(' ')[0]||'';
+  return (nom+' '+ape.join(' ')).trim() || s;
+}
+// El acta no dice el puesto. El dorsal clásico es la mejor pista que hay,
+// y siempre se puede corregir a mano.
+const ACTA_POS   ={1:'POR',2:'LD',3:'LI',4:'DFC',5:'DFC',6:'MCD',7:'ED',8:'MC',9:'DC',10:'MP',11:'EI'};
+const ACTA_CAPPOS={1:'P1', 2:'P2',3:'P3',4:'P4', 5:'P5', 6:'P6', 7:'P7',8:'P8',9:'P9',10:'P10',11:'P11'};
+
+function pideActaInforme(){
+  if(!curRep){ toast('Abre o crea un informe antes de cargar un acta'); return; }
+  document.getElementById('file-acta-inf').click();
+}
+function actaElegidaInforme(ev){
+  const f=ev.target.files&&ev.target.files[0]; ev.target.value='';
+  if(!f || !curRep) return;
+  toast('Leyendo el acta…');
+  const rd=new FileReader();
+  rd.onload=function(e){
+    itemsDelPdf(e.target.result).then(function(items){
+      const p=leeActa(items);
+      if(!p.local.nombre || !p.visitante.nombre || p.local.titulares.length<7){
+        toast('Ese PDF no parece un acta de la RFEF'); return;
+      }
+      const lado=ladoDelInforme(p);
+      if(lado) aplicaActa(p,lado); else ventanaLadoActa(p);
+    }).catch(function(err){ toast(err&&err.message?err.message:'No se ha podido leer el PDF'); });
+  };
+  rd.onerror=function(){ toast('No se ha podido abrir el archivo'); };
+  rd.readAsArrayBuffer(f);
+}
+// ¿Cuál de los dos equipos del acta es el del informe?
+function ladoDelInforme(p){
+  const n=clubNorm(curRep&&curRep.rival||'');
+  if(!n || n==='NUEVO RIVAL' || n==='NUEVO CLUB') return '';
+  if(clubNorm(p.local.nombre)===n) return 'local';
+  if(clubNorm(p.visitante.nombre)===n) return 'visitante';
+  return '';
+}
+function ventanaLadoActa(p){
+  const m=elx('div',''); m.id='cgpick';
+  m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">¿De qué equipo es el informe?</span>'+
+    '<button class="pk-x">×</button></div><div class="pk-b">'+
+    '<div class="pk-sec">'+escapeHtml(p.competicion||'')+(p.jornada?' · Jornada '+escapeHtml(p.jornada):'')+
+      (p.fecha?' · '+escapeHtml(p.fecha):'')+'</div>'+
+    ['local','visitante'].map(l=>'<div class="pk-club" data-lado="'+l+'"><span class="pk-ph">⚽</span>'+
+      '<span><span class="pk-n">'+escapeHtml(p[l].nombre)+'</span>'+
+      '<span class="pk-s">'+(l==='local'?'Local':'Visitante')+' · '+p[l].titulares.length+' titulares · '+
+      p[l].suplentes.length+' suplentes</span></span></div>').join('')+
+    '</div></div>';
+  document.body.appendChild(m);
+  const cierra=()=>m.remove();
+  m.querySelector('.pk-x').onclick=cierra;
+  m.onclick=e=>{ if(e.target===m) cierra(); };
+  m.querySelectorAll('[data-lado]').forEach(el=>{
+    el.onclick=()=>{
+      cierra();
+      const lado=el.dataset.lado, club=p[lado].nombre;
+      // Si el informe se llama de otra manera, se pregunta: puede ser un
+      // nombre puesto a mano que no hay que tocar.
+      if(curRep && clubNorm(curRep.rival)!==clubNorm(club) &&
+         confirm('El informe se llama "'+curRep.rival+'".\n¿Lo cambio a "'+club.toUpperCase()+'"?')){
+        curRep.rival=String(club).toUpperCase();
+        curRep.crestRival=curRep.crestRival||escudoDeClub(club);
+      }
+      aplicaActa(p, lado);
+    };
+  });
+}
+
+// ── Del acta al informe ───────────────────────────────────────────
+function aplicaActa(p, lado){
+  const r=curRep; if(!r) return;
+  const eq=p[lado];
+  if(!r.rival || /^NUEVO (RIVAL|CLUB)$/i.test(r.rival)) r.rival=String(eq.nombre||'').toUpperCase();
+  if(!r.competicion && p.competicion) r.competicion=p.competicion;
+  if(!r.crestRival){ const c=escudoDeClub(eq.nombre); if(c) r.crestRival=c; }
+
+  const enCampo = bloqueDeActa(r,p,lado);
+  const plant   = plantillaDeActa(r,eq);
+  const capt    = captacionDeActa(eq,r);
+
+  saveReports(); renderReport(); renderReportList();
+  const partes=[];
+  if(enCampo.bloque) partes.push(enCampo.puestos+' titulares en '+enCampo.bloque);
+  if(plant.nuevos||plant.total) partes.push(plant.nuevos+' nuevos en la plantilla ('+plant.total+')');
+  partes.push(capt.nuevos+' fichas nuevas en Captación'+(capt.tocados?' y '+capt.tocados+' actualizadas':''));
+  toast(eq.nombre+' · '+partes.join(' · '));
+}
+// El escudo del club, si se le conoce de algo.
+function escudoDeClub(nombre){
+  const n=clubNorm(nombre); if(!n) return '';
+  try{ const c=clubesConocidos().find(x=>clubNorm(x.nombre)===n); return (c&&c.crest)||''; }
+  catch(e){ return ''; }
+}
+
+// ── El once sobre el campo de ÚLTIMAS ALINEACIONES ────────────────
+const ACTA_SISTEMA=[4,3,3];   // sistema base; luego se mueve a mano
+function bloqueVacioAlin(b){
+  if(!b) return false;
+  const sinGente=!((b.field&&b.field.els||[]).some(e=>e.t==='player'));
+  const sinVs=!b.vs || !(String(b.vs.home||'').trim() || String(b.vs.away||'').trim());
+  return sinGente && sinVs;
+}
+function bloqueDeActa(r,p,lado){
+  // el primer bloque de alineaciones que esté sin tocar; si no hay, uno nuevo
+  let destino=null, pagina=null;
+  (r.pages||[]).forEach(pg=>{ if(pg.type!=='alineaciones') return;
+    (pg.blocks||[]).forEach(b=>{ if(!destino && bloqueVacioAlin(b)){ destino=b; pagina=pg; } }); });
+  if(!destino){
+    const nueva=newPage('alineaciones');
+    let i=-1; (r.pages||[]).forEach((pg,k)=>{ if(pg.type==='alineaciones') i=k; });
+    if(i>=0) r.pages.splice(i+1,0,nueva); else r.pages.push(nueva);
+    numeraAlineaciones(r);
+    pagina=nueva; destino=nueva.blocks[0];
+  }
+  const eq=p[lado], otro=p[lado==='local'?'visitante':'local'];
+  if(p.jornada) destino.t1='J'+p.jornada;
+  const marcador=(p.local.goles!=null&&p.visitante.goles!=null)?(p.local.goles+'-'+p.visitante.goles):'';
+  destino.t2=[p.fecha||'', marcador].filter(Boolean).join(' · ');
+  destino.vs=destino.vs||{home:'',away:'',crestHome:'',crestAway:''};
+  destino.vs.home=p.local.nombre; destino.vs.away=p.visitante.nombre;
+  if(!destino.vs.crestHome) destino.vs.crestHome=escudoDeClub(p.local.nombre);
+  if(!destino.vs.crestAway) destino.vs.crestAway=escudoDeClub(p.visitante.nombre);
+
+  const puestos=colocaOnceDelActa(destino, eq);
+  return {bloque:destino.t1||'el campo', puestos:puestos, pagina:pagina};
+}
+// Coloca a los once del acta en el sistema base. A cada hueco se le da el
+// jugador cuyo dorsal le pega; los que sobran, por orden de dorsal. Lo que
+// manda es el dorsal de verdad del acta, no el del sistema.
+function colocaOnceDelActa(b, eq){
+  const sitios=oncePosiciones(ACTA_SISTEMA);
+  const tit=(eq.jugadores||[]).filter(j=>j.titular).slice();
+  if(!tit.length) return 0;
+  const porDorsal={}; tit.forEach(j=>{ porDorsal[String(j.dorsal)]=j; });
+  const usados={}, pares=[];
+  // 1) portero: el dorsal 1 si existe
+  sitios.forEach(s=>{
+    const q=porDorsal[String(s.num)];
+    if(q && !usados[q.dorsal]){ usados[q.dorsal]=1; pares.push({s:s, j:q}); }
+    else pares.push({s:s, j:null});
+  });
+  // 2) los que han quedado sin sitio, a los huecos libres, por dorsal
+  const sobran=tit.filter(j=>!usados[j.dorsal]).sort((a,b2)=>(+a.dorsal)-(+b2.dorsal));
+  pares.forEach(par=>{ if(!par.j && sobran.length) par.j=sobran.shift(); });
+
+  b.field=b.field||fieldData('v','full');
+  b.field.els=(b.field.els||[]).filter(e=>e.t!=='player');
+  // El campo del bloque se dibuja de pie, y al girarlo la x pequeña cae
+  // arriba. Se le da la vuelta entera (x e y) para que salga como una
+  // alineación de las de toda la vida: portero abajo y el equipo atacando
+  // hacia arriba, sin que se cambien de lado el lateral derecho y el izq.
+  const vertical = (b.field.orient||'v')==='v';
+  const gira = pt => vertical ? {x:FE.L-pt.x, y:FE.W-pt.y} : {x:pt.x, y:pt.y};
+  let n=0;
+  pares.forEach(par=>{
+    if(!par.j) return;
+    const t = par.s.gk ? FE.TEAM.gk : FE.TEAM.away;
+    const q = gira(par.s);
+    b.field.els.push({t:'player', id:uid('e'), x:q.x, y:q.y,
+      num:String(par.j.dorsal), name:actaNombreCorto(par.j.nombre),
+      fill:t.fill, stroke:t.stroke, txt:t.txt, r:17, ns:12, badges:[],
+      team: par.s.gk?'gk':'away'});
+    n++;
+  });
+  return n;
+}
+
+// ── La hoja de PLANTILLA ──────────────────────────────────────────
+//   Entran todos los del acta, titulares y suplentes. Nunca se pisa lo
+//   que ya estuviera escrito: sólo se rellenan huecos.
+function plantillaDeActa(r,eq){
+  const pgs=(r.pages||[]).filter(pg=>pg.type==='plantilla');
+  if(!pgs.length) return {nuevos:0,total:0};
+  pgs.forEach(pg=>{ if(!Array.isArray(pg.rows)) pg.rows=[]; });
+  const dest=pgs[0];
+  let nuevos=0;
+  (eq.jugadores||[]).forEach(j=>{
+    const corto=actaNombreCorto(j.nombre);
+    const nn=capNorm(corto);
+    let fila=null;
+    for(const pg of pgs){
+      fila=pg.rows.find(x=>String(x.num).trim()===String(j.dorsal) && String(x.name||'').trim());
+      if(!fila) fila=pg.rows.find(x=>capNorm(x.name)===nn && nn);
+      if(fila) break;
+    }
+    if(!fila){
+      fila=dest.rows.find(filaVacia);
+      if(!fila){ fila={num:'',name:'',pos:'',age:'',h:'',note:''}; dest.rows.push(fila); }
+      nuevos++;
+    }
+    if(!String(fila.num||'').trim())  fila.num=String(j.dorsal);
+    if(!String(fila.name||'').trim()) fila.name=corto;
+    if(!String(fila.pos||'').trim())  fila.pos=ACTA_POS[+j.dorsal]||'';
+  });
+  pgs.forEach(pg=>ordenaPorDorsal(pg.rows));
+  const total=pgs.reduce((a,pg)=>a+pg.rows.filter(x=>!filaVacia(x)).length,0);
+  return {nuevos:nuevos, total:total};
+}
+
+// ── La base de datos de Captación ─────────────────────────────────
+//   Se escribe con el mismo formato que Captación. Si el jugador ya
+//   está, se le completa lo que falte y no se le toca lo demás.
+function captacionDeActa(eq,r){
+  const arr=capLoad();
+  const now=new Date().toISOString();
+  let nuevos=0, tocados=0;
+  (eq.jugadores||[]).forEach(j=>{
+    const corto=actaNombreCorto(j.nombre);
+    if(!corto) return;
+    const pos=ACTA_CAPPOS[+j.dorsal]||'';
+    const ex=arr.find(x=>capNorm(x.n)===capNorm(corto));
+    if(ex){
+      let cambio=false;
+      if(!String(ex.eq||'').trim() && eq.nombre){ ex.eq=eq.nombre; cambio=true; }
+      if(!String(ex.cat||'').trim() && r.competicion){ ex.cat=r.competicion; cambio=true; }
+      if(!String(ex.pos||'').trim() && pos){ ex.pos=pos; cambio=true; }
+      if(!String(ex.s||'').trim() && pos){ ex.s=CAP_POS_SEC[pos]||''; cambio=true; }
+      if(cambio){ ex.updated_at=now; tocados++; }
+    } else {
+      arr.push({ id:capNextId(arr), s:pos?(CAP_POS_SEC[pos]||''):'', pos:pos, n:corto,
+        eq:eq.nombre||'', cat:r.competicion||'', perfil:'', repre:'', contacto:'',
+        notas:'Del acta: '+j.nombre, est:'CONSEGUIR INFO', ico:[], updated_at:now,
+        tel:'', tm:'', bs:'', obs:'', pos_campo:'' });
+      nuevos++;
+    }
+  });
+  if(nuevos||tocados) capSave(arr);
+  return {nuevos:nuevos, tocados:tocados};
 }
 
 // ── MODAL: nueva ficha de jugador desde Captación ──
