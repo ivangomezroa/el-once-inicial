@@ -5521,7 +5521,7 @@ function aplicaActa(p, lado){
 
   const enCampo = bloqueDeActa(r,p,lado);
   const plant   = plantillaDeActa(r,eq);
-  const capt    = captacionDeActa(eq,r);
+  const capt    = captacionDeActa(eq,r,p);
 
   saveReports(); renderReport(); renderReportList();
   const partes=[];
@@ -5654,9 +5654,12 @@ function plantillaDeActa(r,eq){
 // ── La base de datos de Captación ─────────────────────────────────
 //   Se escribe con el mismo formato que Captación. Si el jugador ya
 //   está, se le completa lo que falte y no se le toca lo demás.
-function captacionDeActa(eq,r){
+function captacionDeActa(eq,r,p){
   const arr=capLoad();
   const now=new Date().toISOString();
+  // La categoría es la competición del acta ("Segunda Federación"); si el
+  // acta no la trajera, lo que ponga el informe.
+  const cat = (p&&p.competicion) || (r&&r.competicion) || (r&&r.categoria) || '';
   let nuevos=0, tocados=0;
   (eq.jugadores||[]).forEach(j=>{
     const corto=actaNombreCorto(j.nombre);
@@ -5666,14 +5669,14 @@ function captacionDeActa(eq,r){
     if(ex){
       let cambio=false;
       if(!String(ex.eq||'').trim() && eq.nombre){ ex.eq=eq.nombre; cambio=true; }
-      if(!String(ex.cat||'').trim() && r.competicion){ ex.cat=r.competicion; cambio=true; }
+      if(!String(ex.cat||'').trim() && cat){ ex.cat=cat; cambio=true; }
       if(!String(ex.pos||'').trim() && pos){ ex.pos=pos; cambio=true; }
       if(!String(ex.s||'').trim() && pos){ ex.s=CAP_POS_SEC[pos]||''; cambio=true; }
       if(cambio){ ex.updated_at=now; tocados++; }
     } else {
       arr.push({ id:capNextId(arr), s:pos?(CAP_POS_SEC[pos]||''):'', pos:pos, n:corto,
-        eq:eq.nombre||'', cat:r.competicion||'', perfil:'', repre:'', contacto:'',
-        notas:'Del acta: '+j.nombre, est:'CONSEGUIR INFO', ico:[], updated_at:now,
+        eq:eq.nombre||'', cat:cat, perfil:'', repre:'', contacto:'',
+        notas:'Del acta: '+j.nombre, est:'EN PLANTILLA', ico:[], updated_at:now,
         tel:'', tm:'', bs:'', obs:'', pos_campo:'' });
       nuevos++;
     }
