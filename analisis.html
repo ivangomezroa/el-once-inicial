@@ -250,6 +250,19 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 #cgpick .pk-f{font-size:8.5px;font-weight:800;padding:1px 5px;border-radius:7px;color:#fff;}
 #cgpick .pk-sis{font-size:10px;opacity:.6;margin-left:auto;}
 #cgpick .pk-vacio{padding:18px;text-align:center;font-size:12px;color:#9aa;line-height:1.5;}
+#cgpick .pk-q{width:100%;box-sizing:border-box;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.16);
+  border-radius:7px;padding:7px 10px;color:#ddd8cc;font-family:'Barlow',sans-serif;font-size:12.5px;outline:none;}
+#cgpick .pk-q:focus{border-color:var(--gold,#C8A84B);}
+#cgpick .pk-sec{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8b94a4;margin:2px 0 -4px;}
+#cgpick .pk-club{display:flex;align-items:center;gap:9px;padding:7px 9px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.12);border-radius:8px;}
+#cgpick .pk-club:hover{background:rgba(200,168,75,.14);border-color:rgba(200,168,75,.4);}
+#cgpick .pk-club img{width:26px;height:26px;object-fit:contain;flex-shrink:0;}
+#cgpick .pk-ph{width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;opacity:.45;flex-shrink:0;}
+#cgpick .pk-club .pk-n{display:block;font-size:12.5px;font-weight:700;}
+#cgpick .pk-club .pk-s{display:block;font-size:10.5px;opacity:.6;margin-top:1px;}
+#cgpick .pk-lista{display:flex;flex-direction:column;gap:6px;}
 .pg-head .crest-box{width:50px;height:50px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .pg-head .crest-box img{max-width:100%;max-height:100%;object-fit:contain;}
 .banner{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);background:#1B2A6B;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:6px 26px;min-width:300px;text-align:center;border-radius:2px;margin:0 auto;}
@@ -3725,10 +3738,101 @@ function newReport(){
   m.querySelector('.pk-x').onclick=cierra;
   m.onclick=e=>{ if(e.target===m) cierra(); };
   m.querySelectorAll('[data-uso]').forEach(el=>{
-    el.onclick=()=>{ cierra(); creaInforme(el.dataset.uso); };
+    el.onclick=()=>{ cierra(); eligeClub(el.dataset.uso); };
   });
 }
-function creaInforme(uso){
+
+// ══ CLUBES YA REGISTRADOS ═════════════════════════════════════════
+//   Un informe nuevo casi nunca es de un club del que no se sepa nada:
+//   el escudo, la categoría o el campo ya están en algún sitio de la
+//   app. Se juntan de todos y se reaprovechan al crear el informe.
+function clubNorm(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
+}
+const CLUB_CAMPOS=['crest','categoria','competicion','clasificacion','entrenador','campo','superficie','medidas','photoCampo'];
+function clubesConocidos(){
+  const mapa={};
+  const mete=(nombre, datos, origen)=>{
+    const k=clubNorm(nombre); if(!k || k.length<2) return;
+    if(k==='NUEVO RIVAL' || k==='NUEVO CLUB') return;
+    const c = mapa[k] || (mapa[k]={nombre:String(nombre).trim(), de:[]});
+    CLUB_CAMPOS.forEach(f=>{ if(!c[f] && datos && datos[f]) c[f]=datos[f]; });
+    if(origen && c.de.indexOf(origen)<0) c.de.push(origen);
+  };
+  // Los informes que ya existen son los que más datos traen.
+  (Array.isArray(REPORTS)?REPORTS:[]).forEach(r=>mete(r.rival,{crest:r.crestRival,
+    categoria:r.categoria, competicion:r.competicion, clasificacion:r.clasificacion,
+    entrenador:r.entrenador, campo:r.campo, superficie:r.superficie, medidas:r.medidas,
+    photoCampo:r.photoCampo},'informes'));
+  try{ getRivals().forEach(r=>mete(r.name,{crest:r.crest},'rivales')); }catch(e){}
+  try{
+    const cg=JSON.parse(localStorage.getItem('oi_campogramas_v1')||'null');
+    ((cg&&Array.isArray(cg.lista))?cg.lista:[]).forEach(c=>mete(c.nombre,{crest:c.escudo, categoria:c.cat},'campogramas'));
+  }catch(e){}
+  try{ getCalMatches().forEach(m=>{
+    mete(m.localName,{crest:m.localCrest, competicion:m.competicion, campo:m.campo},'calendario');
+    mete(m.rival,   {crest:m.rivalCrest, competicion:m.competicion},'calendario');
+  }); }catch(e){}
+  try{ getScoutPlayers().forEach(j=>mete(j.eq,{categoria:j.cat},'captación')); }catch(e){}
+  const lista=Object.keys(mapa).map(k=>mapa[k]);
+  // Primero los que traen escudo: son los que más se ganan en la portada.
+  lista.sort((a,b)=>(imgHay(b.crest)?1:0)-(imgHay(a.crest)?1:0) || a.nombre.localeCompare(b.nombre,'es'));
+  return lista;
+}
+// Qué se va a llevar el informe de este club, dicho en claro.
+function clubTrae(c){
+  const t=[];
+  if(imgHay(c.crest)) t.push('escudo');
+  if(c.categoria) t.push('categoría');
+  if(c.competicion) t.push('competición');
+  if(c.clasificacion) t.push('clasificación');
+  if(c.entrenador) t.push('entrenador');
+  if(c.campo) t.push('campo');
+  if(imgHay(c.photoCampo)) t.push('foto del campo');
+  return t.length ? t.join(' · ') : 'sólo el nombre · de '+c.de.join(', ');
+}
+
+// Segundo paso de "+ Nuevo informe": de qué club es.
+function eligeClub(uso){
+  const todos=clubesConocidos();
+  const m=elx('div',''); m.id='cgpick';
+  m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">¿De qué club es el informe?</span>'+
+    '<button class="pk-x">×</button></div><div class="pk-b">'+
+    '<input type="text" class="pk-q" id="pk-q" placeholder="Buscar club…" autocomplete="off">'+
+    '<div class="pk-club" data-blanco="1"><span class="pk-ph">✎</span>'+
+      '<span><span class="pk-n">En blanco</span>'+
+      '<span class="pk-s">Escribo yo el nombre y el escudo</span></span></div>'+
+    '<div class="pk-sec" id="pk-sec"></div><div class="pk-lista" id="pk-lista"></div>'+
+    '</div></div>';
+  document.body.appendChild(m);
+  const cierra=()=>m.remove();
+  m.querySelector('.pk-x').onclick=cierra;
+  m.onclick=e=>{ if(e.target===m) cierra(); };
+  m.querySelector('[data-blanco]').onclick=()=>{ cierra(); creaInforme(uso); };
+  const caja=m.querySelector('#pk-lista'), sec=m.querySelector('#pk-sec'), q=m.querySelector('#pk-q');
+  const pinta=()=>{
+    const f=clubNorm(q.value);
+    const hay=f? todos.filter(c=>clubNorm(c.nombre).indexOf(f)>=0) : todos;
+    const vis=hay.slice(0,60);
+    sec.textContent = !todos.length ? 'Todavía no hay clubes registrados'
+      : (f? vis.length+' de '+todos.length+' clubes'
+          : todos.length+' clubes registrados'+(hay.length>60?' · se ven los 60 primeros':''));
+    if(!vis.length){ caja.innerHTML='<div class="pk-vacio">'+(todos.length
+        ? 'Ningún club coincide. Créalo en blanco y escribe el nombre.'
+        : 'Los clubes salen de tus informes, rivales, campogramas, calendario y fichas de Captación.')+'</div>'; return; }
+    caja.innerHTML=vis.map((c,i)=>'<div class="pk-club" data-c="'+todos.indexOf(c)+'">'+
+      (imgHay(c.crest)?'<img src="'+imgSrc(c.crest)+'" alt="">':'<span class="pk-ph">⚽</span>')+
+      '<span><span class="pk-n">'+escapeHtml(c.nombre)+'</span>'+
+      '<span class="pk-s">'+escapeHtml(clubTrae(c))+'</span></span></div>').join('');
+    caja.querySelectorAll('[data-c]').forEach(el=>{
+      el.onclick=()=>{ cierra(); creaInforme(uso, todos[+el.dataset.c]); };
+    });
+  };
+  q.addEventListener('input',pinta);
+  pinta(); q.focus();
+}
+function creaInforme(uso, club){
   if(!USOS[uso]) uso='rival';
   const r={ id:uid('r'), uso:uso, rival:(uso==='rival')?'NUEVO RIVAL':'NUEVO CLUB', jornada:'', fecha:todayStr(), hora:'', campo:'', superficie:'', medidas:'', tiempo:'', temp:'', temporada:seasonStr(),
     competicion:'', sede:'', rivalOtro:'', crestRival:'', crestOwn:'', photoCampo:'', photoEquip:'', pages:[] };
@@ -3747,9 +3851,21 @@ function creaInforme(uso){
     if(t==='texto' && uso==='reunion'){ pg.title='LO QUE PROPONGO'; }
     r.pages.push(pg);
   });
+  // Si viene de un club ya registrado, se trae lo que se sepa de él.
+  if(club){
+    if(club.nombre) r.rival=String(club.nombre).toUpperCase();
+    if(club.crest) r.crestRival=club.crest;
+    ['categoria','competicion','clasificacion','entrenador','campo','superficie','medidas','photoCampo']
+      .forEach(k=>{ if(club[k]) r[k]=club[k]; });
+  }
+  // En un informe de rival, el otro escudo es el nuestro.
+  if(uso==='rival' && !r.crestOwn){
+    const mio=localStorage.getItem(CREST_KEY); if(mio) r.crestOwn=mio;
+  }
   numeraAlineaciones(r);
   REPORTS.unshift(r); saveReports(); curRep=r; renderReportList(); renderReport();
-  toast('Informe de '+USOS[uso].lb.toLowerCase()+' creado');
+  toast(club ? ('Informe creado sobre '+r.rival)
+             : ('Informe de '+USOS[uso].lb.toLowerCase()+' creado'));
 }
 function duplicateReport(){ if(!curRep) return; const c=JSON.parse(JSON.stringify(curRep)); c.id=uid('r'); c.rival=(c.rival||'')+' (copia)'; reId(c); REPORTS.unshift(c); saveReports(); curRep=c; renderReportList(); renderReport(); toast('Informe duplicado'); }
 function reId(r){ (r.pages||[]).forEach(p=>{ p.id=uid('p'); (p.blocks||[]).forEach(b=>{ b.id=uid('b'); if(b.field) (b.field.els||[]).forEach(e=>e.id=uid('e')); }); if(p.field) (p.field.els||[]).forEach(e=>e.id=uid('e')); }); }
@@ -5067,7 +5183,10 @@ function createReportFromMatch(m, cual){
   const sujeto      = esLocal ? (m.localName||m.rival||'RIVAL') : (m.rival||m.localName||'RIVAL');
   const escudoSuyo  = esLocal ? m.localCrest : m.rivalCrest;
   const escudoOtro  = esLocal ? m.rivalCrest : m.localCrest;
-  newReport();
+  // Ojo: newReport() sólo abre la ventana de preguntas; el que crea el
+  // informe de verdad es creaInforme(). Llamar a newReport() aquí dejaba
+  // curRep en el informe anterior y le machacaba los datos.
+  creaInforme('rival');
   const r=curRep;
   r.rival=String(sujeto).toUpperCase();
   // el otro equipo del partido, para el botón ⇅ de la portada
