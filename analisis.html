@@ -954,6 +954,10 @@ body.fe-full-abierto{overflow:hidden;}
           </select>
           <button class="nav-btn sm" onclick="addPage(document.getElementById('add-page-type').value)">+ Añadir</button>
         </div>
+        <div class="side-row" style="margin-top:6px;">
+          <button class="nav-btn sm" style="width:100%;justify-content:center;" onclick="abreTraerPaginas()"
+            title="Copiar páginas enteras de otro informe: campos, flechas, textos y todo lo que lleven dentro">⇄ Traer de otro informe</button>
+        </div>
         <div class="side-row" style="margin-top:10px;">
           <button class="nav-btn sm" onclick="duplicateReport()">⧉ Duplicar</button>
           <button class="nav-btn sm danger" onclick="deleteReport()">🗑 Eliminar</button>
@@ -3869,6 +3873,123 @@ function creaInforme(uso, club){
   toast(club ? ('Informe creado sobre '+r.rival)
              : ('Informe de '+USOS[uso].lb.toLowerCase()+' creado'));
 }
+
+// ══════════════════════════════════════════════════════════
+// TRAER PÁGINAS DE OTRO INFORME
+//   Un informe nuevo casi nunca empieza de cero: el campo con las
+//   flechas, el DAFO o la idea de juego del informe del Teruel sirven
+//   igual para el del Yeclano. Se copian enteras, con todo lo dibujado
+//   y escrito dentro, y la página original no se toca.
+// ══════════════════════════════════════════════════════════
+
+// Copia profunda con identificadores nuevos: si se quedaran los del
+// original, mover algo en una página movería lo mismo en la otra.
+function clonaPagina(p){
+  const c=JSON.parse(JSON.stringify(p));
+  c.id=uid('p');
+  (c.blocks||[]).forEach(b=>{ b.id=uid('b'); if(b.field)(b.field.els||[]).forEach(e=>e.id=uid('e')); });
+  if(c.field)(c.field.els||[]).forEach(e=>e.id=uid('e'));
+  return c;
+}
+// Qué lleva dentro una página, para saber cuál es cuál sin abrirla.
+function resumenPagina(p){
+  let els=0, txt=0, filas=0;
+  const cuenta=f=>{ if(f&&Array.isArray(f.els)) els+=f.els.length; };
+  cuenta(p.field);
+  (p.blocks||[]).forEach(b=>{
+    cuenta(b.field);
+    if(String(b.text||'').trim()||String(b.t2||'').trim()) txt++;
+  });
+  if(p.type==='dafo') ['d','f','a','o'].forEach(k=>{ if(String(p[k]||'').trim()) txt++; });
+  if(p.type==='texto') (p.texts||[]).forEach(t=>{ if(String(t||'').trim()) txt++; });
+  if(p.type==='plantilla') filas=(p.rows||[]).filter(x=>!filaVacia(x)).length;
+  if(p.type==='campograma') (p.slots||[]).forEach(s=>{ if(s&&s.cg) els++; });
+  const t=[];
+  if(els)  t.push(els+(els===1?' elemento':' elementos'));
+  if(txt)  t.push(txt+(txt===1?' texto':' textos'));
+  if(filas)t.push(filas+' jugadores');
+  return t.length? t.join(' · ') : 'vacía';
+}
+
+function abreTraerPaginas(){
+  if(!curRep){ toast('Abre un informe antes'); return; }
+  const otros=(REPORTS||[]).filter(r=>r!==curRep);
+  if(!otros.length){ toast('No hay otro informe del que traer páginas'); return; }
+  pintaTraerInformes(otros);
+}
+function tpCierra(){ const m=document.getElementById('cgpick'); if(m) m.remove(); }
+function tpMarco(titulo, cuerpo){
+  tpCierra();
+  const m=elx('div',''); m.id='cgpick';
+  m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">'+titulo+'</span>'+
+    '<button class="pk-x">×</button></div><div class="pk-b">'+cuerpo+'</div></div>';
+  document.body.appendChild(m);
+  m.querySelector('.pk-x').onclick=tpCierra;
+  m.onclick=e=>{ if(e.target===m) tpCierra(); };
+  return m;
+}
+// Paso 1: de qué informe.
+function pintaTraerInformes(otros){
+  const m=tpMarco('¿De qué informe traigo páginas?',
+    '<div class="pk-sec">'+otros.length+(otros.length===1?' informe':' informes')+'</div>'+
+    '<div class="pk-lista">'+otros.map((r,i)=>'<div class="pk-club" data-r="'+i+'">'+
+      (imgHay(r.crestRival)?'<img src="'+imgSrc(r.crestRival)+'" alt="">':'<span class="pk-ph">⚽</span>')+
+      '<span><span class="pk-n">'+escapeHtml(r.rival||'Sin nombre')+'</span>'+
+      '<span class="pk-s">'+escapeHtml(usoDe(r).ab)+' · '+(r.pages||[]).length+' páginas'+
+      (r.fecha?' · '+escapeHtml(r.fecha):'')+'</span></span></div>').join('')+'</div>');
+  m.querySelectorAll('[data-r]').forEach(el=>{
+    el.onclick=()=>pintaTraerPaginas(otros[+el.dataset.r], otros);
+  });
+}
+// Paso 2: qué páginas. Se pueden marcar varias.
+function pintaTraerPaginas(origen, otros){
+  const pgs=(origen.pages||[]);
+  const m=tpMarco('Páginas de '+escapeHtml(origen.rival||'ese informe'),
+    '<div class="pk-sec">Marca las que quieras traer</div>'+
+    '<div class="pk-lista" id="tp-lista">'+
+      pgs.map((p,i)=>'<label class="pk-club" style="cursor:pointer;">'+
+        '<input type="checkbox" data-p="'+i+'" style="width:16px;height:16px;accent-color:#C8A84B;flex-shrink:0;">'+
+        '<span><span class="pk-n">'+(i+1)+'. '+escapeHtml(p.title||PAGE_LABEL[p.type]||p.type)+'</span>'+
+        '<span class="pk-s">'+escapeHtml(PAGE_LABEL[p.type]||p.type)+' · '+escapeHtml(resumenPagina(p))+'</span>'+
+        '</span></label>').join('')+'</div>'+
+    '<div class="elige" style="margin-top:12px;">'+
+      '<button class="btn btn-ghost" id="tp-volver">← Otro informe</button>'+
+      '<button class="btn" id="tp-ok">Traer</button></div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-top:8px;">Se copian al final de '+
+      escapeHtml(curRep.rival||'este informe')+', y desde ahí las mueves con ▲▼. '+
+      'El informe de origen no se toca.</div>');
+  const ok=m.querySelector('#tp-ok');
+  const refresca=()=>{
+    const n=m.querySelectorAll('#tp-lista input:checked').length;
+    ok.textContent = n? ('Traer '+n+(n===1?' página':' páginas')) : 'Traer';
+    ok.disabled=!n; ok.style.opacity=n?'1':'.5';
+  };
+  m.querySelectorAll('#tp-lista input').forEach(c=>c.addEventListener('change',refresca));
+  refresca();
+  m.querySelector('#tp-volver').onclick=()=>pintaTraerInformes(otros);
+  ok.onclick=()=>{
+    const idx=[...m.querySelectorAll('#tp-lista input:checked')].map(c=>+c.dataset.p);
+    if(!idx.length) return;
+    tpCierra();
+    traePaginas(origen, idx);
+  };
+}
+function traePaginas(origen, idx){
+  const r=curRep; if(!r) return;
+  let n=0, primera=null;
+  idx.forEach(i=>{
+    const p=(origen.pages||[])[i]; if(!p) return;
+    const c=clonaPagina(p);
+    r.pages.push(c); if(!primera) primera=c; n++;
+  });
+  if(!n) return;
+  // Si vienen alineaciones, que la jornada siga la numeración de aquí.
+  if(idx.some(i=>((origen.pages||[])[i]||{}).type==='alineaciones')) numeraAlineaciones(r);
+  saveReports(); renderReport(); renderPageNav();
+  toast(n+(n===1?' página traída de ':' páginas traídas de ')+(origen.rival||'otro informe'));
+  if(primera) setTimeout(()=>{ const el=document.getElementById('pw-'+primera.id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },80);
+}
+
 function duplicateReport(){ if(!curRep) return; const c=JSON.parse(JSON.stringify(curRep)); c.id=uid('r'); c.rival=(c.rival||'')+' (copia)'; reId(c); REPORTS.unshift(c); saveReports(); curRep=c; renderReportList(); renderReport(); toast('Informe duplicado'); }
 function reId(r){ (r.pages||[]).forEach(p=>{ p.id=uid('p'); (p.blocks||[]).forEach(b=>{ b.id=uid('b'); if(b.field) (b.field.els||[]).forEach(e=>e.id=uid('e')); }); if(p.field) (p.field.els||[]).forEach(e=>e.id=uid('e')); }); }
 function deleteReport(){
@@ -4010,7 +4131,7 @@ function renderPageNav(){
     d.querySelectorAll('button').forEach(b=>{ b.onclick=ev=>{ ev.stopPropagation(); const a=b.dataset.a;
       if(a==='up'&&i>0){ curRep.pages.splice(i,1); curRep.pages.splice(i-1,0,p); }
       else if(a==='dn'&&i<curRep.pages.length-1){ curRep.pages.splice(i,1); curRep.pages.splice(i+1,0,p); }
-      else if(a==='dup'){ const c=JSON.parse(JSON.stringify(p)); c.id=uid('p'); (c.blocks||[]).forEach(bb=>{bb.id=uid('b'); if(bb.field)(bb.field.els||[]).forEach(e=>e.id=uid('e'));}); if(c.field)(c.field.els||[]).forEach(e=>e.id=uid('e')); curRep.pages.splice(i+1,0,c); }
+      else if(a==='dup'){ curRep.pages.splice(i+1,0,clonaPagina(p)); }
       else if(a==='del'){ if(!confirm('¿Eliminar esta página?')) return; curRep.pages.splice(i,1); }
       else return;
       saveReports(); renderReport(); renderPageNav();
