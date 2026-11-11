@@ -190,6 +190,14 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .side-row{display:flex;gap:5px;}
 .side-row .nav-btn{flex:1;justify-content:center;}
 .side-row select{margin-bottom:0;}
+/* Barra al final de las diapositivas: es donde se trabaja, así que
+   añadir una página o traerla de otro informe se hace ahí mismo. */
+.pg-barra{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;
+  margin:0 auto 40px;padding:12px 14px;max-width:720px;
+  border:1px dashed rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.03);}
+.pg-barra select{width:auto;min-width:230px;margin-bottom:0;}
+.pg-barra .pb-pie{flex-basis:100%;text-align:center;font-size:11px;color:var(--text3);}
+.panel-nota{font-size:10.5px;color:var(--text3);line-height:1.5;margin-top:8px;}
 
 /* ── PÁGINAS A4 (pantalla) ── */
 .page-wrap{margin:0 auto 26px;width:var(--page-w);position:relative;}
@@ -940,24 +948,8 @@ body.fe-full-abierto{overflow:hidden;}
         </select>
         <div class="panel-hdr">Páginas del informe</div>
         <div class="page-nav" id="page-nav"></div>
-        <div class="side-row" style="margin-top:8px;">
-          <select id="add-page-type">
-            <option value="momento">Momento de juego (2 campos)</option>
-            <option value="alineaciones">Últimas alineaciones (2 partidos)</option>
-            <option value="posible11">Posible 11</option>
-            <option value="dafo">Análisis DAFO</option>
-            <option value="plantilla">Plantilla</option>
-            <option value="abp">ABP</option>
-            <option value="campograma">Campograma (de Captación)</option>
-            <option value="texto">Página de texto</option>
-            <option value="portada">Portada</option>
-          </select>
-          <button class="nav-btn sm" onclick="addPage(document.getElementById('add-page-type').value)">+ Añadir</button>
-        </div>
-        <div class="side-row" style="margin-top:6px;">
-          <button class="nav-btn sm" style="width:100%;justify-content:center;" onclick="abreTraerPaginas()"
-            title="Copiar páginas enteras de otro informe: campos, flechas, textos y todo lo que lleven dentro">⇄ Traer de otro informe</button>
-        </div>
+        <div class="panel-nota">Añadir páginas y traerlas de otro informe,
+          debajo de la última diapositiva.</div>
         <div class="side-row" style="margin-top:10px;">
           <button class="nav-btn sm" onclick="duplicateReport()">⧉ Duplicar</button>
           <button class="nav-btn sm danger" onclick="deleteReport()">🗑 Eliminar</button>
@@ -3911,6 +3903,32 @@ function resumenPagina(p){
   return t.length? t.join(' · ') : 'vacía';
 }
 
+// Los tipos de página que se pueden añadir, en el orden en que se usan.
+const TIPOS_PAGINA=[
+  ['momento','Momento de juego (2 campos)'],
+  ['alineaciones','Últimas alineaciones (2 partidos)'],
+  ['posible11','Posible 11'],
+  ['dafo','Análisis DAFO'],
+  ['plantilla','Plantilla'],
+  ['abp','ABP'],
+  ['campograma','Campograma (de Captación)'],
+  ['texto','Página de texto'],
+  ['portada','Portada']
+];
+// Barra al final del informe: añadir una página o traerla de otro. Va
+// aquí, debajo de la última diapositiva, porque es donde se trabaja.
+function barraPaginas(r){
+  const d=elx('div','pg-barra no-print');
+  d.innerHTML='<select id="add-page-type">'+
+      TIPOS_PAGINA.map(t=>'<option value="'+t[0]+'">'+t[1]+'</option>').join('')+'</select>'+
+    '<button class="nav-btn sm" data-a="add">+ Añadir página</button>'+
+    '<button class="nav-btn sm" data-a="traer" title="Copiar páginas enteras de otro informe: campos, flechas, textos y todo lo que lleven dentro">⇄ Traer de otro informe</button>'+
+    '<div class="pb-pie">La página nueva se añade al final; desde ahí la mueves con ▲▼.</div>';
+  d.querySelector('[data-a="add"]').onclick=()=>addPage(d.querySelector('select').value);
+  d.querySelector('[data-a="traer"]').onclick=()=>abreTraerPaginas();
+  return d;
+}
+
 function abreTraerPaginas(){
   if(!curRep){ toast('Abre un informe antes'); return; }
   const otros=(REPORTS||[]).filter(r=>r!==curRep);
@@ -4576,6 +4594,7 @@ function renderReport(){
   document.getElementById('rep-main-empty').style.display='none';
   sincroPlantilla(curRep);
   curRep.pages.forEach((p,i)=>{ root.appendChild(buildPage(p,curRep,i)); });
+  root.appendChild(barraPaginas(curRep));
   fitPages();
 }
 function buildPage(p,r,idx){
@@ -4588,7 +4607,7 @@ function buildPage(p,r,idx){
   tools.querySelectorAll('button').forEach(b=>{ b.onclick=()=>{ const a=b.dataset.a, i=r.pages.indexOf(p);
     if(a==='up'&&i>0){ r.pages.splice(i,1); r.pages.splice(i-1,0,p); }
     else if(a==='dn'&&i<r.pages.length-1){ r.pages.splice(i,1); r.pages.splice(i+1,0,p); }
-    else if(a==='dup'){ const c=JSON.parse(JSON.stringify(p)); c.id=uid('p'); (c.blocks||[]).forEach(bb=>{bb.id=uid('b'); if(bb.field)(bb.field.els||[]).forEach(e=>e.id=uid('e'));}); if(c.field)(c.field.els||[]).forEach(e=>e.id=uid('e')); r.pages.splice(i+1,0,c); }
+    else if(a==='dup'){ r.pages.splice(i+1,0,clonaPagina(p)); }
     else if(a==='del'){ if(!confirm('¿Eliminar esta página?')) return; r.pages.splice(i,1); }
     saveReports(); renderReport(); renderPageNav(); }; });
   page.appendChild(tools);
