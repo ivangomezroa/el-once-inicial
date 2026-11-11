@@ -408,6 +408,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 .mini-btn{background:#fff;border:1px solid #bbb;color:#555;border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
 .mini-btn:hover{border-color:var(--navy);color:var(--navy);}
 .mini-btn.on{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.mini-sel{background:#fff;border:1px solid #bbb;color:#555;border-radius:4px;padding:1px 4px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;width:auto;margin:0;max-width:190px;}
 .mini-btn.danger:hover{color:#b81e1e;border-color:#b81e1e;}
 .blk-vs{display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--navy);font-size:13px;flex-shrink:0;}
 .blk-vs{position:relative;}
@@ -3929,7 +3930,9 @@ function barraPaginas(r){
   return d;
 }
 
-function abreTraerPaginas(){
+let tpTras=null;   // detrás de qué página se meten las que se traigan
+function abreTraerPaginas(tras){
+  tpTras = (typeof tras==='number' && tras>=0) ? tras : null;
   if(!curRep){ toast('Abre un informe antes'); return; }
   const otros=(REPORTS||[]).filter(r=>r!==curRep);
   if(!otros.length){ toast('No hay otro informe del que traer páginas'); return; }
@@ -3973,7 +3976,9 @@ function pintaTraerPaginas(origen, otros){
     '<div class="elige" style="margin-top:12px;">'+
       '<button class="btn btn-ghost" id="tp-volver">← Otro informe</button>'+
       '<button class="btn" id="tp-ok">Traer</button></div>'+
-    '<div style="font-size:11px;color:var(--text3);margin-top:8px;">Se copian al final de '+
+    '<div style="font-size:11px;color:var(--text3);margin-top:8px;">'+
+      (tpTras!=null ? 'Se copian justo detrás de la página '+(tpTras+1)+' de '
+                    : 'Se copian al final de ')+
       escapeHtml(curRep.rival||'este informe')+', y desde ahí las mueves con ▲▼. '+
       'El informe de origen no se toca.</div>');
   const ok=m.querySelector('#tp-ok');
@@ -3995,11 +4000,15 @@ function pintaTraerPaginas(origen, otros){
 function traePaginas(origen, idx){
   const r=curRep; if(!r) return;
   let n=0, primera=null;
+  let donde = (tpTras!=null && tpTras<r.pages.length) ? tpTras : null;
   idx.forEach(i=>{
     const p=(origen.pages||[])[i]; if(!p) return;
     const c=clonaPagina(p);
-    r.pages.push(c); if(!primera) primera=c; n++;
+    if(donde==null) r.pages.push(c);
+    else { donde++; r.pages.splice(donde,0,c); }
+    if(!primera) primera=c; n++;
   });
+  tpTras=null;
   if(!n) return;
   // Si vienen alineaciones, que la jornada siga la numeración de aquí.
   if(idx.some(i=>((origen.pages||[])[i]||{}).type==='alineaciones')) numeraAlineaciones(r);
@@ -4166,8 +4175,18 @@ function numeraAlineaciones(r){
   });
   return n;
 }
-function addPage(type){ if(!curRep) return; curRep.pages.push(newPage(type));
-  if(type==='alineaciones') numeraAlineaciones(curRep); saveReports(); renderReport(); renderPageNav(); const last=curRep.pages[curRep.pages.length-1]; setTimeout(()=>{ const el=document.getElementById('pw-'+last.id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
+// `tras` = índice de la página detrás de la que va la nueva. Sin él, al
+// final del informe.
+function addPageEn(type, tras){
+  if(!curRep) return;
+  const pg=newPage(type);
+  if(tras==null || tras<0) curRep.pages.push(pg);
+  else curRep.pages.splice(Math.min(tras+1, curRep.pages.length), 0, pg);
+  if(type==='alineaciones') numeraAlineaciones(curRep);
+  saveReports(); renderReport(); renderPageNav();
+  setTimeout(()=>{ const el=document.getElementById('pw-'+pg.id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60);
+}
+function addPage(type){ addPageEn(type, null); }
 
 // ── helpers de edición en página ──
 function ed(obj,key,cls,ph,multi){
@@ -4621,7 +4640,55 @@ function buildPage(p,r,idx){
   else if(p.type==='plantilla') buildSquad(page,p,r);
   else if(p.type==='texto') buildText(page,p,r);
   else if(p.type==='campograma') buildCampograma(page,p,r);
+  page.appendChild(pieDePagina(p,r,page));
   return wrap;
+}
+
+// ── El pie de cada página ─────────────────────────────────────────
+//   Sale al pasar el ratón por encima (con el dedo está siempre, que no
+//   hay "pasar por encima"). Lleva lo de esa página —otro bloque, otro
+//   partido— y, desde aquí, también añadir una página o traerla de otro
+//   informe: se meten JUSTO DETRÁS de esta, que es donde se está
+//   mirando, sin tener que bajar al final.
+function pieDePagina(p,r,page){
+  const add=elx('div','no-print pg-add');
+  // Centrado con left/right y no con left:50%: así puede usar el ancho
+  // entero de la página y los botones caben en una sola fila.
+  add.style.cssText='position:absolute;bottom:10px;left:0;right:0;margin:0 auto;'+
+    'width:max-content;max-width:94%;display:flex;gap:5px;align-items:center;'+
+    'flex-wrap:wrap;justify-content:center;';
+  const esAlin=p.type==='alineaciones', esAbp=p.type==='abp';
+  const conBloques=Array.isArray(p.blocks);
+  let h='';
+  if(conBloques){
+    h+='<button class="mini-btn" data-a="blq">'+(esAlin?'+ Otro partido en esta página':'+ Añadir bloque')+'</button>';
+    if(esAlin) h+='<button class="mini-btn" data-a="pag">+ Otra página de alineaciones</button>';
+  }
+  h+='<select class="mini-sel" data-a="tipo">'+
+      TIPOS_PAGINA.map(t=>'<option value="'+t[0]+'">'+t[1]+'</option>').join('')+'</select>'+
+    '<button class="mini-btn" data-a="nueva">+ Página aquí</button>'+
+    '<button class="mini-btn" data-a="traer">⇄ Traer de otro informe</button>';
+  add.innerHTML=h;
+
+  const b1=add.querySelector('[data-a="blq"]');
+  if(b1) b1.onclick=()=>{
+    p.blocks.push(mkBlock('', esAlin));
+    if(p.blocks.length>2 && !esAbp) p.cols=3;
+    if(esAlin) numeraAlineaciones(r);
+    saveReports(); renderReport();
+  };
+  const b2b=add.querySelector('[data-a="pag"]');
+  if(b2b) b2b.onclick=()=>addPageEn('alineaciones', r.pages.indexOf(p));
+  add.querySelector('[data-a="nueva"]').onclick=()=>
+    addPageEn(add.querySelector('[data-a="tipo"]').value, r.pages.indexOf(p));
+  add.querySelector('[data-a="traer"]').onclick=()=>abreTraerPaginas(r.pages.indexOf(p));
+
+  if(!window.matchMedia('(pointer:coarse)').matches){
+    add.style.opacity='0'; add.style.transition='opacity .15s';
+    page.addEventListener('mouseenter',()=>add.style.opacity='1');
+    page.addEventListener('mouseleave',()=>add.style.opacity='0');
+  }
+  return add;
 }
 
 // ── PORTADA ──
@@ -5129,35 +5196,6 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
     body.appendChild(blk);
   });
   page.appendChild(body);
-  const add=elx('div','no-print pg-add'); add.style.cssText='position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;';
-  const esAlin = p.type==='alineaciones';
-  add.innerHTML='<button class="mini-btn" data-a="add">+ Otro partido en esta página</button>'
-    + (esAlin ? '<button class="mini-btn" data-a="pag">+ Otra página de alineaciones</button>' : '');
-  if(!esAlin) add.querySelector('[data-a="add"]').textContent='+ Añadir bloque';
-  add.querySelector('[data-a="add"]').onclick=()=>{
-    p.blocks.push(mkBlock('',withVs));
-    if(p.blocks.length>2&&!grid2x2) p.cols=3;
-    if(esAlin) numeraAlineaciones(r);
-    saveReports(); renderReport();
-  };
-  const bp=add.querySelector('[data-a="pag"]');
-  if(bp) bp.onclick=()=>{
-    // se mete justo detrás de esta página, no al final del informe
-    const i=r.pages.indexOf(p);
-    const nueva=newPage('alineaciones');
-    r.pages.splice(i+1,0,nueva);
-    numeraAlineaciones(r);
-    saveReports(); renderReport(); if(typeof renderPageNav==='function') renderPageNav();
-    setTimeout(()=>{ const el=document.getElementById('pw-'+nueva.id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },80);
-  };
-  // Con el dedo no hay "pasar el ratón por encima": si se deja en opacity 0
-  // estos botones no existen en un móvil. Con ratón, como siempre.
-  if(!window.matchMedia('(pointer:coarse)').matches){
-    add.style.opacity='0'; add.style.transition='opacity .15s';
-    page.addEventListener('mouseenter',()=>add.style.opacity='1');
-    page.addEventListener('mouseleave',()=>add.style.opacity='0');
-  }
-  page.appendChild(add);
 }
 
 // ── DAFO ──
