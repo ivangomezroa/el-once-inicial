@@ -231,7 +231,7 @@ function pintaEntrar(){
     if(hayInv){
       h += '<div class="oi-s-nota">Tienes una invitación pendiente. Entra con el correo al que te llegó y se aplicará sola.</div>';
     } else {
-      h += '<div class="oi-s-nota">Las cuentas las crea el responsable del equipo: nadie puede registrarse por su cuenta. Si te han invitado, entra con el correo de la invitación.</div>';
+      h += '<div class="oi-s-nota">Las cuentas las crea el responsable del equipo: nadie puede registrarse por su cuenta. Si te han invitado, busca el correo que te hemos mandado para poner tu contraseña; si ya tienes cuenta, entra con ella.</div>';
     }
   }
   c.innerHTML = h;
@@ -383,14 +383,24 @@ function aplicaInvitacion(){
   if(!t) return Promise.resolve();
   return rpc('aceptar_invitacion', {p_token:t}).then(function(id){
     try{ localStorage.removeItem(K_INV); }catch(e){}
-    if(id) grabaLS(K_ESP, {id:id, nombre:'(invitación)', rol:'entrenador'});
+    if(!id) return;
+    // El nombre y el rol se preguntan, no se inventan: antes entraba como
+    // "(invitación)" y con rol entrenador aunque fuese otro.
+    return rpc('mis_espacios').then(function(lista){
+      var e = (lista||[]).find(function(x){ return x.id === id; });
+      grabaLS(K_ESP, {id:id, nombre:(e&&e.nombre)||'Espacio', rol:(e&&e.rol)||'invitado'});
+    }).catch(function(){ grabaLS(K_ESP, {id:id, nombre:'Espacio', rol:'invitado'}); });
   }).catch(function(){ /* la invitación no valía: se sigue normal */ });
 }
 
-// ── Enlace de recuperación (#access_token=…&type=recovery) ────────────
+// ── Enlace de correo (#access_token=…&type=recovery|invite) ───────────
+//   `recovery` es el de "he olvidado la contraseña"; `invite` es el que
+//   recibe quien entra por primera vez. Los dos acaban igual: pones una
+//   contraseña y ya estás dentro.
 function hashRecuperacion(){
   var h = location.hash || '';
-  if(h.indexOf('access_token=') < 0 || h.indexOf('type=recovery') < 0) return false;
+  if(h.indexOf('access_token=') < 0) return false;
+  if(h.indexOf('type=recovery') < 0 && h.indexOf('type=invite') < 0) return false;
   var p = new URLSearchParams(h.replace(/^#/, ''));
   ses = {access_token:p.get('access_token'), refresh_token:p.get('refresh_token'),
          expira: Math.floor(Date.now()/1000) + parseInt(p.get('expires_in')||'3600', 10), email:''};

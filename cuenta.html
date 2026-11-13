@@ -295,8 +295,9 @@ function hojaMiembros(){
           .map(r=>'<option value="'+r[0]+'">'+r[1]+' · '+r[2]+'</option>').join('')+'</select>'
       +'</div>'
       +'<div class="acciones"><button class="btn oro" data-a="invita">Crear invitación</button></div>'
-      +'<div class="nota">Se crea un enlace que caduca a los 14 días y que <b>sólo sirve para ese correo</b>. '
-        +'Se lo mandas tú por donde quieras. Quien lo abra tendrá que entrar con una cuenta de ese mismo correo.</div>'
+      +'<div class="nota">Le llega un correo para ponerse su contraseña y, al entrar, ya está dentro del espacio '
+        +'con el rol que le hayas puesto. El enlace caduca a los 14 días y <b>sólo sirve para ese correo</b>. '
+        +'Se copia también al portapapeles, por si prefieres mandárselo tú.</div>'
       +'</div>';
 
     if(pendientes.length){
@@ -413,10 +414,14 @@ async function accion(a, b){
     const em=(document.getElementById('c-inv-mail').value||'').trim();
     const rol=document.getElementById('c-inv-rol').value;
     if(!em || em.indexOf('@')<0){ avisa('Pon un correo válido', true); return pinta(); }
-    const tok = await rpc('invitar', {p_espacio:espacio.id, p_email:em, p_rol:rol});
-    const enlace = enlaceDe(tok);
-    await copia(enlace);
-    avisa('Invitación creada y enlace copiado');
+    b.disabled=true; b.textContent='Invitando…';
+    try{
+      const r = await invitaDeVerdad(em, rol);
+      await copia(r.enlace);
+      if(r.correo)        avisa('Invitación enviada a '+em+' · enlace copiado por si acaso');
+      else if(r.yaTenia)  avisa(em+' ya tenía cuenta: mándale el enlace, que está copiado');
+      else                avisa('Invitación creada y enlace copiado'+(r.aviso?' · el correo no salió: '+r.aviso:''));
+    } finally { b.disabled=false; b.textContent='Crear invitación'; }
     return carga();
   }
   if(a==='copia'){ await copia(enlaceDe(b.getAttribute('data-t'))); avisa('Enlace copiado'); return; }
@@ -459,6 +464,28 @@ async function accion(a, b){
 
 function enlaceDe(token){
   return location.origin + '/analisis.html?invitacion=' + token;
+}
+// Invitar de verdad: lo hace la función de servidor, que es la única que
+// puede crearle la cuenta a alguien y mandarle el correo. Si todavía no
+// está puesta (o se cae), no se deja a medias: se crea igualmente la
+// invitación contra la base de datos y queda el enlace para mandarlo a
+// mano, que es como funcionaba antes.
+async function invitaDeVerdad(email, rol){
+  try{
+    const tok = await (window.OISesion ? window.OISesion.testigo() : null);
+    const r = await fetch('/api/invitar', {method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+tok},
+      body: JSON.stringify({espacio_id:espacio.id, email:email, rol:rol})});
+    const d = await r.json().catch(()=>null);
+    if(r.ok && d && d.ok) return d;
+    // 404 = la función no está desplegada; 503 = falta la clave en Vercel
+    if(r.status===404 || r.status===503 || !d) throw new Error('sin-funcion');
+    throw new Error((d && d.error) || ('Error '+r.status));
+  }catch(e){
+    if(e && e.message && e.message!=='sin-funcion' && !/Failed to fetch|NetworkError/i.test(e.message)) throw e;
+    const tok = await rpc('invitar', {p_espacio:espacio.id, p_email:email, p_rol:rol});
+    return {enlace:enlaceDe(tok), correo:false, yaTenia:false, aviso:''};
+  }
 }
 async function copia(txt){
   try{ await navigator.clipboard.writeText(txt); }
