@@ -279,6 +279,7 @@ function engancha(c){
 function valor(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; }
 
 function accion(a, b){
+  if(a === 'cuenta'){ location.href = 'cuenta.html'; return; }
   if(a === 'recuperar-ir'){ modo = 'recuperar'; pintaEntrar(); return; }
   if(a === 'volver'){ modo = 'entrar'; pintaEntrar(); return; }
 
@@ -446,6 +447,7 @@ function menu(chip){
   d.innerHTML = '<div class="d">Usuario<br><b>' + esc(ses.email||'—') + '</b></div>'
     + (esp ? '<div class="d">Espacio<br><b>' + esc(esp.nombre) + '</b> · ' + esc(esp.rol||'') + '</div>' : '')
     + '<hr>'
+    + '<button data-a="cuenta">Cuenta y equipo</button>'
     + '<button data-a="cambiar">Cambiar de espacio</button>'
     + '<button data-a="salir">Cerrar sesión</button>';
   document.body.appendChild(d);
