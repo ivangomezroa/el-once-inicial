@@ -214,12 +214,15 @@ function pintaEntrar(){
       +  '<button class="oi-s-mini" data-a="volver">Volver a entrar</button>'
       +  '<div class="oi-s-nota">Te llega un correo con un enlace. Al pulsarlo se abre la app y te pide la contraseña nueva.</div>';
   } else if(modo === 'nueva'){
-    h += '<div class="oi-s-tit">Contraseña nueva</div>'
-      +  '<div class="oi-s-fila"><label>Nueva contraseña</label>'
+    h += '<div class="oi-s-tit">'+(esEstreno ? 'Bienvenido' : 'Contraseña nueva')+'</div>'
+      +  (esEstreno ? '<div class="oi-s-nota" style="margin-top:0;margin-bottom:10px;">Te han invitado a un espacio de trabajo. '
+                     +'Ponte una contraseña y entras directo; tu correo es el de la invitación.</div>' : '')
+      +  '<div class="oi-s-fila"><label>'+(esEstreno ? 'Tu contraseña' : 'Nueva contraseña')+'</label>'
       +  '<input type="password" class="oi-s-in" id="oi-s-pw" placeholder="Mínimo 8 caracteres" autocomplete="new-password"></div>'
       +  '<div class="oi-s-fila"><label>Repítela</label>'
       +  '<input type="password" class="oi-s-in" id="oi-s-pw2" placeholder="Otra vez" autocomplete="new-password"></div>'
-      +  '<button class="oi-s-b pri" id="oi-s-pri" data-a="guardarClave">Guardar y entrar</button>';
+      +  '<button class="oi-s-b pri" id="oi-s-pri" data-a="guardarClave">'
+      +  (esEstreno ? 'Entrar' : 'Guardar y entrar')+'</button>';
   } else {
     h += '<div class="oi-s-tit">Entrar</div>'
       +  '<div class="oi-s-fila"><label>Correo</label>'
@@ -374,7 +377,12 @@ function guardaInvitacionDeURL(){
   var m = /[?&]invitacion=([^&#]+)/.exec(location.search);
   if(m){
     try{ localStorage.setItem(K_INV, decodeURIComponent(m[1])); }catch(e){}
-    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+    // OJO con el hash: el correo de invitación llega como
+    // `...?invitacion=TOKEN#access_token=…&type=invite`. Si al limpiar la
+    // dirección se quita también el `#`, se pierde el testigo y al
+    // invitado no se le pide la contraseña: le sale la puerta de entrar,
+    // sin tener todavía ni correo ni contraseña que poner.
+    try{ history.replaceState(null, '', location.pathname + (location.hash||'')); }catch(e){}
   }
 }
 function aplicaInvitacion(){
@@ -397,12 +405,15 @@ function aplicaInvitacion(){
 //   `recovery` es el de "he olvidado la contraseña"; `invite` es el que
 //   recibe quien entra por primera vez. Los dos acaban igual: pones una
 //   contraseña y ya estás dentro.
+var esEstreno = false;   // true si viene del correo de invitación
 function hashRecuperacion(){
   var h = location.hash || '';
   if(h.indexOf('access_token=') < 0) return false;
   if(h.indexOf('type=recovery') < 0 && h.indexOf('type=invite') < 0) return false;
+  esEstreno = h.indexOf('type=invite') >= 0;
   var p = new URLSearchParams(h.replace(/^#/, ''));
-  ses = {access_token:p.get('access_token'), refresh_token:p.get('refresh_token'),
+  if(!p.get('access_token')) return false;
+  ses = {access_token:p.get('access_token'), refresh_token:p.get('refresh_token')||'',
          expira: Math.floor(Date.now()/1000) + parseInt(p.get('expires_in')||'3600', 10), email:''};
   grabaLS(K_SES, ses);
   return true;
