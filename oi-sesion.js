@@ -410,7 +410,12 @@ function hashRecuperacion(){
   var h = location.hash || '';
   if(h.indexOf('access_token=') < 0) return false;
   if(h.indexOf('type=recovery') < 0 && h.indexOf('type=invite') < 0) return false;
-  esEstreno = h.indexOf('type=invite') >= 0;
+  // Es estreno si viene de la invitación de Supabase o si, aun siendo un
+  // enlace de contraseña, hay una invitación esperando: pasa cuando se
+  // reenvía el correo a alguien que ya tenía cuenta creada pero sin clave.
+  var hayInv = false;
+  try{ hayInv = !!localStorage.getItem(K_INV); }catch(e){}
+  esEstreno = h.indexOf('type=invite') >= 0 || hayInv;
   var p = new URLSearchParams(h.replace(/^#/, ''));
   if(!p.get('access_token')) return false;
   ses = {access_token:p.get('access_token'), refresh_token:p.get('refresh_token')||'',

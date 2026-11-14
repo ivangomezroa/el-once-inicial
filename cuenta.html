@@ -309,6 +309,7 @@ function hojaMiembros(){
               +'<div class="quien"><div class="n">'+esc(p.email)+'</div>'
               +'<div class="e">'+esc(ROL_LB[p.rol]||p.rol)+' · '
               +(dias>0?('caduca en '+dias+(dias===1?' día':' días')):'caducada')+'</div></div>'
+              +'<button class="btn" data-a="reenvia" data-id="'+esc(p.id)+'" data-n="'+esc(p.email)+'">Reenviar correo</button>'
               +'<button class="btn" data-a="copia" data-t="'+esc(p.token)+'">Copiar enlace</button>'
               +'<button class="btn rojo" data-a="revoca" data-id="'+esc(p.id)+'" data-n="'+esc(p.email)+'">Revocar</button>'
               +'</div>';
@@ -419,9 +420,19 @@ async function accion(a, b){
       const r = await invitaDeVerdad(em, rol);
       await copia(r.enlace);
       if(r.correo)        avisa('Invitación enviada a '+em+' · enlace copiado por si acaso');
-      else if(r.yaTenia)  avisa(em+' ya tenía cuenta: mándale el enlace, que está copiado');
+      else if(r.yaTenia)  avisa(em+' ya tenía cuenta · le hemos mandado el enlace para entrar');
       else                avisa('Invitación creada y enlace copiado'+(r.aviso?' · el correo no salió: '+r.aviso:''));
     } finally { b.disabled=false; b.textContent='Crear invitación'; }
+    return carga();
+  }
+  if(a==='reenvia'){
+    b.disabled=true; b.textContent='Enviando…';
+    try{
+      const r = await invitaDeVerdad(null, null, b.getAttribute('data-id'));
+      await copia(r.enlace);
+      if(r.correo) avisa('Correo reenviado a '+b.getAttribute('data-n')+' · le quedan otros 14 días');
+      else avisa('No ha salido el correo'+(r.aviso?': '+r.aviso:'')+' · el enlace está copiado', !r.enlace);
+    } finally { b.disabled=false; b.textContent='Reenviar correo'; }
     return carga();
   }
   if(a==='copia'){ await copia(enlaceDe(b.getAttribute('data-t'))); avisa('Enlace copiado'); return; }
@@ -470,12 +481,15 @@ function enlaceDe(token){
 // está puesta (o se cae), no se deja a medias: se crea igualmente la
 // invitación contra la base de datos y queda el enlace para mandarlo a
 // mano, que es como funcionaba antes.
-async function invitaDeVerdad(email, rol){
+async function invitaDeVerdad(email, rol, invitacionId){
   try{
     const tok = await (window.OISesion ? window.OISesion.testigo() : null);
+    const cuerpo = invitacionId
+      ? {espacio_id:espacio.id, invitacion_id:invitacionId}
+      : {espacio_id:espacio.id, email:email, rol:rol};
     const r = await fetch('/api/invitar', {method:'POST',
       headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+tok},
-      body: JSON.stringify({espacio_id:espacio.id, email:email, rol:rol})});
+      body: JSON.stringify(cuerpo)});
     const d = await r.json().catch(()=>null);
     if(r.ok && d && d.ok) return d;
     // 404 = la función no está desplegada; 503 = falta la clave en Vercel
@@ -483,6 +497,7 @@ async function invitaDeVerdad(email, rol){
     throw new Error((d && d.error) || ('Error '+r.status));
   }catch(e){
     if(e && e.message && e.message!=='sin-funcion' && !/Failed to fetch|NetworkError/i.test(e.message)) throw e;
+    if(invitacionId) throw new Error('Para reenviar el correo hace falta el servidor; de momento copia el enlace');
     const tok = await rpc('invitar', {p_espacio:espacio.id, p_email:email, p_rol:rol});
     return {enlace:enlaceDe(tok), correo:false, yaTenia:false, aviso:''};
   }
