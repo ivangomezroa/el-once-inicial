@@ -45,6 +45,7 @@ module.exports = async (req, res) => {
 
   const email   = String(cuerpo.email || '').trim().toLowerCase();
   const rol     = String(cuerpo.rol || 'entrenador');
+  const cargo   = String(cuerpo.cargo || '').trim().slice(0, 60);
   const espacio = String(cuerpo.espacio_id || '').trim();
   // Reenviar: no se crea otra invitación, se vuelve a mandar la que ya hay.
   const reenvio = String(cuerpo.invitacion_id || '').trim();
@@ -77,7 +78,7 @@ module.exports = async (req, res) => {
     if (reenvio) {
       // 3a. Reenviar la que ya existe: mismo token, 14 días más de vida.
       const filas = await pide(URL_BASE + '/rest/v1/invitaciones?id=eq.' + reenvio +
-        '&espacio_id=eq.' + espacio + '&select=id,email,rol,token,aceptada_en', { headers: conSecreta });
+        '&espacio_id=eq.' + espacio + '&select=id,email,rol,cargo,token,aceptada_en', { headers: conSecreta });
       const inv = Array.isArray(filas) && filas[0];
       if (!inv)              return fin(res, 404, { error: 'Esa invitación ya no está' });
       if (inv.aceptada_en)   return fin(res, 409, { error: 'Esa invitación ya se usó' });
@@ -98,7 +99,7 @@ module.exports = async (req, res) => {
       //     llama: así el permiso se comprueba otra vez allí.
       token = await pide(URL_BASE + '/rest/v1/rpc/invitar', {
         method: 'POST', headers: conQuienLlama,
-        body: JSON.stringify({ p_espacio: espacio, p_email: email, p_rol: rol })
+        body: JSON.stringify({ p_espacio: espacio, p_email: email, p_rol: rol, p_cargo: cargo || null })
       });
       if (!token || typeof token !== 'string') return fin(res, 500, { error: 'No se ha podido crear la invitación' });
     }
@@ -135,7 +136,8 @@ module.exports = async (req, res) => {
     }
 
     return fin(res, 200, { ok: true, enlace: enlace, correo: correo, yaTenia: yaTenia,
-                           reenviada: !!reenvio, aviso: avisoCorreo, email: aQuien, rol: suRol });
+                           reenviada: !!reenvio, aviso: avisoCorreo, email: aQuien, rol: suRol,
+                           cargo: reenvio ? null : (cargo || null) });
   } catch (e) {
     const est = (e && e.estado) || 500;
     return fin(res, est === 401 ? 401 : (est === 403 ? 403 : 500),
