@@ -226,7 +226,61 @@ body{
 #app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 /* Ajustar el scroll al contenedor de la vista (ta, tabs, contenido) */
 #app > div:not(.nav) { flex: 1; overflow-y: auto; }
+
+/* ══════════════════════════════════════════════════════════════
+   CAPTACIÓN EN EL MÓVIL
+   Dentro de `@media screen and (max-width:820px)`: ni el ordenador ni
+   la impresión ven nada de esto.
+
+   Lo que estaba mal, medido en un 1-4-3-3 a 390 px: las reglas de
+   arriba fijan `#app-wrap .pc{width:130px !important}` y
+   `#app-wrap .crow{flex-wrap:wrap !important}`. Con 130 px fijos sólo
+   caben DOS tarjetas por fila, así que la línea de tres delanteros se
+   partía en 2+1 y la de cuatro defensas en 2+2: el dibujo dejaba de
+   parecerse al sistema. Mandaban sobre las reglas de móvil de app.css
+   porque llevan más especificidad y `!important`.
+
+   Aquí cada fila vuelve a ser UNA fila: las tarjetas se reparten el
+   ancho a partes iguales (`flex:1 1 0`), con un tope para que el
+   portero, él solo, no ocupe la pantalla entera.
+   ══════════════════════════════════════════════════════════════ */
+@media screen and (max-width:820px){
+
+  /* Las pestañas de la barra de arriba sobran: abajo está la misma
+     barra de navegación, y aquí sólo servían para aplastar el título. */
+  .oi-topnav > div:has(> .cap-tab-btn){ display:none !important; }
+
+  #app-wrap .pane{ padding:8px 8px !important; }
+  #app-wrap .campo{ padding:10px 5px !important; }
+
+  /* Cada línea del sistema, una fila de verdad */
+  #app-wrap .crow{
+    flex-wrap:nowrap !important;
+    justify-content:center !important;
+    gap:3px !important;
+    overflow:visible !important;
+    margin-bottom:6px !important;
+    align-items:flex-start !important;   /* sin esto, una tarjeta con dos
+                                            jugadores estira a toda la fila */
+  }
+  #app-wrap .crow > .pc{
+    width:auto !important; min-width:0 !important; max-width:148px !important;
+    flex:1 1 0 !important; font-size:10px !important;
+  }
+  #app-wrap .pc .ph{ padding:3px 4px !important; font-size:8px !important; letter-spacing:0 !important; }
+  #app-wrap .pc .jn{ font-size:9px !important; line-height:1.2 !important; word-break:break-word; }
+  #app-wrap .pc .je{ font-size:7.5px !important; }
+  /* La etiqueta de estado lleva `white-space:nowrap`: en una línea de
+     cinco, "EN PLANTILLA" se salía de la tarjeta. Aquí parte en dos. */
+  #app-wrap .pc .eb{ font-size:7.5px !important; padding:0 3px !important;
+                     white-space:normal !important; line-height:1.15 !important;
+                     max-width:100% !important; }
+  #app-wrap .pc .jr{ padding:3px 4px !important; gap:2px !important; }
+  #app-wrap .pc .pos-jugadores{ max-height:112px !important; }
+  #app-wrap .pc .ai{ font-size:8.5px !important; padding:3px 4px !important; }
+}
 </style>
+<link rel="stylesheet" href="/oi-movil.css?v=20261114">
 <script src="/oi-sesion.js"></script>
 </head>
 <body>

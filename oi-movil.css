@@ -1,0 +1,67 @@
+/* Lo que sólo se ve en el móvil no existe en ningún otro sitio. */
+.oi-mov-solo{ display:none; }
+/* ══════════════════════════════════════════════════════════════
+   EL ONCE INICIAL · AJUSTES PARA EL MÓVIL
+   Lo que comparten todas las pantallas: la barra de arriba y un par
+   de ayudas. Todo va dentro de `@media screen and (max-width:820px)`,
+   así que EN EL ORDENADOR Y AL IMPRIMIR NO CAMBIA NADA — `print` no
+   es `screen`, y por encima de 820 px no se aplica ninguna regla.
+   Cada pantalla pone en su propio fichero lo suyo.
+   ══════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width:820px){
+
+  /* ── BARRA DE ARRIBA ───────────────────────────────────────────
+     Lo que pasaba: el título ("Datos · Objetivos Individuales") no
+     cabía, partía en tres líneas y se salía por arriba y por abajo de
+     una barra de 52 px, montándose encima de los botones. */
+  .oi-topnav{ height:48px !important; padding:0 8px !important; gap:6px !important; }
+  .oi-nav-left{ flex:0 1 auto; min-width:0; overflow:hidden; }
+  .oi-logo-circle{ width:30px; height:30px; }
+  .oi-logo-circle img{ width:21px; height:21px; }
+  .oi-nav-text{ min-width:0; overflow:hidden; }
+  .oi-nav-sub{ display:none; }            /* "El Once Inicial" se da por sabido */
+  .oi-nav-main{
+    font-size:12px; letter-spacing:.5px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; display:block; max-width:100%;
+  }
+  .oi-nav-sep{ flex:1 1 0; min-width:0; }
+  .oi-nav-right{ gap:4px !important; flex-shrink:0; margin-left:auto; }
+  .oi-nav-crest{ width:28px !important; height:28px !important; }
+  .oi-topnav .nav-btn,
+  .oi-nav-right > button,
+  .oi-nav-right > a{
+    padding:6px 9px !important; font-size:10px !important;
+    letter-spacing:.4px !important; white-space:nowrap;
+  }
+  .oi-topnav svg{ flex-shrink:0; }
+
+  /* Para esconder un trozo en el móvil sin tocar el ordenador. */
+  .oi-mov-no{ display:none !important; }
+  /* Y al revés: lo que sólo sale en el móvil (un '+' en vez de
+     '+ Nueva sesión', por ejemplo). */
+  .oi-mov-solo{ display:inline !important; }
+
+  /* Botón de cajón (la lista de la izquierda) que sólo sale en el móvil. */
+  .oi-mov-btn{
+    display:flex !important; align-items:center; justify-content:center;
+    width:34px; height:34px; flex-shrink:0; padding:0; cursor:pointer;
+    background:rgba(200,168,75,0.12); border:1px solid rgba(200,168,75,0.35);
+    border-radius:6px; color:#C8A84B; font-size:17px; line-height:1;
+  }
+
+  /* El velo que tapa la pantalla con el cajón abierto. */
+  .oi-mov-velo{
+    position:fixed; inset:48px 0 0 0; z-index:305;
+    background:rgba(6,10,20,.62); display:none;
+  }
+  body.oi-mov-abierto .oi-mov-velo{ display:block; }
+}
+
+/* En el ordenador, estos dos no existen. */
+@media screen and (min-width:821px){
+  .oi-mov-btn, .oi-mov-velo{ display:none !important; }
+}
+@media print{
+  .oi-mov-btn, .oi-mov-velo{ display:none !important; }
+}

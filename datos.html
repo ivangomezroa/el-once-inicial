@@ -227,12 +227,67 @@ table.t td .val{min-height:28px;}
 .elige{display:flex;gap:8px;}
 .elige button{flex:1;padding:10px 8px;}
 @media print{ #velo{display:none !important;} }
+
+/* ══════════════════════════════════════════════════════════════
+   DATOS EN EL MÓVIL
+   Dentro de `@media screen and (max-width:820px)`: el ordenador y la
+   impresión no ven ninguna de estas reglas.
+   Lo que estaba mal: el título de la barra partía en tres líneas y se
+   montaba encima de los botones; la lista de jugadores ocupaba 230 de
+   los 390 px y la ficha se quedaba en 160; y cada fila de la ficha es
+   una rejilla con la etiqueta a 110-150 px fijos, así que el valor
+   caía en un hueco de nada.
+   ══════════════════════════════════════════════════════════════ */
+@media screen and (max-width:820px){
+
+  html,body{ height:100dvh; }
+  #app{ height:calc(100dvh - 48px); position:relative; }
+
+  /* ── La lista de jugadores pasa a ser un cajón ── */
+  #panel{
+    position:fixed; top:48px; left:0; bottom:0;
+    width:min(82vw,300px); z-index:310;
+    transform:translateX(-102%); transition:transform .22s ease;
+    box-shadow:6px 0 26px rgba(0,0,0,.55);
+  }
+  body.oi-mov-abierto #panel{ transform:none; }
+  #ficha{ width:100%; min-width:0; }
+
+  /* ── La hoja ── */
+  .hoja{ padding:12px 10px 40px !important; }
+  /* Etiqueta encima del hueco justo: con 92 px la etiqueta se lee y al
+     valor le queda sitio. Las filas de cuatro columnas se reparten
+     solas en dos líneas de etiqueta+valor. */
+  .fila{ grid-template-columns:92px 1fr !important; }
+  .et{ font-size:9px !important; padding:6px 7px !important; }
+  .val{ font-size:12px !important; padding:6px 8px !important; }
+  .cab{ grid-template-columns:96px 1fr !important; gap:8px !important; align-items:start !important; }
+  /* Sin esto la foto se estira hasta el alto de la tarjeta de al lado:
+     un rectángulo vacío de 400 px. */
+  .cab-foto{ min-height:0 !important; height:124px !important; }
+  .cab-tit{ font-size:17px !important; }
+  .kpis{ grid-template-columns:repeat(auto-fit,minmax(88px,1fr)) !important; }
+  .kpi-v{ font-size:19px !important; }
+
+  /* Las tablas no caben a lo ancho: que se puedan arrastrar en vez de
+     aplastar las columnas hasta que no se lea nada. */
+  .caja:has(> table.t){ overflow-x:auto; }
+  table.t{ min-width:430px; }
+
+  /* Las pestañas en dos filas antes que en una tira que hay que
+     arrastrar: con cuatro pestañas se ven las cuatro de un vistazo. */
+  .tabs{ padding:10px 8px 0 !important; flex-wrap:wrap !important; gap:3px !important; }
+  .tab{ padding:7px 11px !important; font-size:11px !important; white-space:nowrap;
+        border-radius:6px !important; }
+}
 </style>
+<link rel="stylesheet" href="/oi-movil.css?v=20261114">
 <script src="/oi-sesion.js"></script>
 </head>
 <body>
 
 <div class="oi-topnav">
+  <button class="oi-mov-btn" onclick="movPanel()" title="Plantilla" aria-label="Plantilla">&#9776;</button>
   <a href="inicio.html" class="oi-nav-left">
     <div class="oi-logo-circle"><img src="logo.png" alt=""></div>
     <div class="oi-nav-text">
@@ -254,6 +309,8 @@ table.t td .val{min-height:28px;}
     </div>
   </div>
 </div>
+
+<div class="oi-mov-velo" onclick="movPanel(false)"></div>
 
 <div id="app">
   <div id="panel">
@@ -1444,6 +1501,35 @@ window.addEventListener('oi-datos', function(ev){
 
 // ── Arranque ──
 cargaPlantilla(); cargaOoii(); cargaFichas(); cargaPartidos(); pintaLista(''); pintaEscudo();
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   EL CAJÓN DE LA PLANTILLA (sólo en el móvil)
+   Pone y quita una clase del `body`; las reglas que la leen viven
+   dentro de `@media (max-width:820px)`, así que en el ordenador esto
+   no cambia nada. Envuelve `abreJugador` dentro de un `try`: si
+   fallara, la pantalla seguiría funcionando igual que antes.
+   ══════════════════════════════════════════════════════════════ */
+function movPanel(abrir){
+  try{
+    var b=document.body, hay=b.classList.contains('oi-mov-abierto');
+    var q=(abrir===undefined)? !hay : !!abrir;
+    b.classList.toggle('oi-mov-abierto', q);
+  }catch(e){}
+}
+(function(){
+  try{
+    ['abre'].forEach(function(n){
+      var f=window[n];
+      if(typeof f!=='function') return;
+      window[n]=function(){
+        var r=f.apply(this, arguments);
+        try{ if(innerWidth<=820) movPanel(false); }catch(e){}
+        return r;
+      };
+    });
+  }catch(e){}
+})();
 </script>
 </body>
 </html>

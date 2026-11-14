@@ -488,11 +488,89 @@
   /* Evitar cortes */
   .print-page, .lcard { page-break-inside: avoid !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   LA SESIÓN EN EL MÓVIL
+   Todo dentro de `@media screen and (max-width:820px)`: ni el
+   ordenador ni la impresión ven una sola de estas reglas.
+   Lo que estaba mal, medido: la lista de sesiones se comía 200 px
+   de los 390, la planilla quedaba en 190 px y las tarjetas de tarea
+   son una rejilla de tres columnas de 960 px de ancho.
+   ══════════════════════════════════════════════════════════════ */
+@media screen and (max-width:820px){
+
+  /* El alto que se ve AHORA, no el de la pantalla con la barra del
+     navegador recogida (la lección de la pizarra). */
+  html,body{ height:100dvh; }
+  #app{ height:calc(100dvh - 48px); position:relative; }
+
+  /* ── La lista de sesiones pasa a ser un cajón ── */
+  #sessions-panel{
+    position:fixed; top:48px; left:0; bottom:0;
+    width:min(82vw,300px); z-index:310;
+    transform:translateX(-102%); transition:transform .22s ease;
+    box-shadow:6px 0 26px rgba(0,0,0,.55);
+  }
+  body.oi-mov-abierto #sessions-panel{ transform:none; }
+  #session-editor{ width:100%; min-width:0; }
+  #sess-content{ padding:10px 10px 44px !important; }
+
+  /* ── Cabecera de la sesión ──
+     La fila de arriba es un flex de cuatro trozos todos con
+     `flex-shrink:0`: en 390 px el botón de Eliminar se salía de la
+     pantalla. Aquí se deja envolver y los datos van de dos en dos. */
+  .sess-hdr-block{ padding:10px 12px !important; }
+  .sess-hdr-block > div{ flex-wrap:wrap !important; gap:8px !important; }
+  .sess-hdr-grid{ flex:1 1 100% !important; gap:6px 10px !important; }
+  .shf{ flex:1 1 40% !important; min-width:0 !important; }
+  .shf .val{ font-size:11px !important; }
+  .sess-hdr-block > div > button{ margin-left:auto; }
+
+  /* ── Asistencia: dos por fila ──
+     `1fr` es `minmax(auto,1fr)`: el nombre más largo estiraba la
+     columna y la segunda se salía de la pantalla. Con `minmax(0,1fr)`
+     las dos miden lo mismo y el nombre se recorta. */
+  .att-block{ padding:10px !important; }
+  .att-grid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:4px !important; }
+  .att-player{ min-width:0 !important; }
+  .att-name{ font-size:10px !important; }
+  .att-title{ flex-wrap:wrap !important; font-size:9px !important; }
+  .att-title > div{ margin-left:0 !important; }
+
+  /* ── Tarjeta de tarea: una sola columna, el campo primero ──
+     `.tc-cols` es la rejilla de 180px|1fr|190px. En vertical no hay
+     forma de que entre: pasa a columna y el campo sube arriba, que es
+     lo que se mira. */
+  .lcard{ border-radius:8px; }
+  .tc-cols{ display:flex !important; flex-direction:column !important; }
+  .tc-cols > div{ border-right:none !important; }
+  .tc-campo{
+    order:-1; height:auto !important; min-height:0 !important;
+    border-bottom:1px solid rgba(200,168,75,.25);
+  }
+  .tc-campo svg{ width:100% !important; height:auto !important; display:block; }
+  .tc-desarrollo{ padding:11px 13px !important; }
+  .tc-texto{ font-size:12px !important; }
+  .distrib-grid{ grid-template-columns:repeat(4,1fr) !important; }
+  .bottom-section{ grid-template-columns:1fr !important; }
+  .modal-row{ grid-template-columns:1fr !important; }
+
+  /* "Imprimir" es un nodo de texto suelto dentro del botón, sin
+     elemento que lo envuelva: esconderlo con un <span> cambiaba —por
+     poco, pero cambiaba— cómo se dibujaba la palabra en el ordenador.
+     Con `font-size:0` desaparece el texto y se queda el icono. */
+  #btn-print{ font-size:0 !important; gap:0 !important; padding:6px 9px !important; }
+
+  /* Las ventanas (nueva sesión, plantilla) a lo ancho de la pantalla. */
+  .modal, .modal-box, #pl-overlay > div{ width:94vw !important; max-width:94vw !important; }
+}
 </style>
+<link rel="stylesheet" href="/oi-movil.css?v=20261114">
 <script src="/oi-sesion.js"></script>
 </head>
 <body>
 <div class="oi-topnav">
+  <button class="oi-mov-btn" onclick="movPanel()" title="Sesiones" aria-label="Sesiones">&#9776;</button>
   <a href="inicio.html" class="oi-nav-left" style="text-decoration:none;">
     <div class="oi-logo-circle">
       <img src="logo.png" alt="">
@@ -511,10 +589,10 @@
     </button>
     <button onclick="abrePlantilla()" title="Plantilla del equipo" style="background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.3);color:#C8A84B;padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="5" r="2.4"/><path d="M1.6 14c0-2.6 2-4.2 4.4-4.2s4.4 1.6 4.4 4.2"/><circle cx="12" cy="5.6" r="1.8"/><path d="M11 9.9c2 .2 3.4 1.7 3.4 4.1"/></svg>
-      <span id="pl-nombre-btn">Plantilla</span>
+      <span id="pl-nombre-btn" class="oi-mov-no">Plantilla</span>
     </button>
     <button onclick="openNewSession()" style="background:#C8A84B;border:none;color:#0d1530;padding:6px 14px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
-      + Nueva sesión
+      <span class="oi-mov-no">+ Nueva sesión</span><span class="oi-mov-solo">+</span>
     </button>
     <div class="oi-nav-crest">
       <svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1L13 4V8C13 12 10.5 14.5 7 15.5C3.5 14.5 1 12 1 8V4Z"/></svg>
@@ -522,6 +600,8 @@
     </div>
   </div>
 </div>
+
+<div class="oi-mov-velo" onclick="movPanel(false)"></div>
 
 <div id="app">
   <div id="sessions-panel">
@@ -1769,6 +1849,34 @@ window.addEventListener('oi-datos', function(ev){
   }catch(e){}
 });
 pintaNombrePlantilla();
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   EL CAJÓN DE SESIONES (sólo en el móvil)
+   En el ordenador no se monta nada: todo lo que hace esta función es
+   poner o quitar una clase del `body`, y las reglas que leen esa clase
+   viven dentro de `@media (max-width:820px)`.
+   Va envolviendo `loadSession` en vez de tocarla, dentro de un `try`:
+   si esto fallara, la pantalla seguiría funcionando como antes.
+   ══════════════════════════════════════════════════════════════ */
+function movPanel(abrir){
+  try{
+    var b=document.body, hay=b.classList.contains('oi-mov-abierto');
+    var q=(abrir===undefined)? !hay : !!abrir;
+    b.classList.toggle('oi-mov-abierto', q);
+  }catch(e){}
+}
+(function(){
+  try{
+    if(typeof loadSession!=='function') return;
+    var orig=loadSession;
+    window.loadSession=function(id){
+      var r=orig.apply(this, arguments);
+      try{ if(innerWidth<=820) movPanel(false); }catch(e){}
+      return r;
+    };
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
