@@ -130,8 +130,8 @@ module.exports = async (req, res) => {
             method: 'POST', headers: conSecreta, body: JSON.stringify({ email: aQuien })
           });
           correo = true;
-        } catch (e2) { avisoCorreo = (e2 && e2.message) || 'No se ha podido enviar el correo'; }
-      } else avisoCorreo = m || 'No se ha podido enviar el correo';
+        } catch (e2) { avisoCorreo = enCristiano((e2 && e2.message) || ''); }
+      } else avisoCorreo = enCristiano(m);
     }
 
     return fin(res, 200, { ok: true, enlace: enlace, correo: correo, yaTenia: yaTenia,
@@ -142,6 +142,18 @@ module.exports = async (req, res) => {
                { error: (e && e.message) || 'Algo ha fallado por el camino' });
   }
 };
+
+// Los mensajes de Supabase vienen en inglés y de corrido. Este es el
+// único que se ve a menudo: el correo de serie va muy limitado por hora.
+function enCristiano(m) {
+  var t = String(m || '');
+  if (/rate limit|too many requests/i.test(t)) {
+    return 'Supabase sólo deja mandar unos pocos correos por hora y se han agotado. ' +
+           'Prueba dentro de un rato, o configura un correo propio.';
+  }
+  if (/invalid|not allowed/i.test(t) && /email/i.test(t)) return 'Supabase no acepta esa dirección de correo';
+  return t || 'No se ha podido enviar el correo';
+}
 
 // ── Ayudantes ──────────────────────────────────────────────────
 function fin(res, estado, datos) {
