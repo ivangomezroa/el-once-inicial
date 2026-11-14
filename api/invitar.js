@@ -46,10 +46,16 @@ module.exports = async (req, res) => {
   const email   = String(cuerpo.email || '').trim().toLowerCase();
   const rol     = String(cuerpo.rol || 'entrenador');
   const espacio = String(cuerpo.espacio_id || '').trim();
+  // Reenviar: no se crea otra invitación, se vuelve a mandar la que ya hay.
+  const reenvio = String(cuerpo.invitacion_id || '').trim();
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return fin(res, 400, { error: 'Ese correo no tiene buena pinta' });
-  if (ROLES.indexOf(rol) < 0)                        return fin(res, 400, { error: 'Ese rol no existe' });
   if (!/^[0-9a-f-]{36}$/i.test(espacio))             return fin(res, 400, { error: 'Falta el espacio' });
+  if (reenvio) {
+    if (!/^[0-9a-f-]{36}$/i.test(reenvio))           return fin(res, 400, { error: 'Esa invitación no vale' });
+  } else {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return fin(res, 400, { error: 'Ese correo no tiene buena pinta' });
+    if (ROLES.indexOf(rol) < 0)                      return fin(res, 400, { error: 'Ese rol no existe' });
+  }
 
   const conSecreta = { apikey: SECRETA, Authorization: 'Bearer ' + SECRETA, 'Content-Type': 'application/json' };
   const conQuienLlama = { apikey: SECRETA, Authorization: auth, 'Content-Type': 'application/json' };
@@ -66,43 +72,70 @@ module.exports = async (req, res) => {
       return fin(res, 403, { error: 'Sólo el propietario del espacio puede invitar' });
     }
 
-    // Freno: que un despiste no deje cien invitaciones abiertas.
-    const abiertas = await pide(URL_BASE + '/rest/v1/invitaciones?espacio_id=eq.' + espacio +
-                                '&aceptada_en=is.null&select=id', { headers: conSecreta });
-    if (Array.isArray(abiertas) && abiertas.length >= MAX_PENDIENTES) {
-      return fin(res, 429, { error: 'Hay demasiadas invitaciones sin usar en este espacio. Revoca alguna antes.' });
-    }
+    let token, aQuien = email, suRol = rol;
 
-    // 3. La invitación la crea la base de datos, con la sesión de quien
-    //    llama: así el permiso se comprueba otra vez allí.
-    const token = await pide(URL_BASE + '/rest/v1/rpc/invitar', {
-      method: 'POST', headers: conQuienLlama,
-      body: JSON.stringify({ p_espacio: espacio, p_email: email, p_rol: rol })
-    });
-    if (!token || typeof token !== 'string') return fin(res, 500, { error: 'No se ha podido crear la invitación' });
+    if (reenvio) {
+      // 3a. Reenviar la que ya existe: mismo token, 14 días más de vida.
+      const filas = await pide(URL_BASE + '/rest/v1/invitaciones?id=eq.' + reenvio +
+        '&espacio_id=eq.' + espacio + '&select=id,email,rol,token,aceptada_en', { headers: conSecreta });
+      const inv = Array.isArray(filas) && filas[0];
+      if (!inv)              return fin(res, 404, { error: 'Esa invitación ya no está' });
+      if (inv.aceptada_en)   return fin(res, 409, { error: 'Esa invitación ya se usó' });
+      const masCatorce = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
+      await pide(URL_BASE + '/rest/v1/invitaciones?id=eq.' + reenvio, {
+        method: 'PATCH', headers: Object.assign({ Prefer: 'return=minimal' }, conSecreta),
+        body: JSON.stringify({ caduca_en: masCatorce })
+      });
+      token = inv.token; aQuien = inv.email; suRol = inv.rol;
+    } else {
+      // Freno: que un despiste no deje cien invitaciones abiertas.
+      const abiertas = await pide(URL_BASE + '/rest/v1/invitaciones?espacio_id=eq.' + espacio +
+                                  '&aceptada_en=is.null&select=id', { headers: conSecreta });
+      if (Array.isArray(abiertas) && abiertas.length >= MAX_PENDIENTES) {
+        return fin(res, 429, { error: 'Hay demasiadas invitaciones sin usar en este espacio. Revoca alguna antes.' });
+      }
+      // 3b. La invitación la crea la base de datos, con la sesión de quien
+      //     llama: así el permiso se comprueba otra vez allí.
+      token = await pide(URL_BASE + '/rest/v1/rpc/invitar', {
+        method: 'POST', headers: conQuienLlama,
+        body: JSON.stringify({ p_espacio: espacio, p_email: email, p_rol: rol })
+      });
+      if (!token || typeof token !== 'string') return fin(res, 500, { error: 'No se ha podido crear la invitación' });
+    }
 
     const origen = (req.headers.origin && /^https?:\/\//.test(req.headers.origin))
       ? req.headers.origin
       : 'https://' + (req.headers.host || 'app-integral.vercel.app');
     const enlace = origen + '/analisis.html?invitacion=' + encodeURIComponent(token);
 
-    // 4. El correo para poner contraseña, que vuelve a la app con la
-    //    invitación puesta. Si ya tenía cuenta, Supabase dice que no y
-    //    entonces basta con mandarle el enlace: entra con su contraseña.
+    // 4. El correo. Si la persona no tiene cuenta, se le manda la
+    //    invitación de Supabase. Si YA la tiene —porque la invitaron
+    //    antes, o porque el enlace anterior ya se usó: los de Supabase
+    //    son de un solo uso— se le manda el de poner contraseña, que
+    //    sirve igual y acaba en el mismo sitio. En los dos casos el
+    //    enlace de vuelta lleva la invitación puesta.
     let correo = false, yaTenia = false, avisoCorreo = '';
+    const vuelta = encodeURIComponent(enlace);
     try {
-      await pide(URL_BASE + '/auth/v1/invite?redirect_to=' + encodeURIComponent(enlace), {
-        method: 'POST', headers: conSecreta, body: JSON.stringify({ email: email })
+      await pide(URL_BASE + '/auth/v1/invite?redirect_to=' + vuelta, {
+        method: 'POST', headers: conSecreta, body: JSON.stringify({ email: aQuien })
       });
       correo = true;
     } catch (e) {
       const m = String((e && e.message) || '');
-      if (/already|registrad|exists/i.test(m)) yaTenia = true;
-      else avisoCorreo = m || 'No se ha podido enviar el correo';
+      if (/already|registrad|exists/i.test(m)) {
+        yaTenia = true;
+        try {
+          await pide(URL_BASE + '/auth/v1/recover?redirect_to=' + vuelta, {
+            method: 'POST', headers: conSecreta, body: JSON.stringify({ email: aQuien })
+          });
+          correo = true;
+        } catch (e2) { avisoCorreo = (e2 && e2.message) || 'No se ha podido enviar el correo'; }
+      } else avisoCorreo = m || 'No se ha podido enviar el correo';
     }
 
     return fin(res, 200, { ok: true, enlace: enlace, correo: correo, yaTenia: yaTenia,
-                           aviso: avisoCorreo, email: email, rol: rol });
+                           reenviada: !!reenvio, aviso: avisoCorreo, email: aQuien, rol: suRol });
   } catch (e) {
     const est = (e && e.estado) || 500;
     return fin(res, est === 401 ? 401 : (est === 403 ? 403 : 500),
