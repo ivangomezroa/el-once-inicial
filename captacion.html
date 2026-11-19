@@ -301,7 +301,6 @@ body{
     <button onclick="sv_('bd')" class="cap-tab-btn" id="ctb-bd">🗄 Base de datos</button>
     <button onclick="sv_('reg')" class="cap-tab-btn cap-tab-plus" id="ctb-reg">+ Registro</button>
     <button onclick="sv_('plant')" class="cap-tab-btn" id="ctb-plant">📋 Plantilla</button>
-    <button onclick="sv_('claude')" class="cap-tab-btn" id="ctb-claude">🤖 Claude AI</button>
   </div>
   <div class="oi-nav-right">
     <div class="oi-nav-crest">
@@ -359,7 +358,7 @@ crestNavLoad();
 function capTab(tab, el) {
   document.querySelectorAll('.cap-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  const map = { campograma:'campo', bd:'bd', registro:'reg', plantilla:'plant', claude:'claude' };
+  const map = { campograma:'campo', bd:'bd', registro:'reg', plantilla:'plant' };
   if (window.sv_) sv_(map[tab]);
 }
 window.addEventListener('load', () => {

@@ -435,25 +435,6 @@ a.ext-link:hover { color: var(--navy2); text-decoration: underline; }
 .ley-section { margin-top: 10px; }
 .ley-title { font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
 
-/* ── CLAUDE BOX ─────────────────────────────────────────────────── */
-.claude-box {
-  background: linear-gradient(135deg, var(--navy3) 0%, var(--navy2) 100%);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 14px;
-  border: 1px solid var(--gold);
-  box-shadow: 0 4px 20px rgba(27,42,107,0.3);
-}
-.claude-title { color: var(--gold); font-size: 14px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-.claude-input {
-  width: 100%; padding: 9px 12px; border-radius: 7px;
-  border: 1px solid rgba(200,168,75,0.3); background: rgba(255,255,255,0.06);
-  color: #fff; font-size: 12px; margin-bottom: 8px;
-}
-.claude-input:focus { outline: none; border-color: var(--gold); }
-.claude-msgs { max-height: 220px; overflow-y: auto; font-size: 12px; color: rgba(255,255,255,0.8); line-height: 1.6; }
-.claude-msg-user { color: var(--gold); margin-top: 8px; font-weight: 600; }
-.claude-msg-ai { color: rgba(255,255,255,0.9); margin-top: 4px; white-space: pre-wrap; }
 
 /* ── RESPONSIVE MÓVIL ───────────────────────────────────────────── */
 @media (max-width: 640px) {

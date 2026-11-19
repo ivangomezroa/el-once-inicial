@@ -724,7 +724,6 @@ let fd={s:"PORTEROS",pos:"P1",n:"",eq:"",cat:"",est:"INTERESA",ico:[],repre:"",c
 let toast=null, tTmr=null, searchTmr=null;
 let ultimoAlta=null;   // el último jugador registrado, para poder ir a su ficha
 let syncStatus="ok";
-let claudeMsgs=[], claudeLoading=false;
 
 // ── SUPABASE: CARGAR ──────────────────────────────────────────────
 async function loadData() {
@@ -819,29 +818,6 @@ async function addJug() {
   }
 }
 
-// ── CLAUDE AI ─────────────────────────────────────────────────────
-async function sendClaude() {
-  const input=document.getElementById("claude-input");
-  const msg=input?.value?.trim();
-  if(!msg||claudeLoading) return;
-  input.value=""; claudeMsgs.push({role:"user",content:msg}); claudeLoading=true; render();
-  const jugRes=jug.slice(0,60).map(j=>`ID:${j.id} ${j.n}(${j.pos}) ${j.eq} [${j.est}]`).join("\n");
-  try {
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
-        system:`Asistente de scouting de Iván Gómez Roa. ${jug.length} jugadores futuribles.\nMuestra:\n${jugRes}\n\nPara actualizar responde SOLO JSON:\n{"accion":"update","jugador_id":ID,"cambios":{"eq":"...","est":"...","pos":"..."}}`,
-        messages:claudeMsgs.map(m=>({role:m.role,content:m.content}))})
-    });
-    const data=await res.json();
-    const txt=data.content?.map(c=>c.text||"").join("")||"Sin respuesta";
-    claudeMsgs.push({role:"assistant",content:txt});
-    const m=txt.match(/\{[\s\S]*"accion"\s*:\s*"update"[\s\S]*\}/);
-    if(m){try{const cmd=JSON.parse(m[0]);if(cmd.accion==="update"&&cmd.jugador_id){await updJug(cmd.jugador_id,cmd.cambios);const j=jug.find(x=>x.id===cmd.jugador_id);shT(`✓ ${j?.n} actualizado`);}}catch{}}
-  } catch(e){claudeMsgs.push({role:"assistant",content:"Error: "+e.message});}
-  claudeLoading=false; render();
-}
-
 // ── HELPERS ───────────────────────────────────────────────────────
 function shT(msg,type="ok"){toast={msg,type};if(tTmr)clearTimeout(tTmr);tTmr=setTimeout(()=>{toast=null;rtT();},3000);rtT();}
 function rtT(){const el=document.getElementById("ta");if(el)el.innerHTML=toast?`<div class="toast ${toast.type}">${toast.msg}</div>`:"";}
@@ -867,7 +843,6 @@ function render(){
     {id:"bd",     ic:"ti-database",         lb:"Base de datos"},
     {id:"reg",    ic:"ti-plus",             lb:"Registro"},
     {id:"plant",  ic:"ti-layout-list",      lb:"Plantilla"},
-    {id:"claude", ic:"ti-robot",            lb:"Claude AI"},
   ];
   app.innerHTML=`
     ${clubesDatalist()}
@@ -897,7 +872,7 @@ function render(){
       </div>
     </nav>
     <div class="pane">
-      ${view==="campo"?rCampo():view==="bd"?rBD():view==="reg"?rReg():view==="plant"?rPlant():rClaude()}
+      ${view==="bd"?rBD():view==="reg"?rReg():view==="plant"?rPlant():rCampo()}
     </div>
     <nav class="bottom-nav">
       ${NAV.map(b=>`<button class="bnb ${view===b.id?'act':''}" onclick="sv_('${b.id}')">
@@ -1516,24 +1491,6 @@ function rPlant(){
     }).join("")}</div>`;
 }
 
-// ── CLAUDE ────────────────────────────────────────────────────────
-function rClaude(){
-  const msgs=claudeMsgs.map(m=>`<div class="${m.role==='user'?'claude-msg-user':'claude-msg-ai'}">${m.role==='user'?'👤 Tú:':'🤖 Claude:'}<div style="margin-top:2px">${m.content.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div></div>`).join("");
-  return`
-    <div class="claude-box">
-      <div class="claude-title"><i class="ti ti-robot"></i>Claude AI · Asistente de Scouting</div>
-      <div style="color:rgba(255,255,255,.55);font-size:11px;margin-bottom:12px">Pregunta sobre jugadores, pide actualizaciones o análisis. Claude puede actualizar datos directamente en Supabase.</div>
-      <div class="claude-msgs" style="min-height:80px;margin-bottom:12px">
-        ${msgs||'<div style="color:rgba(255,255,255,.3);font-style:italic">Haz una pregunta sobre tu base de datos...</div>'}
-        ${claudeLoading?'<div style="color:var(--gold);margin-top:8px">⏳ Pensando...</div>':""}
-      </div>
-      <div style="display:flex;gap:8px">
-        <input class="claude-input" id="claude-input" placeholder="Ej: ¿Qué porteros tenemos en 1ª División?..." onkeydown="if(event.key==='Enter')sendClaude()">
-        <button onclick="sendClaude()" class="btn-gold" style="padding:9px 14px;white-space:nowrap;font-size:12px">${claudeLoading?'⏳':'Enviar →'}</button>
-      </div>
-    </div>`;
-}
-
 // ── EVENTOS ───────────────────────────────────────────────────────
 window.sv_ = v => {
   // El aviso verde del último registrado solo tiene sentido mientras sigas
@@ -1972,7 +1929,6 @@ window.sfdEq = v => {
   const e=document.getElementById('re-escudo');
   if(e) e.innerHTML=escudoHTML(escudoDeClub(v),24);
 };
-window.sendClaude = sendClaude;
 
 // ── PWA ───────────────────────────────────────────────────────────
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
