@@ -261,6 +261,24 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
 #cgpick .pk-q{width:100%;box-sizing:border-box;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.16);
   border-radius:7px;padding:7px 10px;color:#ddd8cc;font-family:'Barlow',sans-serif;font-size:12.5px;outline:none;}
 #cgpick .pk-q:focus{border-color:var(--gold,#C8A84B);}
+/* Los botones de estas ventanas se escribieron con `btn` y `btn-ghost`,
+   que en esta pantalla NO existen: salían en blanco, sin estilo. Se
+   definen aquí dentro de #cgpick, así que no tocan nada de fuera.
+   Arregla de paso los de "traer de otro informe". */
+/* `.mini-btn` está pensado para la hoja blanca del informe: dentro de
+   esta ventana oscura cantaba en blanco. */
+#cgpick .mini-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#9aa;}
+#cgpick .mini-btn:hover{background:rgba(255,255,255,.16);color:#ddd8cc;border-color:rgba(255,255,255,.4);}
+#cgpick .mini-btn.danger:hover{color:#ff8080;border-color:#ff8080;}
+#cgpick .elige{display:flex;gap:8px;}
+#cgpick .elige .btn{flex:1;}
+#cgpick .btn{background:var(--gold,#C8A84B);color:#0d1530;border:1px solid var(--gold,#C8A84B);
+  border-radius:6px;padding:9px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12.5px;
+  font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+#cgpick .btn:hover{background:#e0c068;border-color:#e0c068;}
+#cgpick .btn[disabled]{cursor:default;}
+#cgpick .btn-ghost{background:transparent;color:#9aa;border-color:rgba(255,255,255,.22);}
+#cgpick .btn-ghost:hover{background:rgba(255,255,255,.07);color:#ddd8cc;border-color:rgba(255,255,255,.38);}
 #cgpick .pk-sec{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8b94a4;margin:2px 0 -4px;}
 #cgpick .pk-club{display:flex;align-items:center;gap:9px;padding:7px 9px;cursor:pointer;
   border:1px solid rgba(255,255,255,.12);border-radius:8px;}
@@ -832,6 +850,7 @@ body.fe-full-abierto{overflow:hidden;}
   <div class="nav-group" id="nav-informes" hidden>
     <button class="nav-btn" onclick="openCalModal()">📅 Desde calendario</button>
     <button class="nav-btn" onclick="pideActaInforme()" title="Cargar el acta de la RFEF: coloca el once, rellena la plantilla y crea las fichas en Captación">📄 Cargar acta</button>
+    <button class="nav-btn" onclick="pegAbre()" title="Pegar una alineación copiada de un cartel, de una hoja o escrita a mano">📋 Pegar alineación</button>
     <button class="nav-btn" onclick="openTraitsModal()">⚙ Características</button>
     <button class="nav-btn" onclick="exportReportsJSON()">⬇ Exportar</button>
     <button class="nav-btn" onclick="document.getElementById('import-json-input').click()">⬆ Importar</button>
@@ -2108,8 +2127,11 @@ function showView(v){
   });
   if(typeof FE!=='undefined') FE.closeProps();
   if(v==='video') resizeCanvas();
-  if(v==='informes') { renderReportList(); fitPages(); }
-  if(v==='jugadores') { renderPlayerList(); fitPages(); }
+  // `fitPages` se define más abajo: en el móvil esto llega a correr
+  // antes de que exista y reventaba la función entera. Es el mismo
+  // guardado que ya se usa en los otros sitios donde se llama.
+  if(v==='informes') { renderReportList(); if(typeof fitPages==='function') fitPages(); }
+  if(v==='jugadores') { renderPlayerList(); if(typeof fitPages==='function') fitPages(); }
   try{ localStorage.setItem('va_last_view', v); }catch(e){}
 }
 
@@ -2418,7 +2440,7 @@ function resizeCanvas(){
   let w,h; if(wrapRatio > videoRatio){ h = wrapRect.height; w = h*videoRatio; } else { w = wrapRect.width; h = w/videoRatio; }
   canvas.style.width = w+'px'; canvas.style.height = h+'px'; canvas.width = w; canvas.height = h; redrawCanvas();
 }
-window.addEventListener('resize', ()=>{ resizeCanvas(); fitPages(); });
+window.addEventListener('resize', ()=>{ resizeCanvas(); if(typeof fitPages==='function') fitPages(); });
 video.addEventListener('loadedmetadata', resizeCanvas);
 function drawShape(c2d, shape, w, h){
   c2d.strokeStyle = shape.color; c2d.fillStyle = shape.color; c2d.lineWidth = 3; c2d.lineCap = 'round';
@@ -2708,6 +2730,29 @@ const FE = (function(){
       el('rect',{x:0,y:0,width:vw,height:vh,fill:'#15421d','data-bg':'1'},svg);
       const g=el('g',{transform:this.gTransform()},svg); this.g=g;
       const mk=el('g',{'data-bg':'1'},g); drawMarkings(mk,this.data.type);
+      // Los cambios: una raya de puntos del que sale al que entra. Va
+      // ANTES que los elementos para que quede por debajo de los círculos.
+      const cg=el('g',{'data-bg':'1'},g);
+      this.data.els.forEach(e=>{
+        if(!e.porId) return;
+        const o=this.data.els.find(x=>x.id===e.porId);
+        if(!o || o.t!=='player') return;
+        // De BORDE a BORDE, no de centro a centro: trazada entre centros
+        // la tapan los dos círculos y no se ve nada. Y una punta de
+        // flecha en el que entra, para que se lea quién sale y quién no.
+        const dx=e.x-o.x, dy=e.y-o.y, d=Math.hypot(dx,dy) || 1;
+        const ux=dx/d, uy=dy/d;
+        const r1=(o.r||15)+3, r2=(e.r||12)+4;
+        if(d <= r1+r2+6) return;                 // pegados: no cabe la raya
+        const x1=o.x+ux*r1, y1=o.y+uy*r1, x2=e.x-ux*r2, y2=e.y-uy*r2;
+        el('line',{x1:x1,y1:y1,x2:x2,y2:y2,stroke:'#f2f0e8','stroke-width':3,
+                   'stroke-dasharray':'7 4','stroke-opacity':0.95,'stroke-linecap':'round'},cg);
+        const sz=9, a=Math.atan2(uy,ux);
+        el('polygon',{points:[x2+','+y2,
+          (x2-sz*Math.cos(a-0.45))+','+(y2-sz*Math.sin(a-0.45)),
+          (x2-sz*Math.cos(a+0.45))+','+(y2-sz*Math.sin(a+0.45))].join(' '),
+          fill:'#f2f0e8','fill-opacity':0.95},cg);
+      });
       const eg=el('g',{},g);
       // zonas primero, luego flechas, texto, balón, jugadores encima
       const order={zone:0,arrow:1,text:2,ball:3,player:4};
@@ -2971,6 +3016,26 @@ const FE = (function(){
       if(ed.opts && ed.opts.p11){
         h+=row('Grupo',`<select data-k="supl"><option value="0"${e.supl?'':' selected'}>Del posible once</option><option value="1"${e.supl?' selected':''}>Resto de la plantilla</option></select>`);
       }
+      // ── EL CAMBIO: quién entra por él ──
+      //   Va aquí, en la ficha del jugador, y NO tocándolo en el campo:
+      //   así moverlo con el ratón o con el dedo sigue funcionando
+      //   exactamente igual que antes. El botón ⇄ es `data-act`, que sólo
+      //   responde al clic: con `data-k` se dispararía a cada tecla.
+      if(ed.opts && ed.opts.alin){
+        const nota=v=>`<span style="flex:1;min-width:0;font-size:11px;color:#c8c0b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v}</span>`;
+        if(e.porId){
+          const tit=(ed.data.els||[]).find(x=>x.id===e.porId);
+          h+=row('Entra por', nota(tit?escA((tit.num?tit.num+' ':'')+(tit.name||'')):'—')+
+            `<button class="mini-btn" data-act="nocambio" title="Deshacer el cambio">Deshacer</button>`);
+        } else {
+          const sub=(ed.data.els||[]).find(x=>x.porId===e.id);
+          if(sub) h+=row('Le sustituye', nota(escA((sub.num?sub.num+' ':'')+(sub.name||'')))+
+            `<button class="mini-btn" data-act="vercambio" title="Ir a su ficha">Ver</button>`);
+          else h+=row('Le sustituye',
+            `<input type="text" data-c="entra" placeholder="18 Peiró" style="flex:1;min-width:0">`+
+            `<button class="mini-btn" data-act="cambio" title="Añadir el cambio">⇄</button>`);
+        }
+      }
       h+=row('Equipo',`<select data-k="team"><option value="away"${e.team==='away'?' selected':''}>Rival</option><option value="home"${e.team==='home'?' selected':''}>Propio</option><option value="gk"${e.team==='gk'?' selected':''}>Portero</option><option value="custom"${e.team==='custom'?' selected':''}>Personalizado</option></select>`);
       h+=row('Relleno',color('fill',e.fill,'Color del círculo'))+sw('fill');
       h+=row('Borde',color('stroke',e.stroke,'Color del borde del círculo'))+sw('stroke');
@@ -3056,6 +3121,15 @@ const FE = (function(){
       else if(a==='dup'){ ed.snap(); const c=deep(e); c.id=uid('e'); if(c.t==='arrow'){c.x1+=24;c.y1+=24;c.x2+=24;c.y2+=24;} else {c.x+=24;c.y+=24;} ed.data.els.push(c); ed.sel=c; ed.render(); ed.changed(); openProps(ed); }
       else if(a==='front'){ ed.snap(); ed.data.els=ed.data.els.filter(x=>x!==e); ed.data.els.push(e); ed.render(); ed.changed(); }
       else if(a==='cap'){ sendPlayerToCaptacion(e); }
+      else if(a==='cambio'){
+        const inp=body.querySelector('[data-c="entra"]');
+        if(typeof alinCambio==='function' && alinCambio(ed, e, inp?inp.value:'')) openProps(ed);
+      }
+      else if(a==='nocambio'){ if(e.porId){ delete e.porId; delete e.supl; ed.render(); ed.changed(); openProps(ed); } }
+      else if(a==='vercambio'){
+        const sub=(ed.data.els||[]).find(x=>x.porId===e.id);
+        if(sub){ ed.sel=sub; ed.render(); openProps(ed); }
+      }
     }; });
     box.classList.add('show');
     // En móvil la hoja de propiedades tapa la parte baja de la pantalla:
@@ -5164,9 +5238,19 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
   p.blocks.forEach((b,bi)=>{
     const blk=elx('div','blk'+(b.tall?' tall':''));
     const tools=elx('div','blk-tools no-print');
-    tools.innerHTML=`<button class="mini-btn${b.tall?' on':''}" data-a="lay" title="Texto debajo / al lado">${b.tall?'⬓':'◧'}</button><button class="mini-btn" data-a="dup" title="Duplicar bloque">⧉</button><button class="mini-btn danger" data-a="del" title="Eliminar bloque">×</button>`;
+    tools.innerHTML=`<button class="mini-btn${b.tall?' on':''}" data-a="lay" title="Texto debajo / al lado">${b.tall?'⬓':'◧'}</button>`+
+      (p.type==='alineaciones'?`<button class="mini-btn" data-a="lados" title="Cambiar los equipos de lado">⇅</button>`:'')+
+      `<button class="mini-btn" data-a="dup" title="Duplicar bloque">⧉</button><button class="mini-btn danger" data-a="del" title="Eliminar bloque">×</button>`;
     tools.querySelectorAll('button').forEach(btn=>{ btn.onclick=()=>{ const a=btn.dataset.a;
       if(a==='lay') b.tall=!b.tall;
+      // Darle la vuelta al campo entero: los de arriba pasan abajo y al
+      // revés. Es una vuelta de 180°, igual que la de colocar un once.
+      else if(a==='lados'){
+        ((b.field&&b.field.els)||[]).forEach(e=>{
+          if(e.t!=='player') return;
+          e.x=FE.L-e.x; e.y=FE.W-e.y;
+        });
+      }
       else if(a==='dup'){ const c=JSON.parse(JSON.stringify(b)); c.id=uid('b'); (c.field.els||[]).forEach(e=>e.id=uid('e')); p.blocks.splice(bi+1,0,c); }
       else if(a==='del'){ if(p.blocks.length<=1){ toast('La página debe tener al menos un bloque'); return; } p.blocks.splice(bi,1); }
       saveReports(); renderReport(); }; });
@@ -5190,7 +5274,8 @@ function buildBlocks(page,p,r,cols,withVs,grid2x2){
     blk.appendChild(tt);
     const row=elx('div','blk-row');
     const fw=elx('div','blk-field'); row.appendChild(fw);
-    feBotonFull(mkField(fw,b.field,{lookupName:num=>lookupSquadName(r,num)}));
+    feBotonFull(mkField(fw,b.field,{lookupName:num=>lookupSquadName(r,num),
+                                     alin:(p.type==='alineaciones')}));
     const tw=elx('div','blk-text'); const tb=elx('div','txtbox'); tb.appendChild(edRico(b,'text','','Observaciones...')); tw.appendChild(tb); row.appendChild(tw);
     blk.appendChild(row);
     body.appendChild(blk);
@@ -5744,48 +5829,476 @@ function bloqueDeActa(r,p,lado){
   if(!destino.vs.crestHome) destino.vs.crestHome=escudoDeClub(p.local.nombre);
   if(!destino.vs.crestAway) destino.vs.crestAway=escudoDeClub(p.visitante.nombre);
 
-  const puestos=colocaOnceDelActa(destino, eq);
+  const puestos=colocaOnceDelActa(destino, eq, otro);
   return {bloque:destino.t1||'el campo', puestos:puestos, pagina:pagina};
 }
-// Coloca a los once del acta en el sistema base. A cada hueco se le da el
-// jugador cuyo dorsal le pega; los que sobran, por orden de dorsal. Lo que
-// manda es el dorsal de verdad del acta, no el del sistema.
-function colocaOnceDelActa(b, eq){
+// ── LOS DOS ONCES, ENFRENTADOS EN EL MISMO CAMPO ──────────────────
+//   `oncePosiciones` reparte un once por TODO el largo del campo (de
+//   0,055L a 0,86L). Con dos equipos cada uno tiene que caber en su
+//   mitad, así que ese recorrido se comprime. Al de abajo se le da la
+//   vuelta ENTERA (180°, x e y): girar sólo la x le cambiaría de lado el
+//   lateral derecho y el izquierdo.
+//
+//   El campo del bloque se dibuja de pie y la x pequeña cae ARRIBA, así
+//   que el equipo que se analiza sale arriba atacando hacia abajo, y el
+//   otro del partido abajo. El botón ⇅ del bloque los cambia de lado.
+const ALIN_X0=0.055, ALIN_X1=0.86;    // lo que ocupa un once él solo
+const ALIN_MITAD=[0.030, 0.468];      // dónde cabe dentro de media cancha
+function alinMedia(pt){
+  const t=(pt.x/FE.L - ALIN_X0)/(ALIN_X1-ALIN_X0);
+  return Object.assign({}, pt, {x: FE.L*(ALIN_MITAD[0] + t*(ALIN_MITAD[1]-ALIN_MITAD[0]))});
+}
+function alinGira(pt){ return {x:FE.L-pt.x, y:FE.W-pt.y}; }
+
+// Empareja a los once con los huecos del sistema base: a cada hueco, el
+// jugador cuyo dorsal le pega; los que sobran, a los libres por dorsal.
+// Lo que manda es el dorsal de verdad del acta, no el del sistema.
+function alinPares(eq){
   const sitios=oncePosiciones(ACTA_SISTEMA);
   const tit=(eq.jugadores||[]).filter(j=>j.titular).slice();
-  if(!tit.length) return 0;
+  if(!tit.length) return [];
   const porDorsal={}; tit.forEach(j=>{ porDorsal[String(j.dorsal)]=j; });
   const usados={}, pares=[];
-  // 1) portero: el dorsal 1 si existe
   sitios.forEach(s=>{
     const q=porDorsal[String(s.num)];
     if(q && !usados[q.dorsal]){ usados[q.dorsal]=1; pares.push({s:s, j:q}); }
     else pares.push({s:s, j:null});
   });
-  // 2) los que han quedado sin sitio, a los huecos libres, por dorsal
   const sobran=tit.filter(j=>!usados[j.dorsal]).sort((a,b2)=>(+a.dorsal)-(+b2.dorsal));
   pares.forEach(par=>{ if(!par.j && sobran.length) par.j=sobran.shift(); });
+  return pares;
+}
 
-  b.field=b.field||fieldData('v','full');
-  b.field.els=(b.field.els||[]).filter(e=>e.t!=='player');
-  // El campo del bloque se dibuja de pie, y al girarlo la x pequeña cae
-  // arriba. Se le da la vuelta entera (x e y) para que salga como una
-  // alineación de las de toda la vida: portero abajo y el equipo atacando
-  // hacia arriba, sin que se cambien de lado el lateral derecho y el izq.
-  const vertical = (b.field.orient||'v')==='v';
-  const gira = pt => vertical ? {x:FE.L-pt.x, y:FE.W-pt.y} : {x:pt.x, y:pt.y};
+// Pone un once en su mitad. Con dos equipos en el campo el círculo baja a
+// 15 y el nombre a 11: 22 nombres a tamaño de once se pisan entre ellos.
+function alinPonEquipo(b, eq, abajo, col){
+  const pares=alinPares(eq);
   let n=0;
   pares.forEach(par=>{
     if(!par.j) return;
-    const t = par.s.gk ? FE.TEAM.gk : FE.TEAM.away;
-    const q = gira(par.s);
-    b.field.els.push({t:'player', id:uid('e'), x:q.x, y:q.y,
+    const q0=alinMedia(par.s);
+    const q=abajo?alinGira(q0):q0;
+    const t = par.s.gk ? FE.TEAM.gk : col;
+    b.field.els.push({t:'player', id:uid('e'), x:Math.round(q.x), y:Math.round(q.y),
       num:String(par.j.dorsal), name:actaNombreCorto(par.j.nombre),
-      fill:t.fill, stroke:t.stroke, txt:t.txt, r:17, ns:12, badges:[],
-      team: par.s.gk?'gk':'away'});
+      fill:t.fill, stroke:t.stroke, txt:t.txt, r:15, ns:11, badges:[],
+      team: par.s.gk?'gk':(abajo?'home':'away')});
     n++;
   });
   return n;
+}
+
+// Quita del campo a los jugadores de una mitad. Hace falta porque una
+// alineación se puede pegar después de la otra: si se borrara todo, la
+// segunda se llevaría por delante a la primera.
+function alinLimpiaMitad(b, abajo){
+  const mitad=FE.L/2;
+  b.field.els=(b.field.els||[]).filter(e=>{
+    if(e.t!=='player') return true;
+    return abajo ? (e.x < mitad) : (e.x >= mitad);
+  });
+}
+// `otro` puede no venir: al pegar una alineación suelta sólo hay un once,
+// y entonces se respeta lo que hubiera en la otra mitad.
+function colocaOnceDelActa(b, eq, otro, soloMitad){
+  b.field=b.field||fieldData('v','full');
+  if(soloMitad==='arriba' || soloMitad==='abajo'){
+    const abajo=(soloMitad==='abajo');
+    alinLimpiaMitad(b, abajo);
+    return alinPonEquipo(b, eq, abajo, abajo?FE.TEAM.home:FE.TEAM.away);
+  }
+  b.field.els=(b.field.els||[]).filter(e=>e.t!=='player');
+  let n=alinPonEquipo(b, eq, false, FE.TEAM.away);
+  if(otro) n+=alinPonEquipo(b, otro, true, FE.TEAM.home);
+  return n;
+}
+
+// ── EL CAMBIO: quién entra por quién ──────────────────────────────
+//   Se escribe en la ficha del jugador del campo ("18 Peiró" o sólo
+//   "Peiró"). El que entra sale al lado, en el color de segunda
+//   equipación, unido a él por una raya de puntos, y se mueve como
+//   cualquier otro. Devuelve true si ha hecho algo.
+function alinCambio(ed, tit, texto){
+  const t=String(texto||'').trim();
+  if(!t || !tit || tit.t!=='player') return false;
+  const m=t.match(/^(\d{1,2})\s*[-.\s]\s*(.+)$/);
+  const num=m?m[1]:'', nom=(m?m[2]:t).trim();
+  // Si ya tenía uno, se le cambia el nombre en vez de poner otro.
+  const ya=(ed.data.els||[]).find(x=>x.porId===tit.id);
+  if(ya){ if(num) ya.num=num; ya.name=nom; ed.render(); ed.changed(); return true; }
+  // Por detrás del que sale y un poco a un lado, con hueco bastante
+  // para que la raya se vea entre los dos círculos. Si se sale del
+  // campo por ese lado, se pone por el otro.
+  const sep=78;
+  let x=tit.x+sep*0.42, y=tit.y+sep*0.86;
+  if(y>FE.W-26) y=tit.y-sep*0.86;
+  if(x>FE.L-26) x=tit.x-sep*0.42;
+  x=Math.max(26, Math.min(FE.L-26, x));
+  y=Math.max(26, Math.min(FE.W-26, y));
+  const e={t:'player', id:uid('e'), x:Math.round(x), y:Math.round(y),
+           num:num, name:nom, r:Math.max(11,(tit.r||15)-3), ns:Math.max(9,(tit.ns||11)-1),
+           badges:[], supl:true, porId:tit.id, team:'custom'};
+  onceViste(e, ONCE_SUPL_DEF);
+  ed.snap(); ed.data.els.push(e); ed.sel=e; ed.render(); ed.changed();
+  return true;
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  PEGAR UNA ALINEACIÓN (de una captura, de un cartel, de la libreta)
+//
+//  Por qué se pega TEXTO y no la imagen: se midió un lector de texto
+//  dentro del navegador (Tesseract) contra nueve ejemplos reales de
+//  Iván —carteles de Instagram, hojas de alineaciones fotografiadas y
+//  una lista a mano— y acertó 32 nombres de 108. Las tablas
+//  fotografiadas en ángulo y la letra manuscrita no las saca. El
+//  lector del propio móvil (mantener pulsada la foto → "copiar texto",
+//  o Google Lens) es mucho mejor, es gratis y no necesita ninguna
+//  clave. Así que el móvil lee y esto hace el resto: reconocer
+//  dorsales y nombres, cotejarlos con la plantilla que ya se conoce y
+//  colocarlos.
+// ══════════════════════════════════════════════════════════════════
+
+// Lo que no es un nombre de jugador y se cuela al copiar de una captura.
+const PEG_RUIDO=/^(SUPLENTES?|SUPLENTS|TITULARES|ONCE|INICIAL|XI|JUGADOR|JUGADORS|DORS|DORSAL|NOMBRE|NOM|TARJETAS|ENTRENADOR|ENTRENADORA|EQUIPO|ARBITRAL|TEMPORADA|JORNADA|ESTADIO|CAMPO|PUBLICACIONES|SEGUIR|HACE|MINUTOS|HORA|HORAS|ENVIAR|MENSAJE|COMENTAR|VER|TRADUCCION|AUDIO|ORIGINAL|FEDERACION|PRIMERA|SEGUNDA|TERCERA|GRUPO|VS|PS|PT|NUESTRO|NOSTRE|ESTE|ESTA|PARTIT|PARTIDO|PRETEMPORADA|ALINEACION|ALINEACIO|MIN|MINUTO|SEG|LIKES|ME|GUSTA|COMENTARIOS|RESPUESTAS|GOLES|TOTAL)$/;
+// Palabras que no aparecen jamás dentro del nombre de un jugador: si
+// alguna está, esa línea es un rótulo, no un jugador.
+const PEG_NUNCA=/\b(PARTIT|PARTIDO|PRETEMPORADA|JORNADA|TEMPORADA|ESTADIO|SUPLENTES|TITULARES|ENTRENADOR|TARJETAS|JUGADOR|JUGADORS|ARBITRAL|FEDERACION|PUBLICACIONES|MINUTOS|ALINEACION|ALINEACIO|INICIAL|DORSAL)\b/;
+// Marcas que acompañan al nombre y no son parte de él.
+const PEG_MARCAS=/\b(C|PT|PS|GK|POR|PORTERO|CAPITAN|CAPITA)\b/g;
+
+function pegNorm(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toUpperCase().replace(/[^A-ZÑ ]/g,' ').replace(/\s+/g,' ').trim();
+}
+// Distancia de edición, para saber si dos nombres son el mismo escrito
+// de otra forma ("JOANCAMPINS" y "JOAN CAMPINS").
+function pegDist(a,b){
+  const m=a.length, n=b.length;
+  if(!m||!n) return Math.max(m,n);
+  let prev=Array.from({length:n+1},(_,j)=>j), cur=new Array(n+1);
+  for(let i=1;i<=m;i++){
+    cur[0]=i;
+    for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    const t=prev; prev=cur; cur=t;
+  }
+  return prev[n];
+}
+// ¿Son la misma palabra? Igual, con una errata, o una abreviatura
+// ("J." de "JOSUE", "CAMPI" de "CAMPINS").
+function pegMismaPalabra(a,b){
+  if(a===b) return true;
+  const corta=a.length<=b.length?a:b, larga=a.length<=b.length?b:a;
+  if(corta.length===1) return larga[0]===corta[0];         // la inicial
+  if(corta.length>=3 && larga.indexOf(corta)===0) return true;
+  if(Math.max(a.length,b.length)>=4)
+    return (1 - pegDist(a,b)/Math.max(a.length,b.length)) >= 0.75;
+  return false;
+}
+// 0 a 1. Dos formas de parecerse, y vale la mejor:
+//
+//  1. ERRATAS: distancia de edición sin espacios, porque al copiar de
+//     una imagen se pierden ("JOANCAMPINS" por "JOAN CAMPINS").
+//  2. NOMBRE INCOMPLETO: palabra a palabra. Es el caso de todos los
+//     días —el cartel pone "10. Agus" y la plantilla "Agus Murillo",
+//     o "J. Samper" y "Josue Samper"—, y la distancia de edición lo
+//     daba por distinto. Hacen falta TODAS las palabras del más corto,
+//     y al menos una de tres letras o más: así "J" solo no vale para
+//     cualquiera, y "JAVI GORDO" no se come a "JAVI BORREGO".
+function pegParecido(a,b){
+  const A=pegNorm(a), B=pegNorm(b);
+  if(!A||!B) return 0;
+  const x=A.replace(/ /g,''), y=B.replace(/ /g,'');
+  const erratas = 1 - pegDist(x,y)/Math.max(x.length,y.length);
+
+  const pa=A.split(' ').filter(Boolean), pb=B.split(' ').filter(Boolean);
+  const corta=pa.length<=pb.length?pa:pb, larga=pa.length<=pb.length?pb:pa;
+  let trozo=0;
+  if(corta.length){
+    const libres=larga.slice();
+    let todas=true, conPeso=false;
+    corta.forEach(w=>{
+      const i=libres.findIndex(v=>pegMismaPalabra(w,v));
+      if(i<0){ todas=false; return; }
+      if(Math.min(w.length, libres[i].length)>=3) conPeso=true;
+      libres.splice(i,1);
+    });
+    if(todas && conPeso) trozo = 0.80 + 0.15*(corta.length/larga.length);
+  }
+  return Math.max(erratas, trozo);
+}
+
+// ── De un pegote de texto a una lista de dorsal + nombre ──────────
+//   Aguanta los formatos que salen de verdad: "1 RIVES", "5-SEBAS
+//   HOLGADO", "1. Company", "13 | RIVES (PT)", "10 XIMO FORNER".
+//   Una línea que ponga SUPLENTES marca el corte: lo que viene detrás
+//   son suplentes.
+function pegLee(texto){
+  const out=[];
+  let suplentes=false;
+  String(texto||'').split(/[\r\n]+/).forEach(linea=>{
+    const crudo=linea.trim();
+    if(!crudo) return;
+    const plano=pegNorm(crudo);
+    if(/^(SUPLENTES|SUPLENTS|BANQUILLO|BANQUETA|RESERVAS)\b/.test(plano)){ suplentes=true; return; }
+    // Entre el número y el nombre tiene que haber un espacio o un
+    // separador (guion, punto, barra, dos puntos). Pegados no vale: así
+    // "6É PARTIT DE PRETEMPORADA" deja de colarse como el dorsal 6, que
+    // además desbancaba al "6. J. Samper" de verdad por ser más largo.
+    // Y "11:30" u "08/11/2026" tampoco entran, porque detrás no hay letra.
+    const m=crudo.match(/^[^0-9A-Za-zÁÉÍÓÚÑáéíóúñ]{0,4}(\d{1,2})(?:\s*[-.|:)\]]\s*|\s+)([A-Za-zÁÉÍÓÚÑÜáéíóúñü][A-Za-zÁÉÍÓÚÑÜáéíóúñü'.\- ]{1,30})/);
+    if(!m) return;
+    const dorsal=parseInt(m[1],10);
+    if(!(dorsal>=1 && dorsal<=99)) return;
+    let nombre=m[2].replace(/\s+/g,' ').trim();
+    // Quitar (C), (PT), (PS) y los años de nacimiento de las actas.
+    nombre=nombre.replace(/\(.*$/,'').replace(/\[.*$/,'').trim();
+    const limpio=pegNorm(nombre).replace(PEG_MARCAS,'').replace(/\s+/g,' ').trim();
+    if(limpio.length<2) return;
+    if(limpio.split(' ').length===1 && PEG_RUIDO.test(limpio)) return;
+    // Palabras que no salen NUNCA en el nombre de un jugador. No se puede
+    // usar la lista larga aquí: "DE", "EL" y "LA" están en ella y sí
+    // salen ("DE PEDRO", "EL AOUD").
+    if(PEG_NUNCA.test(limpio)) return;
+    out.push({dorsal:dorsal, nombre:limpio, titular:!suplentes});
+  });
+  // Segunda pasada: el nombre en una línea y el dorsal en otra.
+  //   El cartel del Vall de Uxó es así —la foto, debajo el nombre y
+  //   debajo el número—, y al copiar el texto salen separados. También
+  //   cubre la rejilla entera: "DAVID SENTO AÑÓ AMINE" y debajo
+  //   "1 2 4 8", emparejando uno con uno por su sitio.
+  pegSueltos(texto).forEach(j=>out.push(j));
+
+  // Un dorsal, una vez: se queda el nombre más largo, que suele ser el
+  // completo ("JOAN CAMPINS" antes que "CAMPINS").
+  const porD={};
+  out.forEach(j=>{
+    const q=porD[j.dorsal];
+    if(!q || j.nombre.length>q.nombre.length) porD[j.dorsal]=j;
+  });
+  return Object.keys(porD).map(k=>porD[k]).sort((a,b)=>a.dorsal-b.dorsal);
+}
+
+// Líneas que son SÓLO números y líneas que son SÓLO nombres, pegadas
+// una a la otra. Se emparejan por su sitio: la primera con la primera.
+// Sólo se mira entre líneas vecinas, que es como salen en los carteles.
+function pegSueltos(texto){
+  const lineas=String(texto||'').split(/[\r\n]+/).map(x=>x.trim());
+  const tipo=lineas.map(l=>{
+    if(!l) return null;
+    if(/^\d{1,2}([ .,|]+\d{1,2})*$/.test(l)){
+      const n=l.split(/[ .,|]+/).map(x=>parseInt(x,10)).filter(x=>x>=1&&x<=99);
+      return n.length? {k:'num', v:n} : null;
+    }
+    // Sólo letras (y el punto de "J."): ni dorsales ni símbolos sueltos.
+    if(/^[A-Za-zÁÉÍÓÚÑÜáéíóúñü][A-Za-zÁÉÍÓÚÑÜáéíóúñü'.\- ]*$/.test(l)){
+      const ns=pegNorm(l).replace(PEG_MARCAS,'').replace(/\s+/g,' ').trim();
+      if(!ns || ns.length<2) return null;
+      // Una línea de varios nombres sólo vale si NO es una frase: en los
+      // carteles van en MAYÚSCULAS y sin palabras de relleno.
+      const trozos=ns.split(' ');
+      if(trozos.some(w=>PEG_RUIDO.test(w))) return null;
+      return {k:'nom', v:ns};
+    }
+    return null;
+  });
+  const out=[];
+  for(let i=0;i<tipo.length-1;i++){
+    const a=tipo[i], b=tipo[i+1];
+    if(!a||!b) continue;
+    let noms=null, nums=null;
+    if(a.k==='nom' && b.k==='num'){ noms=a.v; nums=b.v; }
+    else if(a.k==='num' && b.k==='nom'){ nums=a.v; noms=b.v; }
+    else continue;
+    const trozos = nums.length===1 ? [noms] : noms.split(' ');
+    if(trozos.length!==nums.length) continue;
+    trozos.forEach((n,k)=>{ if(n && n.length>=2) out.push({dorsal:nums[k], nombre:n, titular:true}); });
+    i++;   // las dos líneas ya están usadas
+  }
+  return out;
+}
+
+// ── A quién se parece de los que ya conocemos ─────────────────────
+//   Se mira en la hoja de plantilla del informe y en la base de datos
+//   de Captación, quedándose con los del mismo club. Esto arregla las
+//   erratas del lector y, sobre todo, evita duplicar a alguien que ya
+//   está con el nombre bien escrito.
+function pegConocidos(r, club){
+  const lista=[];
+  const vistos={};
+  const mete=(num,nom,de)=>{
+    const n=String(nom||'').trim();
+    if(!n) return;
+    const k=pegNorm(n)+'|'+String(num||'');
+    if(vistos[k]) return; vistos[k]=1;
+    lista.push({num:String(num||'').trim(), nombre:n, de:de});
+  };
+  ((r&&r.pages)||[]).forEach(pg=>{
+    if(pg.type!=='plantilla') return;
+    (pg.rows||[]).forEach(x=>mete(x.num, x.name, 'la plantilla del informe'));
+  });
+  const cn=clubNorm(club||'');
+  capLoad().forEach(x=>{ if(!cn || clubNorm(x.eq||'')===cn) mete('', x.n, 'Captación'); });
+  return lista;
+}
+// Devuelve el mejor parecido por encima del listón, o nada.
+function pegCasa(j, conocidos){
+  let mejor=null;
+  conocidos.forEach(c=>{
+    const p=pegParecido(j.nombre, c.nombre);
+    // Un dorsal que coincide da confianza: se baja el listón.
+    const mismoDorsal = c.num && String(c.num)===String(j.dorsal);
+    const listón = mismoDorsal ? 0.52 : 0.70;
+    if(p>=listón && (!mejor || p>mejor.p)) mejor={c:c, p:p, dorsal:mismoDorsal};
+  });
+  return mejor;
+}
+
+// ── La ventana: pegar, revisar y añadir ───────────────────────────
+function pegCierra(){ const m=document.getElementById('cgpick'); if(m) m.remove(); }
+function pegMarco(titulo, cuerpo){
+  pegCierra();
+  const m=elx('div',''); m.id='cgpick';
+  m.innerHTML='<div class="pk"><div class="pk-h"><span class="pk-t">'+titulo+'</span>'+
+    '<button class="pk-x">×</button></div><div class="pk-b">'+cuerpo+'</div></div>';
+  document.body.appendChild(m);
+  m.querySelector('.pk-x').onclick=pegCierra;
+  m.onclick=e=>{ if(e.target===m) pegCierra(); };
+  return m;
+}
+// Los bloques de alineaciones del informe, con lo que ya tiene cada uno.
+function pegBloques(r){
+  const out=[];
+  ((r&&r.pages)||[]).forEach(pg=>{
+    if(pg.type!=='alineaciones') return;
+    (pg.blocks||[]).forEach((b,i)=>{
+      const els=((b.field&&b.field.els)||[]).filter(e=>e.t==='player');
+      const arriba=els.filter(e=>e.x<FE.L/2).length, abajo=els.length-arriba;
+      out.push({b:b, pg:pg, nom:(b.t1||'').trim()||('Bloque '+(out.length+1)),
+                arriba:arriba, abajo:abajo});
+    });
+  });
+  return out;
+}
+function pegAbre(){
+  if(!curRep){ toast('Abre o crea un informe antes'); return; }
+  const bl=pegBloques(curRep);
+  if(!bl.length){ toast('Este informe no tiene ninguna página de últimas alineaciones'); return; }
+  const opciones=bl.map((x,i)=>'<option value="'+i+'">'+escapeHtml(x.nom)+
+      ' — '+(x.arriba?x.arriba+' arriba':'arriba libre')+', '+(x.abajo?x.abajo+' abajo':'abajo libre')+
+    '</option>').join('');
+  const m=pegMarco('Pegar una alineación',
+    '<div class="pk-sec">1 · Pega aquí el texto</div>'+
+    '<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:7px;">'+
+      'En el móvil: mantén pulsada la foto del cartel o de la hoja y toca '+
+      '<b>“Copiar texto”</b> (o pásala por Google Lens). También vale escribirlo a mano, '+
+      'o pegarlo de WhatsApp. Da igual el formato: <i>1 RIVES</i>, <i>5-SEBAS HOLGADO</i>, '+
+      '<i>1. Company</i>…  Una línea que ponga <b>SUPLENTES</b> marca dónde empiezan los suplentes.</div>'+
+    '<textarea id="peg-txt" rows="9" placeholder="1 RIVES&#10;2 STEVEN&#10;4 PERIS&#10;…&#10;SUPLENTES&#10;13 DAVID GIL" '+
+      'style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid var(--border);'+
+      'border-radius:6px;color:var(--text);font-family:inherit;font-size:12px;padding:8px;resize:vertical;"></textarea>'+
+    '<div class="pk-sec" style="margin-top:12px;">2 · De qué equipo es y dónde va</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+      '<label style="font-size:11px;color:var(--text2);">Equipo'+
+        '<input type="text" id="peg-club" value="'+escapeHtml(curRep.rival||'')+'" '+
+        'style="width:100%;box-sizing:border-box;margin-top:3px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;padding:6px;"></label>'+
+      '<label style="font-size:11px;color:var(--text2);">En qué bloque'+
+        '<select id="peg-blq" style="width:100%;box-sizing:border-box;margin-top:3px;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;padding:6px;">'+opciones+'</select></label>'+
+    '</div>'+
+    '<div style="display:flex;gap:14px;margin-top:9px;font-size:12px;color:var(--text2);">'+
+      '<label><input type="radio" name="peg-lado" value="arriba" checked> Arriba (el del informe)</label>'+
+      '<label><input type="radio" name="peg-lado" value="abajo"> Abajo (el otro del partido)</label>'+
+    '</div>'+
+    '<div class="elige" style="margin-top:14px;"><button class="btn btn-ghost" id="peg-x">Cancelar</button>'+
+      '<button class="btn" id="peg-ok">Leer la alineación →</button></div>');
+  m.querySelector('#peg-x').onclick=pegCierra;
+  m.querySelector('#peg-ok').onclick=()=>{
+    const txt=m.querySelector('#peg-txt').value;
+    const club=m.querySelector('#peg-club').value.trim();
+    const idx=+m.querySelector('#peg-blq').value;
+    const lado=(m.querySelector('input[name="peg-lado"]:checked')||{}).value||'arriba';
+    const js=pegLee(txt);
+    if(!js.length){ toast('No he encontrado ningún “dorsal + nombre” en ese texto'); return; }
+    pegRevisa(js, club, bl[idx], lado);
+  };
+  setTimeout(()=>{ const t=m.querySelector('#peg-txt'); if(t) t.focus(); },50);
+}
+
+// Paso 2: lo leído, para corregirlo antes de que entre en el informe.
+function pegRevisa(js, club, destino, lado){
+  const conocidos=pegConocidos(curRep, club);
+  js.forEach(j=>{
+    const c=pegCasa(j, conocidos);
+    j.sugerido = c ? c.c.nombre : '';
+    j.deDonde  = c ? c.c.de : '';
+    j.usarSug  = !!c;
+  });
+  const nTit=js.filter(j=>j.titular).length;
+  const fila=(j,i)=>'<tr data-i="'+i+'">'+
+    '<td style="padding:3px 4px;"><input type="text" data-f="dorsal" value="'+escapeHtml(String(j.dorsal))+'" style="width:36px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:4px;color:var(--gold);font-weight:700;font-size:12px;text-align:center;padding:3px;"></td>'+
+    '<td style="padding:3px 4px;"><input type="text" data-f="nombre" value="'+escapeHtml(j.usarSug&&j.sugerido?j.sugerido:j.nombre)+'" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;padding:3px 5px;"></td>'+
+    '<td style="padding:3px 4px;font-size:10px;color:var(--text3);white-space:nowrap;">'+
+      (j.sugerido && pegNorm(j.sugerido)!==pegNorm(j.nombre)
+        ? '<span style="color:var(--gold)">≈ leído “'+escapeHtml(j.nombre)+'” · ya está en '+escapeHtml(j.deDonde)+'</span>'
+        : (j.sugerido?'ya está en '+escapeHtml(j.deDonde):'nuevo'))+'</td>'+
+    '<td style="padding:3px 4px;text-align:center;"><input type="checkbox" data-f="titular"'+(j.titular?' checked':'')+' style="width:15px;height:15px;accent-color:#C8A84B;"></td>'+
+    '<td style="padding:3px 2px;"><button class="mini-btn danger" data-f="quita" title="Quitar">×</button></td></tr>';
+  const m=pegMarco('Revisa antes de añadir',
+    '<div class="pk-sec">'+js.length+' jugadores · '+nTit+' titulares</div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5;">'+
+      'Corrige lo que haga falta. Donde pone <b>“ya está en…”</b> se ha reconocido a alguien '+
+      'que ya tienes guardado: se usa ese nombre y <b>no se duplica</b>. '+
+      'Los <b>titulares</b> marcados son los que van al campo.</div>'+
+    '<div style="max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:6px;">'+
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;" id="peg-tab">'+
+      '<thead><tr style="position:sticky;top:0;background:var(--navy2);">'+
+        '<th style="padding:5px 4px;font-size:10px;color:var(--gold);">Nº</th>'+
+        '<th style="padding:5px 4px;font-size:10px;color:var(--gold);text-align:left;">Nombre</th>'+
+        '<th style="padding:5px 4px;font-size:10px;color:var(--gold);"></th>'+
+        '<th style="padding:5px 4px;font-size:10px;color:var(--gold);">Tit.</th>'+
+        '<th></th></tr></thead><tbody>'+js.map(fila).join('')+'</tbody></table></div>'+
+    '<div class="elige" style="margin-top:12px;"><button class="btn btn-ghost" id="peg-atras">← Volver</button>'+
+      '<button class="btn" id="peg-add">Añadir al informe</button></div>');
+  m.querySelectorAll('[data-f="quita"]').forEach(b=>{
+    b.onclick=()=>{ const tr=b.closest('tr'); if(tr) tr.remove(); };
+  });
+  m.querySelector('#peg-atras').onclick=pegAbre;
+  m.querySelector('#peg-add').onclick=()=>{
+    const fin=[];
+    m.querySelectorAll('#peg-tab tbody tr').forEach(tr=>{
+      const d=parseInt(tr.querySelector('[data-f="dorsal"]').value,10);
+      const n=tr.querySelector('[data-f="nombre"]').value.trim();
+      if(!n || !(d>=1&&d<=99)) return;
+      fin.push({dorsal:d, nombre:n, titular:tr.querySelector('[data-f="titular"]').checked});
+    });
+    if(!fin.length){ toast('No queda ningún jugador'); return; }
+    pegCierra();
+    pegAplica(fin, club, destino, lado);
+  };
+}
+
+// Paso 3: al campo, a la hoja de plantilla y a Captación. Es la misma
+// tubería que ya usa el acta, así que no duplica nada de lo que haya.
+function pegAplica(js, club, destino, lado){
+  const r=curRep; if(!r) return;
+  const eq={nombre:club||r.rival||'', jugadores:js};
+  const b=destino.b;
+  b.field=b.field||fieldData('v','full');
+  if(!b.vs) b.vs={home:'',away:'',crestHome:'',crestAway:''};
+  const cual = (lado==='abajo')?'away':'home';
+  if(!String(b.vs[cual]||'').trim() && eq.nombre){
+    b.vs[cual]=eq.nombre;
+    const esc=escudoDeClub(eq.nombre);
+    if(esc && !b.vs[cual==='home'?'crestHome':'crestAway']) b.vs[cual==='home'?'crestHome':'crestAway']=esc;
+  }
+  const puestos=colocaOnceDelActa(b, eq, null, lado);
+  const plant=plantillaDeActa(r, eq);
+  const capt =captacionDeActa(eq, r, {competicion:r.competicion||''});
+  saveReports(); renderReport(); renderReportList();
+  const partes=[puestos+' en el campo ('+lado+')'];
+  if(plant.nuevos) partes.push(plant.nuevos+' nuevos en la plantilla');
+  partes.push(capt.nuevos+' fichas nuevas en Captación'+(capt.tocados?' y '+capt.tocados+' actualizadas':''));
+  toast((eq.nombre||'Alineación')+' · '+partes.join(' · '));
 }
 
 // ── La hoja de PLANTILLA ──────────────────────────────────────────
