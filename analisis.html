@@ -635,7 +635,7 @@ select{background:var(--surface);border:1px solid var(--border2);border-radius:5
   .img-drop:not(.has){border-color:#ddd;}
   .fe-stage{border-color:#ccc;border-radius:4px;}
   .banner,.kv-h,.dq-h,.pn-num,.page-stripe i,.rbadge,.cgp-rot,.cgp-pos-h{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .fe-stage .hnd,.fe-stage .sel-outline{display:none;}
+  .fe-stage .hnd,.fe-stage .sel-outline,.fe-stage .sel-marco{display:none;}
   .pl-tag:not(.on){display:none;}
   .squad-row{grid-template-columns:30px 1fr 52px 34px 34px 1.15fr 0 0;}
   .dots i{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -2654,6 +2654,10 @@ const FE = (function(){
       this.c=container; this.opts=opts||{}; this.data=data||blank();
       if(!this.data.els) this.data.els=[];
       this.sel=null; this.tool='select'; this.hist=[]; this.drag=null;
+      // Selección de varios a la vez. `sel` sigue siendo el de uno
+      // solo: con uno elegido, `grupo` está vacío. Así todo lo que ya
+      // había (mover, propiedades, tiradores) sigue igual que antes.
+      this.grupo=[]; this.banda=null;
       this.c.classList.add('fe'); if(this.opts.toolbar===false) this.c.classList.add('no-tb');
       this.build(); editors.push(this);
     }
@@ -2671,6 +2675,7 @@ const FE = (function(){
         const B=(id,html,title)=>{ const b=document.createElement('button'); b.innerHTML=html; b.title=title; b.dataset.tool=id; b.onmousedown=e=>e.preventDefault(); b.onclick=()=>this.toolClick(id); tb.appendChild(b); return b; };
         const S=()=>{ const s=document.createElement('span'); s.className='sep'; tb.appendChild(s); };
         B('select','<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2l9 6-4 1-2 4z"/></svg>','Seleccionar / mover');
+        B('todos','<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke-dasharray="3 2"/><circle cx="6" cy="6" r="1.8" fill="currentColor"/><circle cx="10.5" cy="10.5" r="1.8" fill="currentColor"/></svg>','Elegir todos (Ctrl+A) · Shift+clic añade o quita · arrastrar sobre el campo vacío elige varios');
         B('player-away','<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#b81e1e" stroke="#fff" stroke-width="1.2"/></svg>','Jugador rival (clic en el campo para colocar)');
         B('player-home','<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#1a3a8a" stroke="#fff" stroke-width="1.2"/></svg>','Jugador propio');
         B('player-gk','<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#111" stroke="#fff" stroke-width="1.2"/></svg>','Portero');
@@ -2760,6 +2765,29 @@ const FE = (function(){
       sorted.forEach(({e})=>this.drawEl(eg,e));
       this.hg=el('g',{},g);
       if(this.sel) this.drawHandles(this.sel);
+      // Lo elegido en grupo: un cerco a cada uno y un marco alrededor de
+      // todo, para que se vea qué se va a mover o a cambiar.
+      if(this.grupo && this.grupo.length>1){
+        this.grupo.forEach(q=>{
+          if(q.t==='arrow') el('line',{x1:q.x1,y1:q.y1,x2:q.x2,y2:q.y2,class:'sel-outline','stroke-width':6},this.hg);
+          else {
+            const rr = q.t==='player' ? (q.r||17)+5
+                     : q.t==='ball'   ? (q.r||9)+5
+                     : Math.max(q.w||24,q.h||24)/2+5;
+            el('circle',{cx:q.x,cy:q.y,r:rr,class:'sel-outline'},this.hg);
+          }
+        });
+        const caja=this.cajaGrupo();
+        if(caja) el('rect',{x:caja.x,y:caja.y,width:caja.w,height:caja.h,fill:'none',class:'sel-marco',
+          stroke:'#C8A84B','stroke-width':2,'stroke-dasharray':'8 5','pointer-events':'none'},this.hg);
+      }
+      if(this.banda){
+        const b=this.banda;
+        el('rect',{x:Math.min(b.x1,b.x2),y:Math.min(b.y1,b.y2),
+          width:Math.abs(b.x2-b.x1),height:Math.abs(b.y2-b.y1),class:'sel-marco',
+          fill:'rgba(200,168,75,.16)',stroke:'#C8A84B','stroke-width':1.5,
+          'stroke-dasharray':'5 4','pointer-events':'none'},this.hg);
+      }
       if(this.tb){ this.tb.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tool===this.tool)); }
       this.stage.classList.toggle('tool-place',/^(player|zone|ellipse|text|ball)/.test(this.tool));
       this.stage.classList.toggle('tool-arrow',/^arrow/.test(this.tool));
@@ -2832,16 +2860,17 @@ const FE = (function(){
     }
     // ── historial / cambios ──
     snap(){ this.hist.push(JSON.stringify(this.data.els)); if(this.hist.length>40) this.hist.shift(); }
-    undo(){ if(!this.hist.length) return; this.data.els=JSON.parse(this.hist.pop()); this.sel=null; FE.closeProps(); this.render(); this.changed(); }
+    undo(){ if(!this.hist.length) return; this.data.els=JSON.parse(this.hist.pop()); this.sel=null; this.grupo=[]; FE.closeProps(); this.render(); this.changed(); }
     changed(){ if(this.opts.onChange) this.opts.onChange(this.data); }
     // ── herramientas ──
     toolClick(id){
       FE.setActive(this);
+      if(id==='todos') return this.eligeTodos();
       if(id==='undo') return this.undo();
       if(id==='copy') return this.copy();
       if(id==='paste') return this.paste();
       if(id==='del') return this.deleteSel();
-      if(id==='clear'){ if(!this.data.els.length||confirm('¿Vaciar todos los elementos del campo?')){ this.snap(); this.data.els=[]; this.sel=null; FE.closeProps(); this.render(); this.changed(); } return; }
+      if(id==='clear'){ if(!this.data.els.length||confirm('¿Vaciar todos los elementos del campo?')){ this.snap(); this.data.els=[]; this.sel=null; this.grupo=[]; FE.closeProps(); this.render(); this.changed(); } return; }
       if(id==='orient'){ this.data.orient=this.data.orient==='v'?'h':'v'; this.render(); this.changed(); return; }
       if(id==='type'){ this.data.type=this.data.type==='half'?'full':'half'; this.render(); this.changed(); return; }
       this.tool=id; this.render();
@@ -2865,17 +2894,68 @@ const FE = (function(){
     }
     nextNum(){ const nums=this.data.els.filter(e=>e.t==='player').map(e=>parseInt(e.num)).filter(n=>!isNaN(n)); if(!nums.length) return '1'; return String(Math.max(...nums)+1); }
     place(kind,x,y){ const e=this.newEl(kind,x,y); if(!e) return; this.snap(); this.data.els.push(e); this.sel=e; this.render(); this.changed(); FE.openProps(this); }
-    deleteSel(){ if(!this.sel) return; this.snap(); this.data.els=this.data.els.filter(e=>e!==this.sel); this.sel=null; FE.closeProps(); this.render(); this.changed(); }
-    copy(){ const src=this.sel?[this.sel]:this.data.els; if(!src.length){ toast('Nada que copiar'); return; } clipboard={from:this, els:deep(src), orient:this.data.orient}; toast(src.length===1?'Elemento copiado':src.length+' elementos copiados'); }
+    deleteSel(){
+      const l=this.elegidos(); if(!l.length) return;
+      this.snap();
+      this.data.els=this.data.els.filter(e=>l.indexOf(e)<0);
+      this.sel=null; this.grupo=[]; FE.closeProps(); this.render(); this.changed();
+      if(l.length>1) toast(l.length+' elementos eliminados');
+    }
+    copy(){ const src=this.elegidos().length?this.elegidos():this.data.els; if(!src.length){ toast('Nada que copiar'); return; } clipboard={from:this, els:deep(src), orient:this.data.orient}; toast(src.length===1?'Elemento copiado':src.length+' elementos copiados'); }
     paste(){
       if(!clipboard||!clipboard.els.length){ toast('Portapapeles vacío'); return; }
       this.snap(); const same=clipboard.from===this, off=same?24:0; let last=null;
       clipboard.els.forEach(src=>{ const e=deep(src); e.id=uid('e'); if(e.t==='arrow'){ e.x1+=off;e.y1+=off;e.x2+=off;e.y2+=off; } else { e.x+=off; e.y+=off; } this.data.els.push(e); last=e; });
-      this.sel=clipboard.els.length===1?last:null; this.render(); this.changed(); if(this.sel) FE.openProps(this); else FE.closeProps();
+      const nuevos=this.data.els.slice(-clipboard.els.length);
+      this.ponGrupo(nuevos);
+      this.render(); this.changed();
+      if(this.sel || this.grupo.length>1) FE.openProps(this); else FE.closeProps();
       toast(clipboard.els.length===1?'Elemento pegado':clipboard.els.length+' elementos pegados');
     }
     selectById(id){ this.sel=this.data.els.find(e=>e.id===id)||null; }
-    nudge(dx,dy){ if(!this.sel) return; const e=this.sel; if(e.t==='arrow'){e.x1+=dx;e.y1+=dy;e.x2+=dx;e.y2+=dy;} else {e.x+=dx;e.y+=dy;} this.render(); this.changed(); }
+    // ── SELECCIÓN DE VARIOS ──────────────────────────────────────
+    enGrupo(e){ return !!(e && this.grupo && this.grupo.indexOf(e)>=0); }
+    // Lo elegido ahora mismo, sea uno o varios.
+    elegidos(){ return (this.grupo&&this.grupo.length) ? this.grupo.slice() : (this.sel?[this.sel]:[]); }
+    // Un grupo de uno no es un grupo: se trata como selección normal, y
+    // así el panel de propiedades y los tiradores funcionan igual.
+    ponGrupo(arr){
+      const l=(arr||[]).filter(Boolean);
+      if(l.length>1){ this.grupo=l; this.sel=null; }
+      else { this.grupo=[]; this.sel=l[0]||null; }
+    }
+    // Los puntos con los que se mira si algo cae dentro de la banda.
+    puntosDe(e){
+      if(e.t==='arrow') return [[e.x1,e.y1],[e.x2,e.y2],[(e.x1+e.x2)/2,(e.y1+e.y2)/2]];
+      return [[e.x,e.y]];
+    }
+    cajaGrupo(){
+      const l=this.elegidos(); if(l.length<2) return null;
+      let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+      l.forEach(e=>{
+        let r=12;
+        if(e.t==='player') r=(e.r||17)+4;
+        else if(e.t==='ball') r=(e.r||9)+4;
+        else if(e.t==='zone') r=Math.max(e.w||0,e.h||0)/2;
+        this.puntosDe(e).forEach(([px,py])=>{
+          x1=Math.min(x1,px-r); y1=Math.min(y1,py-r);
+          x2=Math.max(x2,px+r); y2=Math.max(y2,py+r);
+        });
+      });
+      return {x:x1,y:y1,w:x2-x1,h:y2-y1};
+    }
+    eligeTodos(){
+      if(!this.data.els.length){ toast('El campo está vacío'); return; }
+      this.ponGrupo(this.data.els.slice());
+      this.render();
+      if(this.grupo.length>1) FE.openProps(this); else if(this.sel) FE.openProps(this);
+      toast(this.data.els.length+(this.data.els.length===1?' elemento elegido':' elementos elegidos'));
+    }
+    nudge(dx,dy){
+      const l=this.elegidos(); if(!l.length) return;
+      l.forEach(e=>{ if(e.t==='arrow'){e.x1+=dx;e.y1+=dy;e.x2+=dx;e.y2+=dy;} else {e.x+=dx;e.y+=dy;} });
+      this.render(); this.changed();
+    }
     // ── punteros ──
     bindPointer(){
       const svg=this.svg;
@@ -2934,6 +3014,24 @@ const FE = (function(){
         if(hnd&&this.sel){ this.snap(); const e=this.sel; this.drag={mode:hnd.dataset.handle,e,start:p,orig:deep(e)}; try{ svg.setPointerCapture(ev.pointerId); }catch(e){} return; }
         const node=t.closest&&t.closest('g.el');
         if(node){
+          const elem=this.data.els.find(x=>x.id===node.dataset.id);
+          const mod=ev.shiftKey||ev.metaKey||ev.ctrlKey;
+          // Shift+clic: lo mete en el grupo o lo saca, sin mover nada.
+          if(mod && elem){
+            const l=this.elegidos(); const i=l.indexOf(elem);
+            if(i>=0) l.splice(i,1); else l.push(elem);
+            this.ponGrupo(l); this.render();
+            if(this.grupo.length>1 || this.sel) FE.openProps(this); else FE.closeProps();
+            return;
+          }
+          // Si ya es uno de los elegidos, se arrastra el grupo entero.
+          if(elem && this.enGrupo(elem)){
+            this.snap();
+            this.drag={mode:'move-grupo', start:p, els:this.grupo.slice(), orig:this.grupo.map(x=>deep(x))};
+            try{ svg.setPointerCapture(ev.pointerId); }catch(e){}
+            return;
+          }
+          this.grupo=[];
           // ¿ya estaba seleccionado este mismo antes de tocarlo?
           const yaEstaba = !!(this.sel && this.sel.id===node.dataset.id);
           this.selectById(node.dataset.id); const e=this.sel; this.snap();
@@ -2950,10 +3048,26 @@ const FE = (function(){
           else if(yaEstaba) this.tapAbrir={cx:ev.clientX, cy:ev.clientY};
           return;
         }
-        this.sel=null; this.render(); FE.closeProps();
+        // Campo vacío: se deselecciona y empieza la banda para elegir
+        // varios. Si no se arrastra, sólo deselecciona, como siempre.
+        this.sel=null; this.grupo=[]; FE.closeProps();
+        if(this.tool==='select'){
+          this.drag={mode:'banda', start:p};
+          this.banda={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+          try{ svg.setPointerCapture(ev.pointerId); }catch(e){}
+        }
+        this.render();
       });
       svg.addEventListener('pointermove',ev=>{
         if(!this.drag) return; const p=this.toLocal(ev.clientX,ev.clientY); const d=this.drag, e=d.e;
+        if(d.mode==='banda'){ this.banda={x1:d.start.x,y1:d.start.y,x2:p.x,y2:p.y}; this.render(); return; }
+        if(d.mode==='move-grupo'){
+          const gx=p.x-d.start.x, gy=p.y-d.start.y;
+          d.els.forEach((q,i)=>{ const o=d.orig[i];
+            if(q.t==='arrow'){ q.x1=o.x1+gx; q.y1=o.y1+gy; q.x2=o.x2+gx; q.y2=o.y2+gy; }
+            else { q.x=o.x+gx; q.y=o.y+gy; } });
+          this.render(); return;
+        }
         if(d.mode==='move'){ e.x=p.x-d.off.x; e.y=p.y-d.off.y; }
         else if(d.mode==='move-arrow'){ const dx=p.x-d.start.x, dy=p.y-d.start.y; e.x1=d.orig.x1+dx;e.y1=d.orig.y1+dy;e.x2=d.orig.x2+dx;e.y2=d.orig.y2+dy; }
         else if(d.mode==='a1'){ e.x1=p.x; e.y1=p.y; }
@@ -2981,6 +3095,20 @@ const FE = (function(){
           return;
         }
         const d=this.drag; this.drag=null;
+        if(d.mode==='banda'){
+          const b=this.banda||{x1:0,y1:0,x2:0,y2:0}; this.banda=null;
+          const x1=Math.min(b.x1,b.x2), x2=Math.max(b.x1,b.x2);
+          const y1=Math.min(b.y1,b.y2), y2=Math.max(b.y1,b.y2);
+          // Un toque sin arrastrar no elige: sólo deselecciona.
+          if(x2-x1<8 && y2-y1<8){ this.render(); return; }
+          const dentro=this.data.els.filter(q=>this.puntosDe(q)
+            .some(pt=>pt[0]>=x1 && pt[0]<=x2 && pt[1]>=y1 && pt[1]<=y2));
+          this.ponGrupo(dentro); this.render();
+          if(this.grupo.length>1 || this.sel) FE.openProps(this);
+          else { FE.closeProps(); toast('Ahí no había nada'); }
+          return;
+        }
+        if(d.mode==='move-grupo'){ this.render(); this.changed(); return; }
         if(d.mode==='a2' && Math.hypot(d.e.x2-d.e.x1,d.e.y2-d.e.y1)<10){ this.data.els=this.data.els.filter(x=>x!==d.e); this.sel=null; this.hist.pop(); this.render(); return; }
         if(d.mode==='a2'){ this.tool=ev.shiftKey?this.tool:'select'; }
         this.render(); this.changed();
@@ -3085,8 +3213,82 @@ const FE = (function(){
   function toHex(c){ if(!c) return '#ffffff'; if(/^#[0-9a-f]{6}$/i.test(c)) return c; if(/^#[0-9a-f]{3}$/i.test(c)) return '#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3]; const m=c.match(/(\d+)\D+(\d+)\D+(\d+)/); if(m) return '#'+[m[1],m[2],m[3]].map(v=>parseInt(v).toString(16).padStart(2,'0')).join(''); return '#ffffff'; }
   const TITLES={player:'Jugador',zone:'Zona',arrow:'Flecha / línea',text:'Texto',ball:'Balón'};
 
+  // ── PANEL DE VARIOS A LA VEZ ─────────────────────────────────────
+  //   Lo que más rinde: cambiar el color o el equipo de un once entero
+  //   de golpe, en lugar de jugador por jugador. Sólo se enseñan los
+  //   controles que valen para TODOS los elegidos.
+  function propsGrupoHTML(ed){
+    const l=ed.grupo;
+    const row=(lb,inner)=>`<div class="pp-row"><label>${lb}</label>${inner}</div>`;
+    const sw=(k)=>`<div class="pp-sw">${SWATCHES.map(c=>`<i style="background:${c}" data-gsw="${k}" data-c="${c}" title="${c}"></i>`).join('')}</div>`;
+    // Si todos traen el mismo valor se enseña ése; si no, el de reserva.
+    const comun=(k,def)=>{ const v=l[0]?l[0][k]:null; return (v!=null && l.every(x=>x[k]===v)) ? v : def; };
+    const jug=l.filter(x=>x.t==='player').length;
+    let h='<div class="pp-row"><label>Elegidos</label>'+
+      '<span style="font-size:12px;color:var(--gold);font-weight:700">'+l.length+' elementos'+
+      (jug&&jug!==l.length?(' ('+jug+' jugadores)'):'')+'</span></div>';
+    if(jug===l.length){
+      h+=row('Equipo',`<select data-g="team"><option value="">— sin cambiar —</option><option value="away">Rival</option><option value="home">Propio</option><option value="gk">Portero</option></select>`);
+      h+=row('Relleno',`<input type="color" data-g="fill" value="${toHex(comun('fill','#b81e1e'))}">`)+sw('fill');
+      h+=row('Borde',`<input type="color" data-g="stroke" value="${toHex(comun('stroke','#ffffff'))}">`)+sw('stroke');
+      h+=row('Color dorsal',`<input type="color" data-g="txt" value="${toHex(comun('txt','#ffffff'))}">`);
+      h+=row('Tamaño',`<input type="range" data-g="r" min="10" max="34" step="1" value="${comun('r',17)}"><span class="pp-val">${comun('r',17)}</span>`);
+      h+=row('Letra nombre',`<input type="range" data-g="ns" min="8" max="22" step="1" value="${comun('ns',12)}"><span class="pp-val">${comun('ns',12)}</span>`);
+      h+=row('Color nombre',`<input type="color" data-g="nc" value="${toHex(comun('nc','#ffffff'))}">`);
+    } else if(jug){
+      h+='<div class="pp-row" style="font-size:11px;color:var(--text2);line-height:1.5;">Hay '+jug+
+         ' jugadores y '+(l.length-jug)+' cosas más. Para cambiarles el color, elige sólo jugadores.</div>';
+    }
+    h+=`<div class="pp-btns"><button class="nav-btn" data-gact="dup">⧉ Duplicar</button><button class="nav-btn danger" data-gact="del">🗑 Eliminar</button></div>`;
+    return h;
+  }
+  function openPropsGrupo(ed){
+    const l=ed.grupo; const box=document.getElementById('fe-props');
+    propsEl=null;
+    document.getElementById('fe-props-title').textContent=l.length+' elegidos';
+    const body=document.getElementById('fe-props-body'); body.innerHTML=propsGrupoHTML(ed);
+    const aTodos=(k,v)=>{
+      ed.snap();
+      ed.grupo.forEach(e=>{
+        if(k==='team'){ if(TEAM[v]){ e.team=v; e.fill=TEAM[v].fill; e.stroke=TEAM[v].stroke; e.txt=TEAM[v].txt; } }
+        else if(k==='r'||k==='ns') e[k]=parseFloat(v);
+        else { e[k]=v; if(k==='fill') e.team='custom'; }
+      });
+      ed.render(); ed.changed();
+    };
+    body.querySelectorAll('[data-g]').forEach(inp=>{
+      const k=inp.dataset.g;
+      const ev=(inp.tagName==='SELECT')?'change':'input';
+      inp.addEventListener(ev,()=>{
+        if(k==='team' && !inp.value) return;
+        aTodos(k, inp.value);
+        if(inp.type==='range'){ const sp=inp.nextElementSibling; if(sp) sp.textContent=inp.value; }
+        if(k==='team') openPropsGrupo(ed);
+      });
+    });
+    body.querySelectorAll('[data-gsw]').forEach(i=>{ i.onclick=()=>{
+      aTodos(i.dataset.gsw, i.dataset.c);
+      const ci=body.querySelector('input[type=color][data-g="'+i.dataset.gsw+'"]'); if(ci) ci.value=i.dataset.c;
+    }; });
+    body.querySelectorAll('[data-gact]').forEach(b=>{ b.onclick=()=>{
+      if(b.dataset.gact==='del'){ ed.deleteSel(); return; }
+      if(b.dataset.gact==='dup'){
+        ed.snap();
+        const copias=ed.grupo.map(e=>{ const c=deep(e); c.id=uid('e');
+          if(c.t==='arrow'){ c.x1+=24;c.y1+=24;c.x2+=24;c.y2+=24; } else { c.x+=24; c.y+=24; }
+          ed.data.els.push(c); return c; });
+        ed.ponGrupo(copias); ed.render(); ed.changed(); openPropsGrupo(ed);
+      }
+    }; });
+    box.classList.add('show');
+  }
+
   function openProps(ed){
-    const e=ed.sel; if(!e){ closeProps(); return; }
+    const e=ed.sel;
+    if(!e){
+      if(ed.grupo && ed.grupo.length>1) return openPropsGrupo(ed);
+      closeProps(); return;
+    }
     propsEl=e; const box=document.getElementById('fe-props');
     document.getElementById('fe-props-title').textContent=TITLES[e.t]||'Elemento';
     const body=document.getElementById('fe-props-body'); body.innerHTML=propsHTML(ed,e);
@@ -3145,7 +3347,7 @@ const FE = (function(){
   }
   function refreshProps(){ if(!active||!propsEl||active.sel!==propsEl) return; const body=document.getElementById('fe-props-body'); body.querySelectorAll('input[type=range]').forEach(inp=>{ const k=inp.dataset.k; let v=propsEl[k]; if(v==null) return; if(k==='alpha'||k==='bgAlpha') v=Math.round(v*100); inp.value=v; const s=inp.nextElementSibling; if(s) s.textContent=(k==='alpha'||k==='bgAlpha')?v+'%':(k==='rot'?v+'°':v); }); }
   function closeProps(){ propsEl=null; document.getElementById('fe-props').classList.remove('show'); }
-  function setActive(ed){ if(active&&active!==ed){ active.sel=null; active.drag=null; if(active.tool!=='select'){active.tool='select';} active.render(); } active=ed; }
+  function setActive(ed){ if(active&&active!==ed){ active.sel=null; active.grupo=[]; active.banda=null; active.drag=null; if(active.tool!=='select'){active.tool='select';} active.render(); } active=ed; }
 
   // panel arrastrable
   (function(){ const box=document.getElementById('fe-props'), h=document.getElementById('fe-props-h'); let d=null;
@@ -3166,6 +3368,7 @@ const FE = (function(){
     if(ev.key==='Delete'||ev.key==='Backspace'){ if(active.sel){ ev.preventDefault(); active.deleteSel(); } return; }
     if(ev.key==='Escape'){ active.sel=null; active.tool='select'; active.render(); closeProps(); return; }
     if(mod&&ev.key.toLowerCase()==='z'){ ev.preventDefault(); active.undo(); return; }
+    if(mod&&ev.key.toLowerCase()==='a'){ ev.preventDefault(); active.eligeTodos(); return; }
     if(mod&&ev.key.toLowerCase()==='c'){ ev.preventDefault(); active.copy(); return; }
     if(mod&&ev.key.toLowerCase()==='v'){ ev.preventDefault(); active.paste(); return; }
     if(mod&&ev.key.toLowerCase()==='d'){ if(active.sel){ ev.preventDefault(); const e=active.sel; active.snap(); const c=deep(e); c.id=uid('e'); if(c.t==='arrow'){c.x1+=24;c.y1+=24;c.x2+=24;c.y2+=24;} else {c.x+=24;c.y+=24;} active.data.els.push(c); active.sel=c; active.render(); active.changed(); openProps(active); } return; }
