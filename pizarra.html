@@ -159,6 +159,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .fl .hint{font-weight:400;color:var(--text3);font-size:9px;}
 .fi,.fs,.fta{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;color:var(--text);font-size:11px;font-family:inherit;transition:border-color .15s;}
 .fi:focus,.fs:focus,.fta:focus{outline:none;border-color:var(--gold);}
+/* Exportar / Importar de la librería. No usan .fs porque eso es un
+   desplegable: salían como dos barras a todo lo ancho. */
+.lib-btn{width:auto;flex:0 0 auto;white-space:nowrap;cursor:pointer;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius);padding:5px 11px;color:var(--text);
+  font-size:11px;font-family:inherit;transition:border-color .15s,color .15s;}
+.lib-btn:hover{border-color:var(--gold);color:var(--gold);}
+@media print{.lib-btn{display:none !important;}}
 .fs{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%239a9280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:22px;}
 .fs option,.fs optgroup{background:var(--bg2);}
 .fta{resize:vertical;min-height:54px;line-height:1.5;}
@@ -645,6 +652,10 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
       <optgroup label="Fase Defensiva"><option value="DEF-ORG-SB">DEF · Org. Defensiva · Def. Salida de Balón</option><option value="DEF-ORG-PR">DEF · Org. Defensiva · Def. Progresión</option><option value="DEF-ORG-FI">DEF · Org. Defensiva · Def. Finalización</option><option value="DEF-TR-PR">DEF · Trans. Defensiva · Presionar</option><option value="DEF-TR-PP">DEF · Trans. Defensiva · Presionar y Replegar</option><option value="DEF-TR-RE">DEF · Trans. Defensiva · Replegar</option></optgroup>
       <optgroup label="ABP"><option value="ABP-OF">ABP · Ofensiva</option><option value="ABP-DEF">ABP · Defensiva</option></optgroup>
     </select>
+    <span style="flex:1;"></span>
+    <button class="lib-btn" onclick="exportaTareas()" title="Guardar todas tus tareas en un fichero, como copia de seguridad o para pasarlas a otro ordenador" style="cursor:pointer;white-space:nowrap;">⬇ Exportar</button>
+    <button class="lib-btn" onclick="pideImportar()" title="Añadir tareas desde un fichero .json" style="cursor:pointer;white-space:nowrap;">⬆ Importar</button>
+    <input type="file" id="file-tareas" accept="application/json,.json" style="display:none;" onchange="ficheroTareas(event)">
   </div>
   <div id="lib-grid"></div>
 </div>
@@ -2900,6 +2911,156 @@ function deleteTask(id){if(!confirm('¿Eliminar?'))return;tasks=tasks.filter(t=>
   // Sin esto, la tarea reaparecería la próxima vez que se baje de la nube.
   try{ window.OISesion && OISesion.borrado('tareas', id); }catch(e){}
   if(tid===id)tid=null;renderLib();}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  EXPORTAR E IMPORTAR TAREAS
+//
+//  La librería no tenía forma de sacar ni meter tareas: lo único que
+//  había era escribirlas a mano una por una. Esto sirve para dos
+//  cosas: guardarse una copia de seguridad, y meter de golpe las
+//  tareas que vienen convertidas desde otro sitio (por ejemplo, de
+//  los PowerPoint).
+//
+//  El fichero es una lista de tareas en el mismo formato con el que
+//  se guardan aquí (`pz_tasks_v3`), así que exportar e importar son
+//  la vuelta el uno del otro.
+// ══════════════════════════════════════════════════════════════════
+
+function exportaTareas(){
+  if(!tasks.length){ notify('No hay tareas que exportar', true); return; }
+  const hoy=new Date().toISOString().slice(0,10);
+  const txt=JSON.stringify(tasks, null, 1);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt], {type:'application/json'}));
+  a.download='tareas-el-once-inicial-'+hoy+'.json';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+  notify('⬇ '+tasks.length+(tasks.length===1?' tarea guardada':' tareas guardadas'));
+}
+
+function pideImportar(){ document.getElementById('file-tareas').click(); }
+
+function ficheroTareas(ev){
+  const f=ev.target.files && ev.target.files[0];
+  ev.target.value='';
+  if(!f) return;
+  const rd=new FileReader();
+  rd.onload=function(e){
+    let d=null;
+    try{ d=JSON.parse(e.target.result); }
+    catch(err){ notify('Ese fichero no es un .json válido', true); return; }
+    if(!Array.isArray(d)) d=[d];
+    // Una tarea, como poco, tiene que tener nombre o dibujo.
+    const buenas=d.filter(t => t && typeof t==='object' &&
+      (String(t.name||'').trim() || (Array.isArray(t.ELS) && t.ELS.length)));
+    if(!buenas.length){ notify('No he encontrado ninguna tarea en ese fichero', true); return; }
+    ventanaImportar(buenas, f.name);
+  };
+  rd.onerror=function(){ notify('No se ha podido leer el fichero', true); };
+  rd.readAsText(f, 'utf-8');
+}
+
+// Nombres que ya existen, sin distinguir mayúsculas ni tildes.
+function _norm(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+function ventanaImportar(nuevas, fichero){
+  const yaHay=new Set(tasks.map(t=>_norm(t.name)));
+  const repes=nuevas.filter(t=>yaHay.has(_norm(t.name)));
+  const limpias=nuevas.length-repes.length;
+  const lista=nuevas.slice(0,14).map(t=>{
+    const r=yaHay.has(_norm(t.name));
+    const n=(Array.isArray(t.ELS)?t.ELS.length:0)+(Array.isArray(t.LINES)?t.LINES.length:0);
+    return '<div style="display:flex;gap:8px;align-items:center;padding:4px 7px;border-bottom:1px solid rgba(255,255,255,.07);">'+
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">'+
+      _esc(t.name||'(sin nombre)')+'</span>'+
+      '<span style="font-size:10px;color:var(--text3);white-space:nowrap;">'+n+' elementos</span>'+
+      (r?'<span style="font-size:10px;color:#e0a800;white-space:nowrap;">ya la tienes</span>':
+         '<span style="font-size:10px;color:#2ecc40;white-space:nowrap;">nueva</span>')+
+      '</div>';
+  }).join('');
+
+  const v=document.createElement('div');
+  v.id='imp-velo';
+  v.style.cssText='position:fixed;inset:0;background:rgba(6,10,20,.76);z-index:9000;display:flex;'+
+    'align-items:center;justify-content:center;padding:16px;';
+  v.innerHTML=
+    '<div style="background:var(--surface,#1e2d40);border:1px solid var(--border,rgba(200,168,75,.3));'+
+      'border-radius:10px;width:min(560px,96vw);max-height:88vh;display:flex;flex-direction:column;'+
+      'box-shadow:0 18px 50px rgba(0,0,0,.6);">'+
+      '<div style="padding:11px 14px;border-bottom:1px solid var(--border,rgba(200,168,75,.3));'+
+        'font-family:\'Barlow Condensed\',sans-serif;font-size:16px;letter-spacing:.06em;'+
+        'text-transform:uppercase;color:var(--gold,#C8A84B);">Importar tareas</div>'+
+      '<div style="padding:12px 14px;overflow:auto;">'+
+        '<div style="font-size:12px;color:var(--text,#c8c0b0);margin-bottom:8px;">'+
+          '<b>'+nuevas.length+'</b> '+(nuevas.length===1?'tarea':'tareas')+' en <i>'+_esc(fichero)+'</i>'+
+          ' · <b style="color:#2ecc40;">'+limpias+'</b> nuevas'+
+          (repes.length?(' · <b style="color:#e0a800;">'+repes.length+'</b> con un nombre que ya tienes'):'')+
+        '</div>'+
+        '<div style="border:1px solid var(--border,rgba(200,168,75,.2));border-radius:6px;overflow:hidden;">'+
+          lista+
+          (nuevas.length>14?('<div style="padding:5px 7px;font-size:11px;color:var(--text3,#556070);">… y '+(nuevas.length-14)+' más</div>'):'')+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--text3,#556070);margin-top:9px;line-height:1.5;">'+
+          'Las tareas se <b>añaden</b> a las que ya tienes: no se borra ni se cambia ninguna. '+
+          'Cada una entra con su propio identificador, así que aunque el nombre se repita son tareas distintas.</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;padding:11px 14px;border-top:1px solid var(--border,rgba(200,168,75,.3));">'+
+        '<button class="lib-btn" id="imp-x" style="cursor:pointer;">Cancelar</button>'+
+        '<span style="flex:1;"></span>'+
+        (repes.length?('<button class="lib-btn" id="imp-todas" style="cursor:pointer;">Añadir las '+nuevas.length+'</button>'):'')+
+        '<button class="lib-btn" id="imp-ok" style="cursor:pointer;background:var(--gold,#C8A84B);color:#0d1530;font-weight:700;">'+
+          (repes.length?('Añadir sólo las '+limpias+' nuevas'):('Añadir '+nuevas.length))+'</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(v);
+  const fuera=()=>v.remove();
+  v.onclick=e=>{ if(e.target===v) fuera(); };
+  v.querySelector('#imp-x').onclick=fuera;
+  v.querySelector('#imp-ok').onclick=()=>{ fuera(); meteTareas(repes.length? nuevas.filter(t=>!yaHay.has(_norm(t.name))) : nuevas); };
+  const bt=v.querySelector('#imp-todas');
+  if(bt) bt.onclick=()=>{ fuera(); meteTareas(nuevas); };
+}
+
+function _esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function meteTareas(nuevas){
+  if(!nuevas.length) return;
+  const usados=new Set(tasks.map(t=>String(t.id)));
+  let base=Date.now(), n=0, tiposNuevos=[];
+  nuevas.forEach(src=>{
+    const t=JSON.parse(JSON.stringify(src));
+    // Identificador propio SIEMPRE: si se respetara el del fichero, al
+    // importar dos veces la segunda pisaría a la primera, y en la nube
+    // se mezclaría con las de otro dispositivo.
+    do { t.id=String(base++); } while(usados.has(t.id));
+    usados.add(t.id);
+    t.cre=t.cre||Date.now(); t.upd=Date.now();
+    // lo que no venga, en blanco pero existiendo
+    t.ELS=Array.isArray(t.ELS)?t.ELS:[];
+    t.LINES=Array.isArray(t.LINES)?t.LINES:[];
+    t.iP=Array.isArray(t.iP)?t.iP:[];
+    t.iS=Array.isArray(t.iS)?t.iS:[];
+    t.tipos=Array.isArray(t.tipos)?t.tipos:[];
+    t.name=String(t.name||'Tarea importada').trim();
+    delete t._ppt;          // apuntes del conversor, no son de la tarea
+    // Los tipos que no estén, se añaden a la lista de chips.
+    t.tipos.forEach(x=>{
+      const q=String(x||'').trim(); if(!q) return;
+      if(!tipos.some(y=>_norm(y)===_norm(q))){ tipos.push(q); tiposNuevos.push(q); }
+    });
+    tasks.push(t); n++;
+  });
+  if(tiposNuevos.length) localStorage.setItem('pz_tipos',JSON.stringify(tipos));
+  localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks));
+  if(typeof renderTipos==='function') renderTipos();
+  renderLib();
+  notify('✓ '+n+(n===1?' tarea añadida':' tareas añadidas')+
+         (tiposNuevos.length?(' · tipo nuevo: '+tiposNuevos.join(', ')):''));
+}
 
 function getFT(f){if(!f)return'';if(f.startsWith('OF-ORG'))return`<span class="tag tag-of">Org.Of</span>`;if(f.startsWith('OF-TR'))return`<span class="tag tag-to">Trans.Of</span>`;if(f.startsWith('DEF-ORG'))return`<span class="tag tag-def">Org.Def</span>`;if(f.startsWith('DEF-TR'))return`<span class="tag tag-td">Trans.Def</span>`;if(f.startsWith('ABP'))return`<span class="tag tag-abp">ABP</span>`;return'';}
 function renderLib(){
