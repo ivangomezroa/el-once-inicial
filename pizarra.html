@@ -874,6 +874,17 @@ const CW=document.getElementById('cwrap');
 // ============ INIT ============
 function init(){
   resizeCv();window.addEventListener('resize',resizeCv);
+  if(window.ResizeObserver){
+    let ultW=0, ultH=0;
+    new ResizeObserver(es=>{
+      const r=es[0].contentRect;
+      const w=Math.round(r.width), h=Math.round(r.height);
+      if(w===ultW && h===ultH) return;
+      ultW=w; ultH=h; resizeCv();
+    }).observe(CW);
+  }
+  // Las tipografias llegan despues de pintar y mueven la barra de arriba.
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>resizeCv());
   cv.addEventListener('mousedown',onMD);
   cv.addEventListener('mousemove',onMM);
   cv.addEventListener('mouseup',onMU);
@@ -1575,7 +1586,16 @@ function drawLIP(l){
 }
 
 // ============ INTERACTION ============
-function gpos(e){const r=cv.getBoundingClientRect();return vInv(e.clientX-r.left, e.clientY-r.top);}
+// De pantalla a lienzo. Si la caja y el mapa de pixeles no miden lo
+// mismo (puede pasar un instante al reajustar), se escala: si no, se
+// pulsa en un sitio y el programa cree que has pulsado en otro.
+function aLienzo(cx,cy){
+  const r=cv.getBoundingClientRect();
+  const ex=r.width ? cv.width/r.width : 1;
+  const ey=r.height? cv.height/r.height: 1;
+  return {x:(cx-r.left)*ex, y:(cy-r.top)*ey};
+}
+function gpos(e){const q=aLienzo(e.clientX,e.clientY);return vInv(q.x,q.y);}
 function hitEl(x,y,el){
   if(el.type==='player'||el.type==='ct') return Math.hypot(x-el.x,y-el.y)<18;
   if(el.type==='ball') return Math.hypot(x-el.x,y-el.y)<12;
@@ -2526,8 +2546,7 @@ function onKey(e){
 // exactamente encima y parecería que solo se ha puesto uno.
 let despl=0;
 function ponEnElCentro(el){
-  const r=cv.getBoundingClientRect();
-  const c=vInv(r.width/2, r.height/2);
+  const c=vInv(cv.width/2, cv.height/2);
   const paso=34;   // un jugador mide unos 28 de ancho: con menos se solapan
   el.x=c.x + (despl%5)*paso - 2*paso;
   el.y=c.y + Math.floor(despl/5)*paso - paso;
@@ -2600,7 +2619,8 @@ function palDrag(e,type,strokeC,fillC,label){
 
   const move=ev=>{
     const r=cv.getBoundingClientRect();
-    const v=vInv(ev.clientX-r.left, ev.clientY-r.top);
+    const q=aLienzo(ev.clientX, ev.clientY);
+    const v=vInv(q.x, q.y);
     el.x=v.x;el.y=v.y;
     ELS=ELS.filter(x=>x!==el);
     if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom)ELS.push(el);
@@ -3544,9 +3564,9 @@ const isTouch=()=>window.matchMedia('(pointer:coarse)').matches;
 
 // Convert touch to canvas coords — direct, no double-transform
 function touchPos(e){
-  const r=cv.getBoundingClientRect();
   const t=e.touches[0]||e.changedTouches[0];
-  return vInv(t.clientX-r.left, t.clientY-r.top);
+  const q=aLienzo(t.clientX, t.clientY);
+  return vInv(q.x, q.y);
 }
 
 // Synthetic event for mouse handlers
@@ -3567,7 +3587,7 @@ let touchStartPos=null;
 
 // ── Dos dedos: pellizcar para ampliar, arrastrar para mover la vista ──
 let gEnCurso=false, gDist0=0, gEsc0=1, gCen0=null, gDx0=0, gDy0=0;
-function gPantalla(t){ const r=cv.getBoundingClientRect(); return {x:t.clientX-r.left, y:t.clientY-r.top}; }
+function gPantalla(t){ return aLienzo(t.clientX,t.clientY); }
 function gMedio(e){ const a=gPantalla(e.touches[0]), b=gPantalla(e.touches[1]);
   return {x:(a.x+b.x)/2, y:(a.y+b.y)/2, d:Math.hypot(a.x-b.x, a.y-b.y)}; }
 // Cancela lo que se estuviera arrastrando con un dedo, sin deshacerlo
