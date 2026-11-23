@@ -1868,7 +1868,7 @@ function onMD(e){
   if(!elHnd){
     const hitL=LINES.find(l=>hitLine(x,y,l));
     if(hitL){
-      const hitElFirst=[...ELS].reverse().find(el=>hitEl(x,y,el)&&el.type!=='zone');
+      const hitElFirst=porEncima().find(el=>hitEl(x,y,el)&&el.type!=='zone');
       if(!hitElFirst){
         const mod=e.shiftKey||e.metaKey||e.ctrlKey;
         if(mod){
@@ -1889,7 +1889,7 @@ function onMD(e){
   }
 
   // Hit test elements
-  const hit=[...ELS].reverse().find(el=>hitEl(x,y,el));
+  const hit=porEncima().find(el=>hitEl(x,y,el));
   if(hit){
     const mod=e.shiftKey||e.metaKey||e.ctrlKey;
     if(mod){
@@ -2091,7 +2091,7 @@ function onMU(e){
 }
 function onDbl(e){
   const{x,y}=gpos(e);
-  const hit=[...ELS].reverse().find(el=>hitEl(x,y,el));
+  const hit=porEncima().find(el=>hitEl(x,y,el));
   if(!hit)return;
   if(hit.type==='player'){const n=prompt('Dorsal:',hit.num||'');if(n!==null){hit.num=n.trim();render();}}
   if(hit.type==='ct'){const l=prompt('Siglas (ej: IVG, AN, CT):',hit.label||'');if(l!==null){hit.label=l.trim().substring(0,4);render();}}
@@ -2120,7 +2120,7 @@ function onRClick(e){
 
   // Lines get priority over zones — same logic as onMD
   const hitL=LINES.find(l=>hitLine(x,y,l));
-  const hitElAny=[...ELS].reverse().find(el=>hitEl(x,y,el));
+  const hitElAny=porEncima().find(el=>hitEl(x,y,el));
   // Line wins if there's a line here AND (no element, or only a zone underneath)
   const lineWins=hitL&&(!hitElAny||hitElAny.type==='zone');
   const hit=lineWins?null:hitElAny;
@@ -2380,6 +2380,11 @@ function redo(){if(!REDO.length){notify('Nada que rehacer');return;}HIST.push(fo
 function saveH(){HIST.push(foto());if(HIST.length>40)HIST.shift();REDO.length=0;}
 
 // ============ Z-ORDER ============
+// De arriba abajo tal y como esta pintado, para saber que se ha pulsado.
+function porEncima(){
+  ELS.forEach((el,i)=>{if(el.z===undefined)el.z=i;});
+  return ELS.map((el,i)=>({el,i})).sort((a,b)=>(b.el.z-a.el.z)||(b.i-a.i)).map(x=>x.el);
+}
 function _allZItems(){
   // Combined list of all elements and lines with their z values
   ELS.forEach((el,i)=>{if(el.z===undefined)el.z=i;});
@@ -2392,8 +2397,8 @@ function _normalizeZ(){
   all.forEach((item,i)=>item.z=i);
 }
 function _getTargets(){
-  const els=selGroup.length>1?selGroup:(selEl?[selEl]:[]);
-  const lns=selGroupLines.length>0?selGroupLines:(selLine?[selLine]:[]);
+  const els=selGroup.length?selGroup:(selEl?[selEl]:[]);
+  const lns=selGroupLines.length?selGroupLines:(selLine?[selLine]:[]);
   return [...els,...lns];
 }
 function bringForward(){
