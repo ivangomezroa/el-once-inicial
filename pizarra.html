@@ -655,7 +655,7 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
     <span style="flex:1;"></span>
     <button class="lib-btn" onclick="exportaTareas()" title="Guardar todas tus tareas en un fichero, como copia de seguridad o para pasarlas a otro ordenador" style="cursor:pointer;white-space:nowrap;">⬇ Exportar</button>
     <button class="lib-btn" onclick="pideImportar()" title="Añadir tareas desde un fichero .json" style="cursor:pointer;white-space:nowrap;">⬆ Importar</button>
-    <input type="file" id="file-tareas" accept="application/json,.json" style="display:none;" onchange="ficheroTareas(event)">
+    <input type="file" id="file-tareas" accept=".json,.pptx,.zip" multiple style="display:none;" onchange="ficheroTareas(event)">
   </div>
   <div id="lib-grid"></div>
 </div>
@@ -2985,6 +2985,458 @@ function deleteTask(id){if(!confirm('¿Eliminar?'))return;tasks=tasks.filter(t=>
 //  la vuelta el uno del otro.
 // ══════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════
+//  DE POWERPOINT A TAREA, DENTRO DE LA PROPIA APP
+//
+//  Antes habia que mandarme los .pptx. Ya no: Chrome sabe abrir un zip
+//  (DecompressionStream) y leer XML (DOMParser), asi que todo cabe aqui
+//  sin una sola libreria.
+//
+//  El color era lo que lo impedia. Cuatro jugadores que son ROJOS
+//  salian azules leyendo el XML, y acabe pintando la diapositiva fuera
+//  para mirar el pixel. El motivo: esos jugadores no llevan relleno
+//  liso sino un DEGRADADO de tres paradas del mismo rojo; al no leer
+//  <a:gradFill> se caia al color del estilo, que en el tema es azul.
+//  Leyendo los degradados aciertan los 86 de 86.
+// ══════════════════════════════════════════════════════════════════
+const PPT_A='http://schemas.openxmlformats.org/drawingml/2006/main';
+const PPT_P='http://schemas.openxmlformats.org/presentationml/2006/main';
+
+// El lienzo de la app, el mismo que guardan las tareas hechas a mano
+const PPT_LIENZO={w:1425, h:816};
+const PPT_CAMPO={x:129, y:30, w:1167, h:756};
+
+// Paleta de equipos: relleno oscuro + borde vivo
+const PPT_PALETA=[
+  {rgb:[0xFF,0x00,0x00], fill:'#400000', stroke:'#FF0000', num:'#fff'},
+  {rgb:[0x33,0x66,0xCC], fill:'#0a1a40', stroke:'#3366CC', num:'#fff'},
+  {rgb:[0xFF,0xFF,0x00], fill:'#3a3000', stroke:'#FFFF00', num:'#fff'},
+  {rgb:[0x00,0xB0,0x50], fill:'#0a2a10', stroke:'#00B050', num:'#fff'},
+  {rgb:[0xFF,0xFF,0xFF], fill:'#ffffff', stroke:'#000000', num:'#050505'},
+  {rgb:[0x10,0x10,0x10], fill:'#000000', stroke:'#ffffff', num:'#fff'},
+  {rgb:[0xFF,0x95,0x00], fill:'#402100', stroke:'#ff9500', num:'#fff'},
+  {rgb:[0x4B,0xAC,0xC6], fill:'#0b2a33', stroke:'#4BACC6', num:'#fff'}
+];
+function pptRGB(h){
+  h=String(h||'').replace('#','');
+  if(h.length!==6) return null;
+  const n=parseInt(h,16);
+  if(isNaN(n)) return null;
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function pptEquipo(hex){
+  const c=pptRGB(hex);
+  if(!c) return PPT_PALETA[1];
+  const mx=Math.max.apply(null,c), mn=Math.min.apply(null,c);
+  if(mx-mn<30) return mx>170?PPT_PALETA[4]:PPT_PALETA[5];
+  let mejor=PPT_PALETA[1], d=Infinity;
+  PPT_PALETA.forEach(p=>{
+    const dd=(c[0]-p.rgb[0])**2+(c[1]-p.rgb[1])**2+(c[2]-p.rgb[2])**2;
+    if(dd<d){d=dd;mejor=p;}
+  });
+  return mejor;
+}
+
+// ── El zip, a mano ────────────────────────────────────────────────
+async function pptAbreZip(buf){
+  const dv=new DataView(buf);
+  let fin=-1;
+  for(let i=buf.byteLength-22; i>=0 && i>buf.byteLength-66000; i--){
+    if(dv.getUint32(i,true)===0x06054b50){ fin=i; break; }
+  }
+  if(fin<0) throw new Error('no parece un fichero de PowerPoint');
+  const n=dv.getUint16(fin+10,true);
+  let off=dv.getUint32(fin+16,true);
+  const idx={};
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(off,true)!==0x02014b50) break;
+    const metodo=dv.getUint16(off+10,true);
+    const comp=dv.getUint32(off+20,true);
+    const nl=dv.getUint16(off+28,true), el=dv.getUint16(off+30,true), cl=dv.getUint16(off+32,true);
+    const lo=dv.getUint32(off+42,true);
+    const nombre=new TextDecoder().decode(new Uint8Array(buf,off+46,nl));
+    idx[nombre]={metodo,comp,lo};
+    off+=46+nl+el+cl;
+  }
+  async function saca(nombre){
+    const f=idx[nombre];
+    if(!f) return null;
+    const nl=dv.getUint16(f.lo+26,true), el=dv.getUint16(f.lo+28,true);
+    const ini=f.lo+30+nl+el;
+    const crudo=new Uint8Array(buf, ini, f.comp);
+    if(f.metodo===0) return crudo.slice();
+    const s=new Blob([crudo]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  return {
+    nombres: Object.keys(idx),
+    bytes: saca,
+    texto: async n=>{ const b=await saca(n); return b?new TextDecoder('utf-8').decode(b):null; }
+  };
+}
+
+// ── Lectura del XML ───────────────────────────────────────────────
+const pptHijos=(n,t)=>n?[...n.children].filter(c=>c.localName===t&&c.namespaceURI===PPT_A):[];
+const pptHijo =(n,t)=>pptHijos(n,t)[0]||null;
+function pptHijoP(n,t){
+  if(!n) return null;
+  return [...n.children].find(c=>c.localName===t&&c.namespaceURI===PPT_P)||null;
+}
+
+function pptTema(doc){
+  const t={accent1:'#4F81BD', tx1:'#000000', bg1:'#FFFFFF', lt1:'#FFFFFF', dk1:'#000000'};
+  if(!doc) return t;
+  const cs=doc.getElementsByTagNameNS(PPT_A,'clrScheme')[0];
+  if(!cs) return t;
+  [...cs.children].forEach(h=>{
+    const s=pptHijo(h,'srgbClr'), y=pptHijo(h,'sysClr');
+    if(s) t[h.localName]='#'+s.getAttribute('val');
+    else if(y) t[h.localName]='#'+(y.getAttribute('lastClr')||'000000');
+  });
+  return t;
+}
+
+// Color de un nodo, SIN mirar descendientes: buscando por descendiente
+// se colaba el color del texto o el de la linea.
+function pptColor(n, tema){
+  if(!n) return '';
+  const s=pptHijo(n,'srgbClr');
+  if(s) return '#'+s.getAttribute('val');
+  const e=pptHijo(n,'schemeClr');
+  if(e) return tema[e.getAttribute('val')]||'#000000';
+  return '';
+}
+
+// El relleno de verdad de una forma. El orden importa:
+// relleno propio (liso o DEGRADADO) y, si no tiene, el del estilo.
+function pptRelleno(sp, estilo, tema){
+  if(sp){
+    if(pptHijo(sp,'noFill')) return 'sin';
+    const liso=pptColor(pptHijo(sp,'solidFill'), tema);
+    if(liso) return liso;
+    const gf=pptHijo(sp,'gradFill');
+    if(gf){
+      const paradas=[];
+      [...gf.getElementsByTagNameNS(PPT_A,'gs')].forEach(gs=>{
+        const c=pptColor(gs,tema); if(c) paradas.push(c);
+      });
+      if(paradas.length){
+        const cu={}; let mejor=paradas[0], max=0;
+        paradas.forEach(c=>{ cu[c]=(cu[c]||0)+1; if(cu[c]>max){max=cu[c];mejor=c;} });
+        return mejor;
+      }
+    }
+  }
+  if(estilo){
+    const c=pptColor(pptHijo(estilo,'fillRef'), tema);
+    if(c) return c;
+  }
+  return '';
+}
+
+const PPT_CM=v=>{ const n=parseInt(v,10); return isNaN(n)?null:n/914400*2.54; };
+
+function pptGeom(sp){
+  if(!sp) return null;
+  const x=pptHijo(sp,'xfrm');
+  if(!x) return null;
+  const o=pptHijo(x,'off'), e=pptHijo(x,'ext');
+  if(!o||!e) return null;
+  return {x:PPT_CM(o.getAttribute('x')), y:PPT_CM(o.getAttribute('y')),
+          w:PPT_CM(e.getAttribute('cx')), h:PPT_CM(e.getAttribute('cy')),
+          fh:x.getAttribute('flipH')==='1', fv:x.getAttribute('flipV')==='1'};
+}
+
+function pptTexto(n){
+  if(!n) return '';
+  return [...n.getElementsByTagNameNS(PPT_A,'p')].map(p=>
+    [...p.getElementsByTagNameNS(PPT_A,'t')].map(t=>t.textContent||'').join('')
+  ).join('\n').trim();
+}
+
+function pptFormas(doc, tema){
+  const out=[];
+  const mira=n=>{
+    [...n.children].forEach(h=>{
+      if(h.namespaceURI===PPT_P && (h.localName==='sp'||h.localName==='pic'||h.localName==='cxnSp')){
+        const sp=h.getElementsByTagNameNS(PPT_P,'spPr')[0];
+        const estilo=pptHijoP(h,'style');
+        const ln=sp?pptHijo(sp,'ln'):null;
+        const pg=sp?pptHijo(sp,'prstGeom'):null;
+        const dash=ln?pptHijo(ln,'prstDash'):null;
+        const cabeza=ln?pptHijo(ln,'headEnd'):null, cola=ln?pptHijo(ln,'tailEnd'):null;
+        out.push({
+          clase:h.localName,
+          g:pptGeom(sp),
+          txt:pptTexto(h),
+          geom: pg?pg.getAttribute('prst') : (sp&&pptHijo(sp,'custGeom')?'custom':''),
+          relleno: pptRelleno(sp, estilo, tema),
+          lcolor: (ln?pptColor(pptHijo(ln,'solidFill'),tema):'') ||
+                  (estilo?pptColor(pptHijo(estilo,'lnRef'),tema):''),
+          lraya: dash?dash.getAttribute('val'):'',
+          flecha: !!((cola&&cola.getAttribute('type')&&cola.getAttribute('type')!=='none') ||
+                     (cabeza&&cabeza.getAttribute('type')&&cabeza.getAttribute('type')!=='none'))
+        });
+      } else mira(h);
+    });
+  };
+  mira(doc.documentElement);
+  return out;
+}
+
+// ── Donde esta el area de juego dentro de la imagen del campo ─────
+//   La imagen trae margen: el terreno va del 3,8% al 95,8% a lo ancho.
+//   Si se mapea el rectangulo entero, todo sale corrido. Se buscan la
+//   linea de banda y la de fondo en el propio PNG.
+async function pptAreaDeJuego(bytes){
+  const pordefecto={x0:0.0378,x1:0.9583,y0:0.0221,y1:0.9759};
+  try{
+    const bmp=await createImageBitmap(new Blob([bytes]));
+    const W=Math.min(bmp.width,600), H=Math.round(bmp.height*W/bmp.width);
+    const c=document.createElement('canvas'); c.width=W; c.height=H;
+    const x=c.getContext('2d', {willReadFrequently:true});
+    x.drawImage(bmp,0,0,W,H);
+    const d=x.getImageData(0,0,W,H).data;
+    const blanco=(px,py)=>{const i=(py*W+px)*4;return d[i]>200&&d[i+1]>200&&d[i+2]>200;};
+    const filas=[], cols=[];
+    for(let y=0;y<H;y++){ let n=0; for(let px=0;px<W;px+=2) if(blanco(px,y)) n++; if(n>W*0.2) filas.push(y); }
+    for(let px=0;px<W;px++){ let n=0; for(let y=0;y<H;y+=2) if(blanco(px,y)) n++; if(n>H*0.2) cols.push(px); }
+    if(!filas.length||!cols.length) return pordefecto;
+    return {x0:cols[0]/W, x1:cols[cols.length-1]/W, y0:filas[0]/H, y1:filas[filas.length-1]/H};
+  }catch(e){ return pordefecto; }
+}
+
+// ── Textos de la plantilla ────────────────────────────────────────
+function pptRotulo(formas, rotulo){
+  const l=formas.filter(f=>f.g && f.txt.trim().toUpperCase().indexOf(rotulo)===0);
+  if(!l.length) return null;
+  return l.reduce((a,b)=>a.g.x<=b.g.x?a:b).g;
+}
+function pptDerecha(formas, rotulo, maxdy){
+  maxdy=maxdy||0.45;
+  const L=pptRotulo(formas,rotulo);
+  if(!L) return '';
+  const cy=L.y+L.h/2;
+  const c=formas.filter(f=>f.g && f.txt.trim() && f.g.x>=L.x+L.w-0.3 &&
+                           Math.abs((f.g.y+f.g.h/2)-cy)<maxdy);
+  if(!c.length) return '';
+  return c.reduce((a,b)=>a.g.x<=b.g.x?a:b).txt.trim();
+}
+function pptDebajo(formas, rotulo){
+  const L=pptRotulo(formas,rotulo);
+  if(!L) return '';
+  const c=formas.filter(f=>f.g && f.txt.trim() && f.g.y>L.y+L.h-0.2 && Math.abs(f.g.x-L.x)<1.5);
+  if(!c.length) return '';
+  return c.reduce((a,b)=>a.g.y<=b.g.y?a:b).txt.trim();
+}
+const pptTrozos=s=>!s?[]:s.replace(/---/g,'/').split(/[\/\n]/).map(x=>x.trim()).filter(Boolean);
+
+const pptSinTildes=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+// La fase de la app tiene tres partes: la primera de la casilla FASE DE
+// JUEGO, la tercera del MOMENTO PRINCIPAL (o del nombre).
+function pptFase(fase, momento, nombre){
+  const t=pptSinTildes(fase).toUpperCase().replace(/\./g,'').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+  const m=pptSinTildes(momento).toUpperCase()+' '+pptSinTildes(nombre).toUpperCase();
+  if(!t) return '';
+  if(t.indexOf('ABP')>=0||t.indexOf('ESTRATEGIA')>=0) return t.indexOf('DEF')>=0?'ABP-DEF':'ABP-OF';
+  if(t.indexOf('TRANS OF DEF')>=0||t.indexOf('REORG OF DEF')>=0||t.indexOf('PERDIDA')>=0){
+    if(m.indexOf('PTP')>=0||(m.indexOf('PRESION')>=0&&m.indexOf('RDP')>=0)) return 'DEF-TR-PP';
+    if(m.indexOf('RDP')>=0||m.indexOf('REPLIEG')>=0) return 'DEF-TR-RE';
+    if(m.indexOf('PRESION')>=0) return 'DEF-TR-PR';
+    return 'DEF-TR-PP';
+  }
+  if(t.indexOf('TRAS ROBO')>=0||t.indexOf('TRANS DEF OF')>=0||t.indexOf('ROBO')>=0){
+    if(m.indexOf('MCB')>=0||m.indexOf('CONSERV')>=0||m.indexOf('INICIAR')>=0) return 'OF-TR-IO';
+    return 'OF-TR-CA';
+  }
+  const of=(t.indexOf('MCB')>=0||t.indexOf('OFENSIVA')>=0||t.indexOf('ATAQUE')>=0||t==='OF');
+  const pre=of?'OF-ORG':'DEF-ORG';
+  let sub='PR';
+  if(m.indexOf('SALIDA')>=0) sub='SB';
+  else if(m.indexOf('PROGRES')>=0) sub='PR';
+  else if(m.indexOf('FINALIZ')>=0||m.indexOf('ULTIMA ZONA')>=0||m.indexOf('VERTICAL')>=0||
+          m.indexOf('CENTRO')>=0||m.indexOf('AREA')>=0) sub='FI';
+  return pre+'-'+sub;
+}
+
+function pptNombre(fichero){
+  return String(fichero||'').replace(/\.pptx$/i,'')
+    .replace(/^[0-9a-f]{8}-/,'').replace(/_/g,' ')
+    .replace(/\s+/g,' ').trim().replace(/^[.\s]+|[.\s]+$/g,'');
+}
+function pptSocio(nombre){
+  const m=String(nombre||'').match(/\b(\d{1,2}\s*[cxvCXV]\s*\d{1,2}(\s*\+\s*\d{1,2})?)/);
+  if(!m) return '';
+  return m[1].replace(/\s+/g,'').replace(/X/g,'x').replace(/C/g,'c').replace(/V/g,'v');
+}
+function pptEspacio(socio, momento){
+  const t=((socio||'')+' '+(momento||'')).toUpperCase();
+  const tabla=[['DOBLE AREA','Doble área'],['AREA A AREA','Área a Área'],
+               ['MEDIO CAMPO','Medio campo'],['TERCIO','Un tercio'],
+               ['3/4','3/4 de campo'],['COMPLETO','Campo completo']];
+  for(const [k,v] of tabla) if(t.indexOf(k)>=0) return v;
+  return 'Zona específica';
+}
+
+// ── El cuerpo tecnico, de la columna de la izquierda ──────────────
+function pptCuerpoTecnico(formas){
+  const sec=pptRotulo(formas,'A INCIDIR SECUNDARIO'), des=pptRotulo(formas,'DESARROLLO');
+  if(!sec||!des) return [];
+  const col=formas.filter(f=>f.g && f.txt.trim() && f.g.x<2 && f.g.w>5 &&
+    f.g.y>sec.y+sec.h-0.1 && f.g.y<des.y-0.1 &&
+    f.txt.trim().toUpperCase().indexOf('ELEMENTOS')!==0);
+  col.sort((a,b)=>a.g.y-b.g.y);
+  const gente=[];
+  for(let i=0;i<col.length-1;i+=2) gente.push([col[i].txt.trim(), col[i+1].txt.trim()]);
+  return gente;
+}
+function pptRoles(gente){
+  const roles={e:'',e2:'',pf:'',ep:''}, extra=[];
+  gente.forEach(([quien,detalle])=>{
+    const todo=pptSinTildes(quien+' '+detalle).toLowerCase();
+    const nombre=quien.split('(')[0].trim();
+    const dentro=quien.match(/\(([^)]*)\)/);
+    const func=(dentro?dentro[1].trim():'')||detalle;
+    const texto=func?(nombre+' — '+func):nombre;
+    let destino='e2';
+    if(todo.indexOf('portero')>=0) destino='ep';
+    else if(todo.indexOf('fisic')>=0||todo.indexOf('repeticion')>=0||todo.indexOf('tiempo')>=0) destino='pf';
+    else if(todo.indexOf('dirige')>=0) destino='e';
+    if(roles[destino]) extra.push({label:destino.toUpperCase(), name:nombre, value:texto});
+    else roles[destino]=texto;
+  });
+  return {roles, extra};
+}
+
+// ── La conversion ─────────────────────────────────────────────────
+async function pptxATarea(buffer, fichero, tipo){
+  const z=await pptAbreZip(buffer);
+  const XML=async n=>{ const t=await z.texto(n); return t?new DOMParser().parseFromString(t,'application/xml'):null; };
+
+  const tema=pptTema(await XML('ppt/theme/theme1.xml'));
+  const slides=z.nombres.filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).sort();
+  if(!slides.length) throw new Error('no tiene diapositivas');
+  const doc=await XML(slides[0]);
+  const formas=pptFormas(doc, tema);
+
+  const pics=formas.filter(f=>f.clase==='pic'&&f.g);
+  if(!pics.length) throw new Error('no encuentro la imagen del campo');
+  const C=pics.reduce((a,b)=>(a.g.w*a.g.h>=b.g.w*b.g.h?a:b)).g;
+
+  // El area de juego dentro de esa imagen
+  const medios=z.nombres.filter(n=>n.indexOf('ppt/media/')===0);
+  let A={x0:0.0378,x1:0.9583,y0:0.0221,y1:0.9759};
+  if(medios.length){
+    let grande=medios[0], max=0;
+    for(const m of medios){ const b=await z.bytes(m); if(b&&b.length>max){max=b.length;grande=m;} }
+    const b=await z.bytes(grande);
+    if(b) A=await pptAreaDeJuego(b);
+  }
+  const JX=C.x+A.x0*C.w, JW=(A.x1-A.x0)*C.w;
+  const JY=C.y+A.y0*C.h, JH=(A.y1-A.y0)*C.h;
+  const fx=v=>(v-JX)/JW, fy=v=>(v-JY)/JH;
+  const AX=v=>Math.round((PPT_CAMPO.x+fx(v)*PPT_CAMPO.w)*10)/10;
+  const AY=v=>Math.round((PPT_CAMPO.y+fy(v)*PPT_CAMPO.h)*10)/10;
+  const ANCHO=v=>Math.round(v/JW*PPT_CAMPO.w*10)/10;
+  const ALTO =v=>Math.round(v/JH*PPT_CAMPO.h*10)/10;
+
+  const ELS=[], LINES=[], porterias=[];
+  let zi=0;
+  formas.forEach(f=>{
+    const g=f.g;
+    if(!g||f.clase==='pic') return;
+    const mx=g.x+g.w/2, my=g.y+g.h/2;
+    const px=fx(mx), py=fy(my);
+    if(!(px>=-0.08&&px<=1.08&&py>=-0.08&&py<=1.08)) return;
+    const t=f.txt.trim(), X=AX(mx), Y=AY(my), lado=Math.max(g.w,g.h);
+    zi++;
+
+    if(f.geom==='ellipse'){
+      if(lado<0.45){ ELS.push({type:'ball',x:X,y:Y,z:zi,size:7}); return; }
+      const col=(f.relleno&&f.relleno!=='sin')?f.relleno:'#3366CC';
+      const eq=pptEquipo(col);
+      ELS.push({type:'player',x:X,y:Y,z:zi,num:t?t.substring(0,3):'',
+                fill:eq.fill,stroke:eq.stroke,numColor:eq.num});
+      return;
+    }
+    if(f.geom==='rect'||f.geom==='roundRect'){
+      const delgado=Math.min(g.w,g.h)<0.9 && Math.max(g.w,g.h)>1.0;
+      if(delgado){
+        const grande=(Math.max(g.w,g.h)/JW)>0.055;
+        porterias.push({i:ELS.length, g:g});
+        ELS.push({type:grande?'goal-big':'goal-mini',x:X,y:Y,z:zi,
+                  gw:grande?86:36, gh:grande?36.5:15, rot:0,
+                  fillC:'rgba(255,255,255,0.04)', strokeC:'rgba(220,220,220,0.9)'});
+        return;
+      }
+      if(g.w>1.8&&g.h>1.8){
+        ELS.push({type:'zone',x:X,y:Y,z:zi,zw:ANCHO(g.w),zh:ALTO(g.h),rot:0,
+                  strokeC:f.lcolor||'#C8A84B', fillC:'rgba(200,168,75,0.1)'});
+        return;
+      }
+    }
+    if(f.geom==='line'||f.geom==='straightConnector1'||f.geom==='custom'||
+       f.geom==='bentConnector3'||f.clase==='cxnSp'){
+      let x1=g.x, y1=g.y, x2=g.x+g.w, y2=g.y+g.h;
+      if(g.fh){ const a=x1; x1=x2; x2=a; }
+      if(g.fv){ const a=y1; y1=y2; y2=a; }
+      const raya=(f.lraya||'').toLowerCase();
+      const punteada=raya.indexOf('dot')>=0||raya.indexOf('dash')>=0;
+      const lt=!f.flecha?'dash':(punteada?'run':'pass');
+      LINES.push({lt:lt,z:zi,x1:AX(x1),y1:AY(y1),x2:AX(x2),y2:AY(y2)});
+      return;
+    }
+    if(t && t.length<=18 && f.clase==='sp'){ ELS.push({type:'label',x:X,y:Y,z:zi,text:t}); }
+  });
+
+  // Las porterias miran hacia donde estan los jugadores
+  const jug=ELS.filter(e=>e.type==='player').map(e=>[e.x,e.y]);
+  porterias.forEach(pt=>{
+    const e=ELS[pt.i], g=pt.g;
+    const cerca=jug.filter(p=>(p[0]-e.x)**2+(p[1]-e.y)**2 < 420*420);
+    const lista=cerca.length?cerca:jug;
+    let cx=PPT_CAMPO.x+PPT_CAMPO.w/2, cy=PPT_CAMPO.y+PPT_CAMPO.h/2;
+    if(lista.length){
+      cx=lista.reduce((a,p)=>a+p[0],0)/lista.length;
+      cy=lista.reduce((a,p)=>a+p[1],0)/lista.length;
+    }
+    if(g.w>=g.h) e.rot = cy<e.y ? 0 : Math.PI;
+    else         e.rot = cx>e.x ? Math.PI/2 : -Math.PI/2;
+  });
+
+  const fase  =pptDerecha(formas,'FASE DE JUEGO PRINCIPAL');
+  const mom1  =pptDerecha(formas,'MOMENTO PRINCIPAL');
+  const mom2  =pptDerecha(formas,'MOMENTO SECUNDARIO');
+  const espac =pptDerecha(formas,'DISTRIBUCIÓN ESPACIAL');
+  const ip    =pptDerecha(formas,'A INCIDIR PRINCIPAL',0.7);
+  const is    =pptDerecha(formas,'A INCIDIR SECUNDARIO',0.7);
+  const desa  =pptDebajo(formas,'DESARROLLO');
+
+  const nombre=pptNombre(fichero);
+  const {roles, extra}=pptRoles(pptCuerpoTecnico(formas));
+  const bordes=new Set(ELS.filter(e=>e.type==='player').map(e=>e.stroke));
+
+  return {
+    name:nombre, tipos:[tipo||'Microestructura'],
+    fasePrincipal:pptFase(fase,mom1,nombre), faseSecundaria:'',
+    iP:pptTrozos(ip), iS:pptTrozos(is), pct:70,
+    socio:pptSocio(nombre), espTipo:pptEspacio(espac,mom2), espW:'', espH:'',
+    desarrollo:desa, puntuaciones:[],
+    roles:roles, extraRoles:extra,
+    materiales:{
+      goal:ELS.some(e=>e.type==='goal-big'), mini:ELS.some(e=>e.type==='goal-mini'),
+      cone:ELS.some(e=>e.type==='cone'||e.type==='cone-flat'),
+      pole:ELS.some(e=>e.type==='pole'), ball:ELS.some(e=>e.type==='ball'),
+      vest:bordes.size>1
+    },
+    variantes:[], ELS:ELS, LINES:LINES,
+    canvasW:PPT_LIENZO.w, canvasH:PPT_LIENZO.h,
+    campoR:{x:PPT_CAMPO.x,y:PPT_CAMPO.y,w:PPT_CAMPO.w,h:PPT_CAMPO.h}
+  };
+}
+
+
 function exportaTareas(){
   if(!tasks.length){ notify('No hay tareas que exportar', true); return; }
   const hoy=new Date().toISOString().slice(0,10);
@@ -2999,24 +3451,50 @@ function exportaTareas(){
 
 function pideImportar(){ document.getElementById('file-tareas').click(); }
 
-function ficheroTareas(ev){
-  const f=ev.target.files && ev.target.files[0];
+async function ficheroTareas(ev){
+  const fs=[...(ev.target.files||[])];
   ev.target.value='';
-  if(!f) return;
-  const rd=new FileReader();
-  rd.onload=function(e){
-    let d=null;
-    try{ d=JSON.parse(e.target.result); }
-    catch(err){ notify('Ese fichero no es un .json válido', true); return; }
-    if(!Array.isArray(d)) d=[d];
-    // Una tarea, como poco, tiene que tener nombre o dibujo.
-    const buenas=d.filter(t => t && typeof t==='object' &&
-      (String(t.name||'').trim() || (Array.isArray(t.ELS) && t.ELS.length)));
-    if(!buenas.length){ notify('No he encontrado ninguna tarea en ese fichero', true); return; }
-    ventanaImportar(buenas, f.name);
-  };
-  rd.onerror=function(){ notify('No se ha podido leer el fichero', true); };
-  rd.readAsText(f, 'utf-8');
+  if(!fs.length) return;
+  const salida=[]; const fallos=[];
+  notify('Leyendo '+fs.length+' fichero'+(fs.length>1?'s':'')+'...');
+  for(const f of fs){
+    const n=(f.name||'').toLowerCase();
+    try{
+      if(n.endsWith('.json')){
+        let d=JSON.parse(await f.text());
+        if(!Array.isArray(d)) d=[d];
+        d.forEach(t=>{ if(t&&typeof t==='object'&&(String(t.name||'').trim()||(Array.isArray(t.ELS)&&t.ELS.length))) salida.push(t); });
+      } else if(n.endsWith('.pptx')){
+        salida.push(await pptxATarea(await f.arrayBuffer(), f.name, tipoParaImportar()));
+      } else if(n.endsWith('.zip')){
+        const z=await pptAbreZip(await f.arrayBuffer());
+        const dentro=z.nombres.filter(x=>/\.pptx$/i.test(x) && x.indexOf('__MACOSX')<0);
+        if(!dentro.length) fallos.push(f.name+': el zip no trae PowerPoint');
+        for(const d of dentro){
+          try{
+            const by=await z.bytes(d);
+            salida.push(await pptxATarea(by.buffer.slice(by.byteOffset, by.byteOffset+by.byteLength),
+                                         d.split('/').pop(), tipoParaImportar()));
+          }catch(e){ fallos.push(d.split('/').pop()+': '+e.message); }
+        }
+      } else fallos.push(f.name+': no es .json, .pptx ni .zip');
+    }catch(e){ fallos.push((f.name||'?')+': '+e.message); }
+  }
+  if(fallos.length) console.warn('Importar:', fallos);
+  if(!salida.length){
+    notify(fallos.length?('No he podido leer: '+fallos[0]):'No he encontrado ninguna tarea', true);
+    return;
+  }
+  const comoSeLlama = fs.length===1 ? fs[0].name : (fs.length+' ficheros');
+  ventanaImportar(salida, comoSeLlama + (fallos.length?(' · '+fallos.length+' con problemas'):''));
+}
+
+// El tipo de tarea que se les pone a las que vienen de PowerPoint: el
+// que este filtrado en la libreria, y si no, Microestructura.
+function tipoParaImportar(){
+  const f=document.getElementById('lib-tipo');
+  const v=f&&f.value?f.value.trim():'';
+  return v||'Microestructura';
 }
 
 // Nombres que ya existen, sin distinguir mayúsculas ni tildes.
@@ -3035,6 +3513,7 @@ function ventanaImportar(nuevas, fichero){
     return '<div style="display:flex;gap:8px;align-items:center;padding:4px 7px;border-bottom:1px solid rgba(255,255,255,.07);">'+
       '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">'+
       _esc(t.name||'(sin nombre)')+'</span>'+
+      (t.fasePrincipal?('<span style="font-size:10px;color:var(--gold);white-space:nowrap;">'+_esc(FL[t.fasePrincipal]||t.fasePrincipal)+'</span>'):'')+
       '<span style="font-size:10px;color:var(--text3);white-space:nowrap;">'+n+' elementos</span>'+
       (r?'<span style="font-size:10px;color:#e0a800;white-space:nowrap;">ya la tienes</span>':
          '<span style="font-size:10px;color:#2ecc40;white-space:nowrap;">nueva</span>')+
