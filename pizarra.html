@@ -1778,6 +1778,47 @@ function aplicaGuias(movEls,movLns){
   if(mX) guias.push({v:true, p:mX.v});
   if(mY) guias.push({v:false,p:mY.v});
 }
+// Lo mismo, pero ESTIRANDO. Al tirar de un lado de una zona, ese lado
+// se pega al borde (o al centro) de lo que tenga cerca, y sale la misma
+// linea discontinua. Asi dos zonas quedan pegadas de verdad, no "casi".
+function guiasAlEstirar(el, t, x, y){
+  guias=[];
+  // Si el elemento esta girado, sus lados no son rectos respecto al
+  // campo y una guia horizontal o vertical no querria decir nada.
+  if(el.rot) return {x:x, y:y};
+  const suf=t.replace('resize-','');
+  const mueveX = suf.indexOf('l')>=0 || suf.indexOf('r')>=0;
+  const mueveY = suf.indexOf('t')>=0 || suf.indexOf('b')>=0;
+  const fijX=[], fijY=[];
+  ELS.forEach(e=>{
+    if(e===el) return;
+    fijX.push(e.x); fijY.push(e.y);
+    const m=medidasDe(e);
+    if(m && m[0] && m[1] && !e.rot){
+      fijX.push(e.x-m[0], e.x+m[0]);
+      fijY.push(e.y-m[1], e.y+m[1]);
+    }
+  });
+  // Y tambien con el propio campo: bordes y medio.
+  const f=fieldRect();
+  fijX.push(f.x, f.x+f.w, f.x+f.w/2);
+  fijY.push(f.y, f.y+f.h, f.y+f.h/2);
+
+  const tope=GUIA_PX/(vEsc||1);
+  let nx=x, ny=y;
+  if(mueveX){
+    let mejor=null;
+    fijX.forEach(v=>{ const d=Math.abs(v-x); if(d<tope&&(!mejor||d<mejor.d)) mejor={d:d,v:v}; });
+    if(mejor){ nx=mejor.v; guias.push({v:true, p:mejor.v}); }
+  }
+  if(mueveY){
+    let mejor=null;
+    fijY.forEach(v=>{ const d=Math.abs(v-y); if(d<tope&&(!mejor||d<mejor.d)) mejor={d:d,v:v}; });
+    if(mejor){ ny=mejor.v; guias.push({v:false, p:mejor.v}); }
+  }
+  return {x:nx, y:ny};
+}
+
 function dibujaGuias(){
   if(!guias.length) return;
   const f=fieldRect();
@@ -1975,8 +2016,11 @@ function onMM(e){
     // a la vez porque el centro no se movía.
     const rot=el.rot||0;
     const cosR=Math.cos(-rot),sinR=Math.sin(-rot);
+    // El lado que se arrastra se pega a lo que tenga cerca.
+    const peg=(elHnd.type.indexOf('resize-')===0 && elHnd.type!=='resize-rot')
+      ? guiasAlEstirar(el, elHnd.type, x, y) : {x:x,y:y};
     // Todo se mide respecto al centro que tenía al empezar a arrastrar.
-    const dx=x-elHnd.elX, dy=y-elHnd.elY;
+    const dx=peg.x-elHnd.elX, dy=peg.y-elHnd.elY;
     const lx=dx*cosR-dy*sinR;
     const ly=dx*sinR+dy*cosR;
     const minSz=20;
