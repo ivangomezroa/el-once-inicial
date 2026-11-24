@@ -878,8 +878,18 @@ function makeFieldSVG(t){
     // Balls
     allEls.filter(el=>el.type==='ball').forEach(el=>{
       const ex=toSVGx(el.x),ey=toSVGy(el.y),r=6;
-      s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="#f0f0f0" stroke="#333" stroke-width="0.8"/>`;
-      s+=`<circle cx="${ex-r*0.25}" cy="${ey-r*0.25}" r="${r*0.35}" fill="#222"/>`;
+      // Mismo balon que en la pizarra: blanco con pentagonos negros.
+      const pent=(ox,oy,pr,a0)=>{let p='';for(let i=0;i<5;i++){const a=a0+i*2*Math.PI/5;p+=`${(ox+pr*Math.cos(a)).toFixed(1)},${(oy+pr*Math.sin(a)).toFixed(1)} `;}return p.trim();};
+      const cp=r*0.28, aro=r*0.62, pR=r*0.26;
+      s+=`<circle cx="${ex}" cy="${ey}" r="${r-r*0.04}" fill="#ffffff" stroke="#111" stroke-width="${(r*0.09).toFixed(2)}"/>`;
+      s+=`<clipPath id="bola${ex.toFixed(0)}_${ey.toFixed(0)}"><circle cx="${ex}" cy="${ey}" r="${r}"/></clipPath>`;
+      s+=`<g clip-path="url(#bola${ex.toFixed(0)}_${ey.toFixed(0)})">`;
+      s+=`<polygon points="${pent(ex,ey,cp,-Math.PI/2)}" fill="#111"/>`;
+      for(let i=0;i<5;i++){
+        const a=-Math.PI/2+i*2*Math.PI/5;
+        s+=`<polygon points="${pent(ex+aro*Math.cos(a),ey+aro*Math.sin(a),pR,a+Math.PI/5)}" fill="#111"/>`;
+      }
+      s+=`</g>`;
     });
 
     // Labels

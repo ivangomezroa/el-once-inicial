@@ -1166,86 +1166,55 @@ function drawBallIcon(){
 }
 
 function drawSoccerBall(c2,cx,cy,r){
-  // ---- Telstar classic: white base + black pentagons + seam lines ----
-  // Shadow
-  c2.save();
-  c2.shadowColor='rgba(0,0,0,0.35)';c2.shadowBlur=r*0.4;c2.shadowOffsetY=r*0.15;
-  c2.fillStyle='#f0f0f0';c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.fill();
-  c2.restore();
-
-  // Clip everything to the circle
-  c2.save();
-  c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.clip();
-
-  // White base
-  c2.fillStyle='#f8f8f8';c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.fill();
-
-  // Helper: polygon from centre + angle + radius
-  function pentagon(ocx,ocy,pr,startA){
+  // Balon clasico, plano: blanco, pentagonos negros y costuras negras.
+  // Antes llevaba sombra, un degradado de brillo y costuras grises; a
+  // los 7-9 px que mide en una tarea eso se convertia en una mancha.
+  function pentagono(ocx,ocy,pr,a0){
     c2.beginPath();
     for(let i=0;i<5;i++){
-      const a=startA+i*2*Math.PI/5;
-      const px=ocx+pr*Math.cos(a),py=ocy+pr*Math.sin(a);
+      const a=a0+i*2*Math.PI/5;
+      const px=ocx+pr*Math.cos(a), py=ocy+pr*Math.sin(a);
       i===0?c2.moveTo(px,py):c2.lineTo(px,py);
     }
     c2.closePath();
   }
-
-  // Centre pentagon (top-pointing)
-  const cp=r*0.28;
-  c2.fillStyle='#111';
-  pentagon(cx,cy,cp,-Math.PI/2);c2.fill();
-
-  // 5 surrounding pentagons at ~60% radius
-  const outerR=r*0.62;
-  const pR=r*0.26;
-  for(let i=0;i<5;i++){
-    const a=-Math.PI/2+i*2*Math.PI/5;
-    const ox=cx+outerR*Math.cos(a),oy=cy+outerR*Math.sin(a);
-    // rotate each outer pentagon so a flat side faces centre
-    pentagon(ox,oy,pR,a+Math.PI/5);
-    c2.fill();
-  }
-
-  // Seam lines connecting pentagons (subtle, dark grey)
-  c2.strokeStyle='rgba(60,60,60,0.55)';c2.lineWidth=Math.max(0.5,r*0.055);c2.setLineDash([]);
-
-  // Lines from centre pentagon to each outer pentagon
-  for(let i=0;i<5;i++){
-    const a=-Math.PI/2+i*2*Math.PI/5;
-    const ix=cx+cp*Math.cos(a), iy=cy+cp*Math.sin(a); // edge of centre pent
-    const ox=cx+outerR*Math.cos(a), oy=cy+outerR*Math.sin(a); // outer centre
-    const ox2=cx+(outerR-pR)*Math.cos(a), oy2=cy+(outerR-pR)*Math.sin(a);
-    c2.beginPath();c2.moveTo(ix,iy);c2.lineTo(ox2,oy2);c2.stroke();
-  }
-
-  // Lines between adjacent outer pentagons
-  for(let i=0;i<5;i++){
-    const a1=-Math.PI/2+i*2*Math.PI/5;
-    const a2=-Math.PI/2+(i+1)*2*Math.PI/5;
-    const ox1=cx+outerR*Math.cos(a1), oy1=cy+outerR*Math.sin(a1);
-    const ox2=cx+outerR*Math.cos(a2), oy2=cy+outerR*Math.sin(a2);
-    const mx=(ox1+ox2)/2, my=(oy1+oy2)/2; // midpoint
-    // seam from each pentagon edge toward the midpoint
-    const e1x=ox1+(mx-ox1)*0.45, e1y=oy1+(my-oy1)*0.45;
-    const e2x=ox2+(mx-ox2)*0.45, e2y=oy2+(my-oy2)*0.45;
-    c2.beginPath();c2.moveTo(e1x,e1y);c2.lineTo(mx,my);c2.lineTo(e2x,e2y);c2.stroke();
-  }
-
-  c2.restore();
-
-  // Outer border
-  c2.strokeStyle='#333';c2.lineWidth=Math.max(0.8,r*0.07);
-  c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.stroke();
-
-  // Highlight gloss
   c2.save();
-  const grad=c2.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.05,cx-r*0.1,cy-r*0.2,r*0.65);
-  grad.addColorStop(0,'rgba(255,255,255,0.45)');
-  grad.addColorStop(0.5,'rgba(255,255,255,0.1)');
-  grad.addColorStop(1,'rgba(255,255,255,0)');
-  c2.fillStyle=grad;c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.fill();
+  c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.clip();
+  c2.fillStyle='#ffffff';c2.beginPath();c2.arc(cx,cy,r,0,Math.PI*2);c2.fill();
+
+  const cp=r*0.28, aro=r*0.62, pR=r*0.26;
+  c2.fillStyle='#111111';
+  pentagono(cx,cy,cp,-Math.PI/2);c2.fill();
+  for(let i=0;i<5;i++){
+    const a=-Math.PI/2+i*2*Math.PI/5;
+    pentagono(cx+aro*Math.cos(a),cy+aro*Math.sin(a),pR,a+Math.PI/5);c2.fill();
+  }
+
+  c2.strokeStyle='#111111';c2.lineWidth=Math.max(0.5,r*0.05);
+  c2.lineCap='round';c2.setLineDash([]);
+  for(let i=0;i<5;i++){
+    const a=-Math.PI/2+i*2*Math.PI/5;
+    c2.beginPath();
+    c2.moveTo(cx+cp*Math.cos(a),cy+cp*Math.sin(a));
+    c2.lineTo(cx+(aro-pR)*Math.cos(a),cy+(aro-pR)*Math.sin(a));
+    c2.stroke();
+  }
+  for(let i=0;i<5;i++){
+    const a1=-Math.PI/2+i*2*Math.PI/5, a2=-Math.PI/2+(i+1)*2*Math.PI/5;
+    const o1x=cx+aro*Math.cos(a1), o1y=cy+aro*Math.sin(a1);
+    const o2x=cx+aro*Math.cos(a2), o2y=cy+aro*Math.sin(a2);
+    const mx=(o1x+o2x)/2, my=(o1y+o2y)/2;
+    c2.beginPath();
+    c2.moveTo(o1x+(mx-o1x)*0.45, o1y+(my-o1y)*0.45);
+    c2.lineTo(mx,my);
+    c2.lineTo(o2x+(mx-o2x)*0.45, o2y+(my-o2y)*0.45);
+    c2.stroke();
+  }
   c2.restore();
+
+  const lw=Math.max(0.8,r*0.075);
+  c2.strokeStyle='#111111';c2.lineWidth=lw;c2.setLineDash([]);
+  c2.beginPath();c2.arc(cx,cy,r-lw/2,0,Math.PI*2);c2.stroke();
 }
 
 // ============ RENDER ============
@@ -3336,8 +3305,18 @@ function renderLib(){
     // Balls
     allEls.filter(el=>el.type==='ball').forEach(el=>{
       const ex=toSVGx(el.x),ey=toSVGy(el.y),r=6;
-      s+=`<circle cx="${ex}" cy="${ey}" r="${r}" fill="#f0f0f0" stroke="#333" stroke-width="0.8"/>`;
-      s+=`<circle cx="${ex-r*0.25}" cy="${ey-r*0.25}" r="${r*0.35}" fill="#222"/>`;
+      // Mismo balon que en la pizarra: blanco con pentagonos negros.
+      const pent=(ox,oy,pr,a0)=>{let p='';for(let i=0;i<5;i++){const a=a0+i*2*Math.PI/5;p+=`${(ox+pr*Math.cos(a)).toFixed(1)},${(oy+pr*Math.sin(a)).toFixed(1)} `;}return p.trim();};
+      const cp=r*0.28, aro=r*0.62, pR=r*0.26;
+      s+=`<circle cx="${ex}" cy="${ey}" r="${r-r*0.04}" fill="#ffffff" stroke="#111" stroke-width="${(r*0.09).toFixed(2)}"/>`;
+      s+=`<clipPath id="bola${ex.toFixed(0)}_${ey.toFixed(0)}"><circle cx="${ex}" cy="${ey}" r="${r}"/></clipPath>`;
+      s+=`<g clip-path="url(#bola${ex.toFixed(0)}_${ey.toFixed(0)})">`;
+      s+=`<polygon points="${pent(ex,ey,cp,-Math.PI/2)}" fill="#111"/>`;
+      for(let i=0;i<5;i++){
+        const a=-Math.PI/2+i*2*Math.PI/5;
+        s+=`<polygon points="${pent(ex+aro*Math.cos(a),ey+aro*Math.sin(a),pR,a+Math.PI/5)}" fill="#111"/>`;
+      }
+      s+=`</g>`;
     });
 
     // Labels
