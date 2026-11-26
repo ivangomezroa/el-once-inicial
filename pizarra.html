@@ -166,6 +166,84 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   font-size:11px;font-family:inherit;transition:border-color .15s,color .15s;}
 .lib-btn:hover{border-color:var(--gold);color:var(--gold);}
 @media print{.lib-btn{display:none !important;}}
+
+/* ══════════════════════════════════════════════════════════════
+   IMPRIMIR TAREAS (dos por hoja, A4 de pie)
+   El contenedor #print-tareas lo monta imprimeMarcadas() con las
+   fichas CLONADAS de la libreria, y se borra solo al terminar.
+   Las reglas de legibilidad son las mismas que ya funcionan en
+   sesion.html: alli un `* { color:#222 !important }` pisaba los
+   banners de fase y los dejaba ilegibles, asi que se dice el color
+   solo donde hace falta.
+   ══════════════════════════════════════════════════════════════ */
+#print-tareas{display:none;}
+@media print{
+  body.imprimiendo-tareas > *:not(#print-tareas){ display:none !important; }
+
+  #print-tareas{
+    display:block !important; position:static !important;
+    background:#fff !important; width:100% !important;
+  }
+  .print-page-tarea{
+    position:relative;
+    width:200mm; height:287mm;
+    display:flex; flex-direction:column; gap:3mm;
+    page-break-after:always; break-after:page;
+    overflow:hidden;
+    border:1.2pt solid #C8A84B;
+    box-sizing:border-box; padding:3mm;
+    background:#fff !important;
+  }
+  .print-page-tarea:last-child{ page-break-after:auto; break-after:auto; }
+  .print-hueco{ flex:1 1 0; min-height:0; overflow:hidden; display:block; }
+  .print-crest-tarea{ position:absolute; top:2mm; right:2mm; width:13mm; z-index:5; }
+
+  #print-tareas *, #print-tareas *::before, #print-tareas *::after{
+    -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
+  }
+  #print-tareas .lcard{ page-break-inside:avoid !important; max-width:960px; }
+  /* Tipos de tarea: fondo claro y letra azul marino */
+  #print-tareas .lcard span[style*="background:var(--surface2)"]{
+    background:#eef1f7 !important; color:#1B2A6B !important;
+    border-color:rgba(27,42,107,0.4) !important;
+  }
+  /* ── Fondos oscuros a blanco, para no gastar tinta. Misma receta que
+     en sesion.html, que ya esta probada en papel. Los banners de fase
+     SI conservan su color: son los que se leen de un vistazo. ── */
+  #print-tareas .lcard [style*="background:#0c1828"],
+  #print-tareas .lcard [style*="background:#0a1520"],
+  #print-tareas .lcard [style*="background:#0a1020"],
+  #print-tareas .lcard [style*="background:#0d1a24"]{ background:#ffffff !important; }
+  /* El marco verde alrededor del campo, tambien blanco */
+  #print-tareas .lcard [style*="background:#0d1a0d"]{ background:#ffffff !important; }
+
+  /* Texto legible sobre blanco (fuera de los banners) */
+  #print-tareas .lcard [style*="color:var(--text2)"]{ color:#333 !important; }
+  #print-tareas .lcard [style*="color:var(--text3)"]{ color:#555 !important; }
+  #print-tareas .lcard [style*="color:#b8b0a0"]{ color:#333 !important; }
+  #print-tareas .lcard [style*="color:var(--gold)"]{ color:#1B2A6B !important; }
+  #print-tareas .lcard > div > div:first-child [style*="color:#fff"]{ color:#111 !important; }
+
+  /* Banners de fase: su color de siempre y letra blanca */
+  #print-tareas .lcard [style*="border-bottom:3px solid #2ecc40"]{ background:#1a5c1a !important; }
+  #print-tareas .lcard [style*="border-bottom:3px solid #5ddd5d"]{ background:#2d7a2d !important; }
+  #print-tareas .lcard [style*="border-bottom:3px solid #e05252"]{ background:#7a1a1a !important; }
+  #print-tareas .lcard [style*="border-bottom:3px solid #ff9500"]{ background:#7a3d00 !important; }
+  #print-tareas .lcard [style*="border-bottom:3px solid #C8A84B"]{ background:#1a3060 !important; }
+  #print-tareas .lcard [style*="border-bottom:3px solid"] *{ color:rgba(255,255,255,0.92) !important; }
+
+  /* En pantalla el desarrollo y la puntuacion tienen barra de scroll.
+     En papel eso no se puede desplazar: se cortaba el texto por la
+     mitad. Se deja que crezcan y la ficha entera se reduce un poco mas
+     para seguir cabiendo en su mitad de hoja. */
+  #print-tareas .lcard [style*="overflow-y:auto"]{ overflow:visible !important; }
+
+  /* Bordes que sobre blanco no se verian */
+  #print-tareas .lcard [style*="border:1px solid rgba(200,168,75,0.2)"]{ border-color:rgba(27,42,107,0.35) !important; }
+  #print-tareas .lcard [style*="border-bottom:1px solid rgba(255,255,255,0.1)"]{ border-color:rgba(0,0,0,0.12) !important; }
+  #print-tareas .lcard [style*="border-right:1px solid rgba(255,255,255,0.07)"]{ border-color:rgba(0,0,0,0.12) !important; }
+  #print-tareas .lcard [style*="border-top:2px solid rgba(200,168,75,0.3)"]{ border-color:rgba(27,42,107,0.35) !important; }
+}
 .fs{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%239a9280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:22px;}
 .fs option,.fs optgroup{background:var(--bg2);}
 .fta{resize:vertical;min-height:54px;line-height:1.5;}
@@ -654,7 +732,9 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
     </select>
     <span style="flex:1;"></span>
     <button class="lib-btn" onclick="exportaTareas()" title="Guardar todas tus tareas en un fichero, como copia de seguridad o para pasarlas a otro ordenador" style="cursor:pointer;white-space:nowrap;">⬇ Exportar</button>
-    <button class="lib-btn" onclick="pideImportar()" title="Añadir tareas desde un fichero .json" style="cursor:pointer;white-space:nowrap;">⬆ Importar</button>
+    <button class="lib-btn" onclick="pideImportar()" title="Añadir tareas desde un .json, un .pptx de PowerPoint o un .zip" style="cursor:pointer;white-space:nowrap;">⬆ Importar</button>
+    <button class="lib-btn" id="btn-imp-pdf" onclick="imprimeMarcadas()" title="Imprimir o guardar en PDF las tareas que hayas marcado" style="cursor:pointer;white-space:nowrap;">🖨 Imprimir (0)</button>
+    <button class="lib-btn" id="btn-quita-marcas" onclick="quitaMarcas()" title="Desmarcar todas" style="cursor:pointer;white-space:nowrap;display:none;">Quitar marcas</button>
     <input type="file" id="file-tareas" accept=".json,.pptx,.zip" multiple style="display:none;" onchange="ficheroTareas(event)">
   </div>
   <div id="lib-grid"></div>
@@ -940,6 +1020,13 @@ function init(){
     if(loadBtn){window.loadTaskById(loadBtn.getAttribute('data-tid'));return;}
     const dupBtn=e.target.closest('.btnDupTask');
     if(dupBtn){window.duplicateTask(dupBtn.getAttribute('data-tid'));return;}
+  });
+  document.getElementById('lib-grid').addEventListener('change',function(e){
+    const c=e.target.closest('.chk-tarea');
+    if(!c) return;
+    const id=String(c.getAttribute('data-tid'));
+    if(c.checked) marcadas.add(id); else marcadas.delete(id);
+    cuentaMarcas();
   });
   // Add touchstart to palette items that have onmousedown
   document.querySelectorAll('.pal-item[onmousedown], .pal-wide[onclick]').forEach(el=>{
@@ -3481,6 +3568,121 @@ async function pptxATarea(buffer, fichero, tipo){
 }
 
 
+// ══════════════════════════════════════════════════════════════
+//  IMPRIMIR / GUARDAR EN PDF LAS TAREAS MARCADAS
+//  Dos tareas por hoja, A4 de pie, una encima de otra. No hace falta
+//  ninguna libreria de PDF: el propio navegador guarda en PDF desde el
+//  cuadro de imprimir ("Destino: Guardar como PDF").
+// ══════════════════════════════════════════════════════════════
+let marcadas=new Set();
+
+function cuentaMarcas(){
+  const b=document.getElementById('btn-imp-pdf');
+  const q=document.getElementById('btn-quita-marcas');
+  const n=marcadas.size;
+  if(b){
+    b.textContent='🖨 Imprimir ('+n+')';
+    b.style.opacity = n?'1':'0.55';
+    b.style.borderColor = n?'var(--gold)':'var(--border)';
+    b.style.color = n?'var(--gold)':'var(--text)';
+  }
+  if(q) q.style.display = n?'':'none';
+}
+
+function quitaMarcas(){
+  marcadas.clear();
+  document.querySelectorAll('.chk-tarea').forEach(c=>{c.checked=false;});
+  cuentaMarcas();
+}
+
+// Los identificadores que ya no existen (tarea borrada) se caen solos.
+function tareasMarcadas(){
+  const porId={};
+  tasks.forEach(t=>{porId[String(t.id)]=t;});
+  const fuera=[...marcadas].filter(id=>!porId[id]);
+  fuera.forEach(id=>marcadas.delete(id));
+  return tasks.filter(t=>marcadas.has(String(t.id)));
+}
+
+function imprimeMarcadas(){
+  const lista=tareasMarcadas();
+  cuentaMarcas();
+  if(!lista.length){ notify('Marca primero las tareas que quieras imprimir',true); return; }
+
+  limpiaImpresion();
+  const cont=document.createElement('div');
+  cont.id='print-tareas';
+
+  // Las fichas se CLONAN de la libreria: asi lo que sale por la
+  // impresora es exactamente lo que se ve en pantalla, sin tener que
+  // mantener dos veces el mismo dibujo.
+  const escudo=localStorage.getItem('oi_team_crest')||'';
+  for(let i=0;i<lista.length;i+=2){
+    const hoja=document.createElement('div');
+    hoja.className='print-page-tarea';
+    if(escudo){
+      const im=document.createElement('img');
+      im.className='print-crest-tarea'; im.src=escudo;
+      hoja.appendChild(im);
+    }
+    [lista[i], lista[i+1]].forEach(t=>{
+      if(!t) return;
+      const orig=document.querySelector('.lcard .chk-tarea[data-tid="'+t.id+'"]');
+      const ficha=orig?orig.closest('.lcard'):null;
+      const hueco=document.createElement('div');
+      hueco.className='print-hueco';
+      if(ficha){
+        const cl=ficha.cloneNode(true);
+        cl.querySelectorAll('.marca-tarea,.btnLoadTask,.btnDupTask,.btnDelTask,[onclick*="delTask"],[onclick*="borraTarea"]').forEach(x=>x.remove());
+        // Cualquier boton que haya quedado dentro no pinta nada en papel.
+        cl.querySelectorAll('button').forEach(x=>x.remove());
+        hueco.appendChild(cl);
+      }
+      hoja.appendChild(hueco);
+    });
+    cont.appendChild(hoja);
+  }
+  document.body.appendChild(cont);
+
+  // Cada ficha se dibuja a 960 px de ancho. Se reduce con zoom para que
+  // quepa a lo ancho de la hoja Y para que entren las dos a lo alto. Las
+  // medidas se sacan de los milimetros del A4, no de clientHeight: antes
+  // de imprimir ese valor todavia no es el de la hoja.
+  const MM=96/25.4;                       // milimetro -> pixel CSS
+  const anchoUtil=(200-6)*MM;             // 200 mm de hoja menos 3 mm por lado
+  const altoUtil =(287-6-3)*MM;           // menos el hueco entre las dos
+  cont.querySelectorAll('.print-page-tarea').forEach(hoja=>{
+    const fichas=[...hoja.querySelectorAll('.print-hueco')]
+      .map(h=>h.firstElementChild).filter(Boolean);
+    if(!fichas.length) return;
+    const hueco=altoUtil/Math.max(fichas.length,1);
+    fichas.forEach(f=>{
+      const alto=f.scrollHeight||1;
+      f.style.zoom=Math.min(anchoUtil/960, hueco/alto, 1);
+    });
+  });
+
+  // La hoja, A4 de pie. Va en una etiqueta aparte que se quita al
+  // terminar: una regla @page no se puede limitar a una clase, y fija
+  // en el CSS le cambiaba la orientacion a cualquier otra impresion.
+  const est=document.createElement('style');
+  est.id='print-hoja-tareas';
+  est.textContent='@media print{ @page { size: A4 portrait; margin: 5mm; } }';
+  document.head.appendChild(est);
+
+  document.body.classList.add('imprimiendo-tareas');
+  window.print();
+}
+
+function limpiaImpresion(){
+  document.body.classList.remove('imprimiendo-tareas');
+  const h=document.getElementById('print-hoja-tareas');
+  if(h) h.remove();
+  const v=document.getElementById('print-tareas');
+  if(v) v.remove();
+}
+window.addEventListener('afterprint', limpiaImpresion);
+
 function exportaTareas(){
   if(!tasks.length){ notify('No hay tareas que exportar', true); return; }
   const hoy=new Date().toISOString().slice(0,10);
@@ -3665,7 +3867,19 @@ function renderLib(){
     return ms&&mf&&mt;
   });
 
+  // Toda tarea tiene que tener identificador propio. Si alguna se
+  // quedo sin el (una importada a mano, una copia antigua), al marcar
+  // una se marcaban TODAS, porque la casilla iba con data-tid="undefined".
+  let faltaba=false;
+  tasks.forEach((t,i)=>{
+    if(t.id===undefined||t.id===null||t.id===''){
+      t.id=String(Date.now())+'-'+i; faltaba=true;
+    }
+  });
+  if(faltaba){ try{ localStorage.setItem('pz_tasks_v3',JSON.stringify(tasks)); }catch(e){} }
+
   g.innerHTML='';
+  if(typeof cuentaMarcas==='function') setTimeout(cuentaMarcas,0);
   if(!filt.length){g.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px;">No hay tareas guardadas aún</div>';return;}
 
   // Phase color map
@@ -3897,6 +4111,9 @@ function renderLib(){
 
   <!-- HEADER: name + tipos + socio -->
   <div style="display:flex;align-items:center;background:#0a1020;border-bottom:1px solid rgba(200,168,75,0.2);padding:12px 16px;gap:12px;">
+    <label class="marca-tarea" title="Marcar para imprimir" style="flex-shrink:0;display:flex;align-items:center;cursor:pointer;">
+      <input type="checkbox" class="chk-tarea" data-tid="${t.id}" ${marcadas.has(String(t.id))?'checked':''} style="width:18px;height:18px;accent-color:#C8A84B;cursor:pointer;">
+    </label>
     <div style="flex:1;min-width:0;">
       <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:5px;line-height:1.2;">${t.name||'Sin nombre'}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;">${tipos3||'<span style="font-size:10px;color:var(--text3);">Sin tipo</span>'}</div>
