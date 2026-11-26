@@ -2565,7 +2565,7 @@ let clipboard=JSON.parse(localStorage.getItem('pz_clipboard')||'null');
 function copySelected(){
   const els=allSelEls();
   const lns=allSelLines();
-  if(!els.length&&!lns.length)return;
+  if(!els.length&&!lns.length){ notify('No hay nada seleccionado para copiar',true); return; }
   clipboard={els:els.map(el=>JSON.parse(JSON.stringify(el))),lines:lns.map(l=>JSON.parse(JSON.stringify(l)))};
   localStorage.setItem('pz_clipboard',JSON.stringify(clipboard));
   const total=els.length+lns.length;
@@ -2575,7 +2575,7 @@ function copySelected(){
 function cutSelected(){
   const els=allSelEls();
   const lns=allSelLines();
-  if(!els.length&&!lns.length)return;
+  if(!els.length&&!lns.length){ notify('No hay nada seleccionado para cortar',true); return; }
   // cortado: lo cortado se pega exactamente donde estaba. Lo copiado
   // sigue saliendo desplazado 18 px, para que se vea que es otra copia.
   clipboard={els:els.map(el=>JSON.parse(JSON.stringify(el))),lines:lns.map(l=>JSON.parse(JSON.stringify(l))),cortado:true};
@@ -2592,10 +2592,10 @@ function cutSelected(){
 // desde el menú, para que caiga donde se ha pulsado. Con Ctrl+V no se
 // pasa nada y se mantiene el desplazamiento de siempre, 18 px.
 function pasteClipboard(destino){
-  if(!clipboard)return;
+  if(!clipboard){ notify('No hay nada copiado todavía',true); return; }
   const elsData=Array.isArray(clipboard)?clipboard:(clipboard.els||[]);
   const linesData=Array.isArray(clipboard)?[]:(clipboard.lines||[]);
-  if(!elsData.length&&!linesData.length)return;
+  if(!elsData.length&&!linesData.length){ notify('No hay nada copiado todavía',true); return; }
   saveH();
   const eraCorte = !Array.isArray(clipboard) && !!clipboard.cortado;
   let dx=eraCorte?0:18, dy=eraCorte?0:18;
@@ -2630,22 +2630,47 @@ function pasteClipboard(destino){
            ? ' · doble clic para cambiar el dorsal' : ''));
 }
 
+// ¿El foco está en un sitio donde se escribe? Sólo entonces hay que
+// dejarle las teclas al campo. Antes se descartaba CUALQUIER <input>, y
+// eso incluye el deslizador del porcentaje, los selectores de color y
+// las casillas de imprimir: en cuanto tocabas uno de esos, los atajos
+// de teclado dejaban de responder hasta pulsar en otro sitio.
+function seEstaEscribiendo(){
+  const a=document.activeElement;
+  if(!a) return false;
+  if(a.isContentEditable) return true;
+  const t=(a.tagName||'').toUpperCase();
+  if(t==='TEXTAREA'||t==='SELECT') return true;
+  if(t!=='INPUT') return false;
+  const tipo=(a.getAttribute('type')||'text').toLowerCase();
+  return ['text','search','number','email','url','password','tel','date','time'].indexOf(tipo)>=0;
+}
+
+// La tecla, sin depender de mayúsculas ni del idioma del teclado. Con
+// Bloq Mayús puesto, e.key es 'C' y no 'c', y los atajos no entraban.
+function teclaDe(e){
+  const k=(e.key||'').toLowerCase();
+  if(k.length===1) return k;
+  const c=(e.code||'');
+  return c.indexOf('Key')===0 ? c.slice(3).toLowerCase() : k;
+}
+
 function onKey(e){
-  const act=document.activeElement;
-  if(act&&(act.tagName==='INPUT'||act.tagName==='TEXTAREA'))return;
+  if(seEstaEscribiendo()) return;
   const mod=e.metaKey||e.ctrlKey;
+  const k=teclaDe(e);
 
   // Select all
-  if(mod&&e.key==='a'){e.preventDefault();selGroup=[...ELS];selGroupLines=[...LINES];selEl=null;selLine=null;render();notify('Todo seleccionado');return;}
+  if(mod&&k==='a'){e.preventDefault();selGroup=[...ELS];selGroupLines=[...LINES];selEl=null;selLine=null;render();notify('Todo seleccionado');return;}
 
   // Copy / Cut / Paste
-  if(mod&&e.key==='c'){e.preventDefault();copySelected();return;}
-  if(mod&&e.key==='x'){e.preventDefault();cutSelected();return;}
-  if(mod&&e.key==='v'){e.preventDefault();pasteClipboard();return;}
+  if(mod&&k==='c'){e.preventDefault();copySelected();return;}
+  if(mod&&k==='x'){e.preventDefault();cutSelected();return;}
+  if(mod&&k==='v'){e.preventDefault();pasteClipboard();return;}
 
   // Deshacer y rehacer: sólo estaban en el botón de la barra.
-  if(mod&&(e.key==='z'||e.key==='Z')){e.preventDefault();if(e.shiftKey)redo();else undo();return;}
-  if(mod&&(e.key==='y'||e.key==='Y')){e.preventDefault();redo();return;}
+  if(mod&&k==='z'){e.preventDefault();if(e.shiftKey)redo();else undo();return;}
+  if(mod&&k==='y'){e.preventDefault();redo();return;}
 
   // Z-order
   if(mod&&e.key===']'){e.preventDefault();bringForward();return;}
@@ -2665,7 +2690,7 @@ function onKey(e){
   }
 
   if(e.key==='Delete'||e.key==='Backspace')deleteSelected();
-  if(e.key==='s'&&!mod)setTool('select');
+  if(k==='s'&&!mod)setTool('select');
   if(e.key==='Escape'){selGroup=[];selGroupLines=[];selEl=null;selLine=null;closeProps();render();}
 }
 
