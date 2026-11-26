@@ -492,7 +492,7 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
     <button onclick="newTask()" style="background:rgba(200,168,75,0.1);border:1px solid rgba(200,168,75,0.3);color:#C8A84B;padding:5px 12px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.8px;">+ Nueva</button>
-    <button onclick="saveTask()" style="background:#C8A84B;border:none;color:#0d1530;padding:5px 12px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.8px;">💾 Guardar</button>
+    <button onclick="pideGuardar()" style="background:#C8A84B;border:none;color:#0d1530;padding:5px 12px;border-radius:5px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.8px;">💾 Guardar</button>
   </div>
   <div class="oi-nav-right">
     <div class="oi-nav-crest">
@@ -781,7 +781,9 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
       <div id="mdj-suggest-p" style="display:none;flex-wrap:wrap;gap:4px;margin-bottom:5px;padding:4px 0;"></div>
       <div class="itags" id="itp" onclick="focusII('p')"><input class="iinp" id="iip" placeholder="Añade subprincipio..." onkeydown="iiKey(event,'p')"></div>
     </div>
-    <div class="fg"><label class="fl">Fase secundaria <span class="hint">(implícita)</span></label>
+    <div class="fg"><label class="fl" style="display:flex;align-items:center;gap:8px;">Fase secundaria <span class="hint">(implícita)</span>
+      <button type="button" onclick="intercambiaObjetivos()" title="Intercambiar principal y secundario: la fase, los subprincipios y el reparto" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:10px;font-family:inherit;color:var(--gold);cursor:pointer;white-space:nowrap;">⇅ Intercambiar</button>
+    </label>
       <select class="fs" id="fase-s" onchange="onFS()">
         <option value="">— Auto —</option>
         <optgroup label="── FASE OFENSIVA · Organización Ofensiva"><option value="OF-ORG-SB">OF · Org. Ofensiva · Salida de Balón</option><option value="OF-ORG-PR">OF · Org. Ofensiva · Progresión</option><option value="OF-ORG-FI">OF · Org. Ofensiva · Finalización</option></optgroup>
@@ -3047,6 +3049,83 @@ function addVar(){const l=document.getElementById('var-list');const d=document.c
 
 function getForm(){return{name:document.getElementById('task-name').value,tipos:getSelTipos(),fasePrincipal:document.getElementById('fase-p').value,faseSecundaria:document.getElementById('fase-s').value,iP:[...iP],iS:[...iS],pct:document.getElementById('pslider').value,socio:document.getElementById('socio').value,espTipo:document.getElementById('esp-tipo').value,espW:document.getElementById('esp-w').value,espH:document.getElementById('esp-h').value,desarrollo:document.getElementById('desarrollo').value,puntuaciones:[...document.querySelectorAll('#punt-list .fi')].map(i=>i.value).filter(Boolean),roles:{e:document.getElementById('rol-e').value,e2:document.getElementById('rol-e2').value,pf:document.getElementById('rol-pf').value,ep:document.getElementById('rol-ep').value},extraRoles:JSON.parse(JSON.stringify(extraRoles)),materiales:{goal:document.getElementById('mat-goal').checked,mini:document.getElementById('mat-mini').checked,cone:document.getElementById('mat-cone').checked,pole:document.getElementById('mat-pole').checked,ball:document.getElementById('mat-ball').checked,vest:document.getElementById('mat-vest').checked},variantes:[...document.querySelectorAll('#var-list .fi')].map(i=>i.value).filter(Boolean),ELS:JSON.parse(JSON.stringify(ELS)),LINES:JSON.parse(JSON.stringify(LINES)),canvasW:VW(),canvasH:VH(),campoR:(function(){const f=fieldRect();
   return {x:f.x,y:f.y,w:f.w,h:f.h};})()};}
+// Al guardar una tarea que ya existe, se pregunta: pisarla o dejarla
+// como está y guardar una copia. Así se pueden tener las dos versiones
+// de la misma tarea, una con cada objetivo de principal.
+function pideGuardar(){
+  const d=getForm();
+  if(!d.name){ notify('Añade un nombre',true); return; }
+  if(!tid){ saveTask(); return; }          // tarea nueva: no hay nada que pisar
+
+  const v=document.createElement('div');
+  v.id='guardar-velo';
+  v.style.cssText='position:fixed;inset:0;background:rgba(6,10,20,.76);z-index:9000;display:flex;'+
+    'align-items:center;justify-content:center;padding:16px;';
+  v.innerHTML=
+    '<div style="background:var(--surface,#1e2d40);border:1px solid var(--border,rgba(200,168,75,.3));'+
+      'border-radius:10px;width:min(430px,96vw);box-shadow:0 18px 50px rgba(0,0,0,.6);">'+
+      '<div style="padding:11px 14px;border-bottom:1px solid var(--border,rgba(200,168,75,.3));'+
+        'font-family:\'Barlow Condensed\',sans-serif;font-size:16px;letter-spacing:.06em;'+
+        'text-transform:uppercase;color:var(--gold,#C8A84B);">Guardar tarea</div>'+
+      '<div style="padding:14px;font-size:12px;color:var(--text,#c8c0b0);line-height:1.55;">'+
+        'Estás editando <b>'+_esc(d.name)+'</b>.'+
+      '</div>'+
+      '<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:7px;">'+
+        '<button id="g-pisar" style="padding:10px;background:#C8A84B;color:#0d1530;border:none;'+
+          'border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;">Guardar los cambios en esta tarea</button>'+
+        '<button id="g-nueva" style="padding:10px;background:transparent;color:#7baaf7;'+
+          'border:1px solid rgba(123,170,247,0.45);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">Guardar como una tarea nueva</button>'+
+        '<button id="g-nada" style="padding:8px;background:transparent;color:var(--text3);'+
+          'border:none;font-size:11px;cursor:pointer;">Cancelar</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(v);
+  const cierra=()=>{ const x=document.getElementById('guardar-velo'); if(x) x.remove(); };
+  v.addEventListener('click', e=>{ if(e.target===v) cierra(); });
+  document.getElementById('g-pisar').onclick=()=>{ cierra(); saveTask(); };
+  document.getElementById('g-nueva').onclick=()=>{ cierra(); guardaComoNueva(); };
+  document.getElementById('g-nada').onclick=cierra;
+}
+
+// ── Intercambiar principal y secundario ──
+// Lo que un día es el objetivo principal otro día puede ser el
+// secundario y al revés. Se cambian las tres cosas a la vez: la fase,
+// los subprincipios de cada una y el reparto del porcentaje; cambiar
+// sólo la fase dejaría los subprincipios colgados de la que no es.
+function intercambiaObjetivos(){
+  const P=document.getElementById('fase-p'), S=document.getElementById('fase-s');
+  if(!P.value && !S.value && !iP.length && !iS.length){
+    notify('No hay objetivos que intercambiar',true); return;
+  }
+  const fp=P.value;
+  P.value=S.value; S.value=fp;
+
+  const antes=iP; iP=iS; iS=antes;
+  const mP=iP_fromMDJ; iP_fromMDJ=iS_fromMDJ; iS_fromMDJ=mP;
+  renderII('p'); renderII('s');
+
+  // El REPARTO no se toca. Se probó a darle la vuelta (70/30 → 30/70)
+  // pero el deslizador va de 50 a 90 —el principal siempre manda— así
+  // que cualquier vuelta acababa recortada a 50/50, y un 80/20 se
+  // convertía en mitad y mitad sin que nadie lo pidiera. El peso es del
+  // PAPEL, no del objetivo: lo que pase a principal se queda con el
+  // porcentaje de principal, y si hace falta otro se mueve a mano.
+
+  // Al elegirla a mano deja de seguir automáticamente a la principal.
+  fsManual = !!S.value && S.value!==(FASE_CONTRARIA[P.value]||'');
+  showMDJSuggestions('p', P.value);
+  showMDJSuggestions('s', S.value);
+  notify('⇅ Intercambiados · el reparto '+(document.getElementById('pslider')||{}).value+'/'+(100-((document.getElementById('pslider')||{}).value||0))+' se mantiene');
+}
+
+// Guardar como una tarea distinta, sin tocar la de origen.
+function guardaComoNueva(){
+  const d=getForm();
+  if(!d.name){ notify('Añade un nombre',true); return; }
+  tid=null;                      // sin identificador: saveTask crea una nueva
+  saveTask();
+}
+
 function saveTask(){
   const d=getForm();
   if(!d.name){notify('Añade un nombre',true);return;}
@@ -4315,7 +4394,7 @@ init();
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="2" width="12" height="16" rx="1.5"/><line x1="7" y1="6" x2="13" y2="6"/><line x1="7" y1="9.5" x2="13" y2="9.5"/><line x1="7" y1="13" x2="11" y2="13"/></svg>
       Ficha
     </button>
-    <button class="btn-tabnav" onclick="saveTask()" style="color:var(--gold);">
+    <button class="btn-tabnav" onclick="pideGuardar()" style="color:var(--gold);">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3h11l3 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3z"/><rect x="7" y="13" width="6" height="4"/><rect x="6" y="3" width="8" height="5"/></svg>
       Guardar
     </button>
