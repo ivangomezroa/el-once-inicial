@@ -2618,13 +2618,16 @@ function pasteClipboard(destino){
   clipboard={els:pasted.map(el=>JSON.parse(JSON.stringify(el))),lines:pastedLines.map(l=>JSON.parse(JSON.stringify(l))),cortado:false};
   localStorage.setItem('pz_clipboard',JSON.stringify(clipboard));
   render();
-  // Si viene de cortar es el mismo jugador: no se pregunta el dorsal.
-  if(!eraCorte&&pasted.length===1&&!pastedLines.length&&pasted[0].type==='player'){
-    const n=prompt('Dorsal del jugador copiado:',pasted[0].num||'');
-    if(n!==null){pasted[0].num=n.trim();render();}
-  }
+  // Aqui habia un prompt() preguntando el dorsal del jugador copiado.
+  // Un prompt BLOQUEA la pagina entera hasta que se cierra: al pegar con
+  // Ctrl+V parecia que el teclado no hacia nada, cuando lo que pasaba es
+  // que habia un cuadro esperando respuesta. El jugador se pega con el
+  // mismo dorsal y se cambia, si hace falta, con el boton derecho >
+  // Texto/Siglas, o con doble clic encima.
   const total=pasted.length+pastedLines.length;
-  notify(`✓ ${total>1?total+' elementos pegados':'Elemento pegado'}`);
+  notify(`✓ ${total>1?total+' elementos pegados':'Elemento pegado'}`+
+         (pasted.length===1&&!pastedLines.length&&pasted[0].type==='player'
+           ? ' · doble clic para cambiar el dorsal' : ''));
 }
 
 function onKey(e){
