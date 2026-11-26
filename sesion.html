@@ -751,11 +751,20 @@ function makeFieldSVG(t){
     const psXL=PAD+11*m, psXR=PAD+fw-11*m;
     s+=`<circle cx="${psXL}" cy="${cy}" r="2.5" fill="rgba(255,255,255,0.85)"/>`;
     s+=`<circle cx="${psXR}" cy="${cy}" r="2.5" fill="rgba(255,255,255,0.85)"/>`;
-    // Penalty arcs — clip to outside box
-    // Left arc
-    s+=`<clipPath id="larc"><rect x="${PAD+paD}" y="${PAD}" width="${fw-paD*2}" height="${fh}"/></clipPath>`;
-    s+=`<circle cx="${psXL}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" clip-path="url(#larc)"/>`;
-    s+=`<circle cx="${psXR}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" clip-path="url(#larc)"/>`;
+    // ── Arcos del área ──
+    // Antes eran dos CÍRCULOS ENTEROS recortados con un <clipPath id="larc">.
+    // Dos problemas: el identificador se repetía en todas las fichas de la
+    // página, y al imprimir las fichas de la librería quedan en
+    // display:none, así que el recorte al que apuntaban dejaba de estar
+    // dibujado y Chrome pintaba el círculo SIN recortar: salía una
+    // circunferencia entera dentro de cada área. Ahora se dibuja
+    // directamente el trozo de arco, sin recortes ni identificadores.
+    const Rp=9.15*m;
+    const dxArc=(16.5-11)*m;                       // del punto de penalti a la línea del área
+    const dyArc=Math.sqrt(Math.max(0,Rp*Rp-dxArc*dxArc));
+    const xArcL=PAD+paD, xArcR=PAD+fw-paD;
+    s+=`<path d="M${xArcL},${cy-dyArc} A${Rp},${Rp} 0 0,1 ${xArcL},${cy+dyArc}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
+    s+=`<path d="M${xArcR},${cy+dyArc} A${Rp},${Rp} 0 0,1 ${xArcR},${cy-dyArc}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
     // Corner arcs R=1m
     const cr=1*m;
     [[PAD,PAD,0,90],[PAD+fw,PAD,90,180],[PAD,PAD+fh,-90,0],[PAD+fw,PAD+fh,180,270]].forEach(([ax,ay,sa,ea])=>{

@@ -735,6 +735,11 @@ input[type=color]{width:34px;height:28px;padding:1px;border:1px solid var(--bord
     <button class="lib-btn" onclick="pideImportar()" title="Añadir tareas desde un .json, un .pptx de PowerPoint o un .zip" style="cursor:pointer;white-space:nowrap;">⬆ Importar</button>
     <button class="lib-btn" id="btn-imp-pdf" onclick="imprimeMarcadas()" title="Imprimir o guardar en PDF las tareas que hayas marcado" style="cursor:pointer;white-space:nowrap;">🖨 Imprimir (0)</button>
     <button class="lib-btn" id="btn-quita-marcas" onclick="quitaMarcas()" title="Desmarcar todas" style="cursor:pointer;white-space:nowrap;display:none;">Quitar marcas</button>
+    <select class="lib-btn" id="tono-campo" onchange="guardaTono()" title="Tono del campo al imprimir: cuanto más claro, menos tinta gasta" style="cursor:pointer;width:auto;">
+      <option value="verde">Campo verde</option>
+      <option value="claro">Campo claro</option>
+      <option value="blanco">Campo blanco</option>
+    </select>
     <input type="file" id="file-tareas" accept=".json,.pptx,.zip" multiple style="display:none;" onchange="ficheroTareas(event)">
   </div>
   <div id="lib-grid"></div>
@@ -1013,6 +1018,8 @@ function init(){
     }
   });
   localStorage.setItem('pz_mdj',JSON.stringify(mdj));
+  const tg=document.getElementById('tono-campo');
+  if(tg){ const v=localStorage.getItem('pz_tono_campo'); if(v) tg.value=v; }
   drawBallIcon();render();renderLib();renderMDJ();
   // Event delegation for library load buttons
   document.getElementById('lib-grid').addEventListener('click',function(e){
@@ -3545,12 +3552,13 @@ async function pptxATarea(buffer, fichero, tipo){
   const desa  =pptDebajo(formas,'DESARROLLO');
 
   const nombre=pptNombre(fichero);
+  const faseP=pptFase(fase,mom1,nombre);
   const {roles, extra}=pptRoles(pptCuerpoTecnico(formas));
   const bordes=new Set(ELS.filter(e=>e.type==='player').map(e=>e.stroke));
 
   return {
     name:nombre, tipos:[tipo||'Microestructura'],
-    fasePrincipal:pptFase(fase,mom1,nombre), faseSecundaria:'',
+    fasePrincipal:faseP, faseSecundaria:(FASE_CONTRARIA[faseP]||''),
     iP:pptTrozos(ip), iS:pptTrozos(is), pct:70,
     socio:pptSocio(nombre), espTipo:pptEspacio(espac,mom2), espW:'', espH:'',
     desarrollo:desa, puntuaciones:[],
@@ -3604,6 +3612,36 @@ function tareasMarcadas(){
   return tasks.filter(t=>marcadas.has(String(t.id)));
 }
 
+// ── Tono del campo al imprimir ──
+// El campo verde oscuro gasta mucha tinta. Los colores del cesped van
+// como atributos del SVG, no como estilo, asi que el CSS de impresion no
+// los puede tocar: se repintan sobre la COPIA que se manda al papel.
+const TONOS={
+  verde:  null,
+  claro:  {franja1:'#e8efe6', franja2:'#f3f7f1', fondo:'#f3f7f1', linea:'#4a6b4a'},
+  blanco: {franja1:'#ffffff', franja2:'#ffffff', fondo:'#ffffff', linea:'#333333'}
+};
+function tonoCampo(){
+  const s=document.getElementById('tono-campo');
+  return (s&&s.value)||localStorage.getItem('pz_tono_campo')||'verde';
+}
+function guardaTono(){
+  try{ localStorage.setItem('pz_tono_campo', tonoCampo()); }catch(e){}
+}
+function aplicaTono(copia, nombre){
+  const T=TONOS[nombre];
+  if(!T) return;
+  const VERDES={'#1e3d1e':'franja1','#183318':'franja2','#0d1a0d':'fondo'};
+  copia.querySelectorAll('svg *').forEach(n=>{
+    const f=(n.getAttribute('fill')||'').toLowerCase();
+    if(VERDES[f]) n.setAttribute('fill', T[VERDES[f]]);
+    // Las lineas del campo son blancas translucidas: sobre claro no se ven.
+    const st=(n.getAttribute('stroke')||'').toLowerCase();
+    if(st.indexOf('rgba(255,255,255')===0) n.setAttribute('stroke', T.linea);
+    if(f.indexOf('rgba(255,255,255')===0) n.setAttribute('fill', T.linea);
+  });
+}
+
 function imprimeMarcadas(){
   const lista=tareasMarcadas();
   cuentaMarcas();
@@ -3636,6 +3674,7 @@ function imprimeMarcadas(){
         cl.querySelectorAll('.marca-tarea,.btnLoadTask,.btnDupTask,.btnDelTask,[onclick*="delTask"],[onclick*="borraTarea"]').forEach(x=>x.remove());
         // Cualquier boton que haya quedado dentro no pinta nada en papel.
         cl.querySelectorAll('button').forEach(x=>x.remove());
+        aplicaTono(cl, tonoCampo());
         hueco.appendChild(cl);
       }
       hoja.appendChild(hueco);
@@ -3922,11 +3961,20 @@ function renderLib(){
     const psXL=PAD+11*m, psXR=PAD+fw-11*m;
     s+=`<circle cx="${psXL}" cy="${cy}" r="2.5" fill="rgba(255,255,255,0.85)"/>`;
     s+=`<circle cx="${psXR}" cy="${cy}" r="2.5" fill="rgba(255,255,255,0.85)"/>`;
-    // Penalty arcs — clip to outside box
-    // Left arc
-    s+=`<clipPath id="larc"><rect x="${PAD+paD}" y="${PAD}" width="${fw-paD*2}" height="${fh}"/></clipPath>`;
-    s+=`<circle cx="${psXL}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" clip-path="url(#larc)"/>`;
-    s+=`<circle cx="${psXR}" cy="${cy}" r="${9.15*m}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" clip-path="url(#larc)"/>`;
+    // ── Arcos del área ──
+    // Antes eran dos CÍRCULOS ENTEROS recortados con un <clipPath id="larc">.
+    // Dos problemas: el identificador se repetía en todas las fichas de la
+    // página, y al imprimir las fichas de la librería quedan en
+    // display:none, así que el recorte al que apuntaban dejaba de estar
+    // dibujado y Chrome pintaba el círculo SIN recortar: salía una
+    // circunferencia entera dentro de cada área. Ahora se dibuja
+    // directamente el trozo de arco, sin recortes ni identificadores.
+    const Rp=9.15*m;
+    const dxArc=(16.5-11)*m;                       // del punto de penalti a la línea del área
+    const dyArc=Math.sqrt(Math.max(0,Rp*Rp-dxArc*dxArc));
+    const xArcL=PAD+paD, xArcR=PAD+fw-paD;
+    s+=`<path d="M${xArcL},${cy-dyArc} A${Rp},${Rp} 0 0,1 ${xArcL},${cy+dyArc}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
+    s+=`<path d="M${xArcR},${cy+dyArc} A${Rp},${Rp} 0 0,1 ${xArcR},${cy-dyArc}" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>`;
     // Corner arcs R=1m
     const cr=1*m;
     [[PAD,PAD,0,90],[PAD+fw,PAD,90,180],[PAD,PAD+fh,-90,0],[PAD+fw,PAD+fh,180,270]].forEach(([ax,ay,sa,ea])=>{
